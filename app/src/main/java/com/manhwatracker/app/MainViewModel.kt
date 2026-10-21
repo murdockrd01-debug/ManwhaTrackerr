@@ -8,7 +8,10 @@ import com.manhwatracker.app.data.AniList
 import com.manhwatracker.app.data.AppDatabase
 import com.manhwatracker.app.data.BackupImporter
 import com.manhwatracker.app.data.Manhwa
+import com.manhwatracker.app.data.Prefs
 import com.manhwatracker.app.data.Status
+import com.manhwatracker.app.data.Word
+import com.manhwatracker.app.data.WordRepo
 import com.manhwatracker.app.data.titleKeyOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -37,6 +40,65 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun observe(id: Long) = dao.observe(id)
+
+    fun showMessage(text: String) {
+        _message.value = text
+    }
+
+    // ---------- Estudio (vocabulario) ----------
+
+    private val wordDao = AppDatabase.get(app).words()
+
+    val words: StateFlow<List<Word>> = wordDao.observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun addWord(text: String, manhwa: String, chapter: String, note: String) {
+        val ctx = getApplication<Application>()
+        Prefs.setLast(
+            ctx,
+            manhwa.trim().takeIf { it.isNotEmpty() },
+            chapter.trim().takeIf { it.isNotEmpty() }
+        )
+        viewModelScope.launch {
+            val r = WordRepo.save(ctx, text, manhwa, chapter, note)
+            _message.value = if (r.added) "Guardada" else "Ya la tenías guardada"
+        }
+    }
+
+    fun toggleLearned(w: Word) {
+        viewModelScope.launch {
+            val fresh = wordDao.findById(w.id) ?: return@launch
+            wordDao.update(fresh.copy(learned = !fresh.learned))
+        }
+    }
+
+    fun deleteWord(w: Word) {
+        viewModelScope.launch { wordDao.delete(w) }
+    }
+
+    fun relookup(w: Word) {
+        viewModelScope.launch {
+            val ok = WordRepo.lookup(getApplication(), w.id)
+            _message.value = if (ok) "Listo" else "No pude buscarla. Revisa tu conexión."
+        }
+    }
+
+    private val retryMutex = Mutex()
+
+    /** Completa las palabras que se guardaron sin internet. */
+    fun retryPending() {
+        viewModelScope.launch {
+            if (!retryMutex.tryLock()) return@launch
+            try {
+                for (w in wordDao.pending()) {
+                    WordRepo.lookup(getApplication(), w.id)
+                    delay(400)
+                }
+            } finally {
+                retryMutex.unlock()
+            }
+        }
+    }
 
     // ---------- Importar backup de Komikku / Mihon ----------
 

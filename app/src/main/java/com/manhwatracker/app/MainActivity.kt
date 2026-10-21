@@ -73,6 +73,8 @@ import com.manhwatracker.app.data.Status
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Si la barra rápida está activada, la volvemos a mostrar (por si se cerró o se reinició el teléfono).
+        if (com.manhwatracker.app.data.Prefs.quickBar(this)) QuickAdd.show(this)
         setContent {
             MaterialTheme(
                 colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
@@ -87,77 +89,6 @@ class MainActivity : ComponentActivity() {
 
 private fun fmt(d: Double): String =
     if (d % 1.0 == 0.0) d.toInt().toString() else d.toString()
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun App(vm: MainViewModel = viewModel()) {
-    var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var showAdd by rememberSaveable { mutableStateOf(false) }
-
-    val message by vm.message.collectAsState()
-    val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(message) {
-        message?.let {
-            snackbar.showSnackbar(it)
-            vm.clearMessage()
-        }
-    }
-
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) vm.importBackup(uri)
-    }
-
-    val currentId = selectedId
-    if (currentId != null) BackHandler { selectedId = null }
-
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            TopAppBar(
-                title = { Text(if (currentId == null) "Mis manhwas" else "Detalle") },
-                navigationIcon = {
-                    if (currentId != null) {
-                        IconButton(onClick = { selectedId = null }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
-                        }
-                    }
-                },
-                actions = {
-                    if (currentId == null) {
-                        TextButton(onClick = { picker.launch(arrayOf("*/*")) }) {
-                            Text("Importar backup")
-                        }
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            if (currentId == null) {
-                FloatingActionButton(onClick = { showAdd = true }) {
-                    Icon(Icons.Filled.Add, contentDescription = "Agregar")
-                }
-            }
-        }
-    ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize()) {
-            if (currentId == null) {
-                ListScreen(vm, onOpen = { selectedId = it })
-            } else {
-                DetailScreen(vm, currentId, onClose = { selectedId = null })
-            }
-        }
-    }
-
-    if (showAdd) {
-        AddDialog(
-            onDismiss = { showAdd = false },
-            onConfirm = { title, chapter, total ->
-                vm.add(title, chapter, total)
-                showAdd = false
-            }
-        )
-    }
-}
 
 // ---------------------------------------------------------------- Lista
 

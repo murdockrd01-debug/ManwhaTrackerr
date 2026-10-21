@@ -13,6 +13,8 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Update
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 object Status {
@@ -74,9 +76,71 @@ interface ManhwaDao {
     suspend fun delete(m: Manhwa)
 }
 
-@Database(entities = [Manhwa::class], version = 1, exportSchema = false)
+/** Palabra o frase guardada para estudiar inglés. */
+@Entity(tableName = "word")
+data class Word(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val text: String,
+    val translation: String? = null,
+    val definition: String? = null,
+    val example: String? = null,
+    val manhwaTitle: String? = null,
+    val chapter: String? = null,
+    val note: String? = null,
+    val learned: Boolean = false,
+    /** true cuando ya se consiguió la traducción; si es false se reintenta al abrir Estudio. */
+    val lookupDone: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Dao
+interface WordDao {
+    @Query("SELECT * FROM word ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<Word>>
+
+    @Query("SELECT * FROM word WHERE id = :id LIMIT 1")
+    suspend fun findById(id: Long): Word?
+
+    @Query("SELECT * FROM word WHERE lower(text) = lower(:text) LIMIT 1")
+    suspend fun findByText(text: String): Word?
+
+    @Query("SELECT * FROM word WHERE lookupDone = 0")
+    suspend fun pending(): List<Word>
+
+    @Insert
+    suspend fun insert(w: Word): Long
+
+    @Update
+    suspend fun update(w: Word)
+
+    @Delete
+    suspend fun delete(w: Word)
+}
+
+/** Versión 1 -> 2: solo agrega la tabla de vocabulario. No toca tus manhwas. */
+val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `word` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`text` TEXT NOT NULL, " +
+                "`translation` TEXT, " +
+                "`definition` TEXT, " +
+                "`example` TEXT, " +
+                "`manhwaTitle` TEXT, " +
+                "`chapter` TEXT, " +
+                "`note` TEXT, " +
+                "`learned` INTEGER NOT NULL, " +
+                "`lookupDone` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL)"
+        )
+    }
+}
+
+@Database(entities = [Manhwa::class, Word::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dao(): ManhwaDao
+    abstract fun words(): WordDao
 
     companion object {
         @Volatile
@@ -88,7 +152,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "manhwa.db"
-                ).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
             }
     }
 }
