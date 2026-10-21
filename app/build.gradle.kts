@@ -14,13 +14,27 @@ android {
         applicationId = "com.manhwatracker.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
+    }
+
+    // Clave fija: así cada APK nuevo se instala encima del anterior sin desinstalar.
+    signingConfigs {
+        create("shared") {
+            storeFile = file("manhwa.keystore")
+            storePassword = "android"
+            keyAlias = "manhwa"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("shared")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("shared")
         }
     }
 
