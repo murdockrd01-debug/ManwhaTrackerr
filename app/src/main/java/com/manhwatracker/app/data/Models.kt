@@ -83,6 +83,7 @@ data class Word(
     val text: String,
     val translation: String? = null,
     val definition: String? = null,
+    val definitionEs: String? = null,
     val example: String? = null,
     val manhwaTitle: String? = null,
     val chapter: String? = null,
@@ -137,7 +138,18 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
-@Database(entities = [Manhwa::class, Word::class], version = 2, exportSchema = false)
+/**
+ * Versión 2 -> 3: agrega la definición en español y marca las palabras viejas
+ * para que se vuelvan a buscar una vez con el sistema nuevo.
+ */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `word` ADD COLUMN `definitionEs` TEXT")
+        db.execSQL("UPDATE `word` SET `lookupDone` = 0")
+    }
+}
+
+@Database(entities = [Manhwa::class, Word::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dao(): ManhwaDao
     abstract fun words(): WordDao
@@ -152,7 +164,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "manhwa.db"
-                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
             }
     }
 }
