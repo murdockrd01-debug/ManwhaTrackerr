@@ -6,6 +6,11 @@ App Android sencilla para llevar tu lista de manhwas.
 - Agrega manhwas a mano; la portada se busca sola en AniList.
 - Botón **+** en cada tarjeta para sumar un capítulo rápido.
 - Estados: Leyendo, Pausado, Terminado, Pendiente.
+- **Buscar y ordenar** la lista (recientes, A–Z, casi terminados, más por leer). Recuerda el orden que elegiste.
+- **Deshacer** el +1 si lo tocaste por error (aparece un aviso abajo con el botón Deshacer).
+- **Estudio de inglés**: guarda palabras o frases desde la barra de notificaciones o seleccionando texto en otra app; la traducción y el significado se buscan solos.
+- **Repaso con tarjetas**: repaso espaciado (1, 3, 7, 14 y 30 días). Lo que fallas vuelve a salir en la misma ronda.
+- **Mi copia (exportar / restaurar)**: menú ⋮ → *Exportar mi copia* guarda un archivo `.json` con tus manhwas y tu vocabulario. *Restaurar mi copia* lo mezcla con lo que ya tengas, sin borrar nada.
 - Todo se guarda en tu teléfono. No usa cuentas.
 
 ## Cómo obtener el APK (sin instalar nada en la PC)
