@@ -22,6 +22,17 @@ object Prefs {
         p(c).edit().putString("last_manhwa", manhwa).putString("last_chapter", chapter).apply()
     }
 
+    fun sort(c: Context): String = p(c).getString("sort", "RECENT") ?: "RECENT"
+    fun setSort(c: Context, value: String) {
+        p(c).edit().putString("sort", value).apply()
+    }
+
+    /** true = la lista de manhwas se ve como cuadrícula de portadas. */
+    fun grid(c: Context): Boolean = p(c).getBoolean("grid", false)
+    fun setGrid(c: Context, on: Boolean) {
+        p(c).edit().putBoolean("grid", on).apply()
+    }
+
     fun quickBar(c: Context): Boolean = p(c).getBoolean("quick_bar", false)
     fun setQuickBar(c: Context, on: Boolean) {
         p(c).edit().putBoolean("quick_bar", on).apply()

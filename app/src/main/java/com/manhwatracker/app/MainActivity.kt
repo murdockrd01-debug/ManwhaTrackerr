@@ -16,11 +16,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,12 +33,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -62,13 +70,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.manhwatracker.app.data.Manhwa
+import com.manhwatracker.app.data.Prefs
 import com.manhwatracker.app.data.Status
+import com.manhwatracker.app.data.titleKeyOf
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,13 +103,113 @@ private fun fmt(d: Double): String =
 
 // ---------------------------------------------------------------- Lista
 
+/** Formas de ordenar la lista. El texto guardado en Prefs es el valor de cada constante. */
+private object SortMode {
+    const val RECENT = "RECENT"
+    const val TITLE = "TITLE"
+    const val NEAR_END = "NEAR_END"
+    const val MOST_LEFT = "MOST_LEFT"
+    const val RATING = "RATING"
+
+    val all = listOf(RECENT, TITLE, NEAR_END, MOST_LEFT, RATING)
+
+    fun label(s: String) = when (s) {
+        RECENT -> "Recientes"
+        TITLE -> "Título (A–Z)"
+        NEAR_END -> "Casi terminados"
+        MOST_LEFT -> "Más por leer"
+        RATING -> "Mejor calificados"
+        else -> s
+    }
+}
+
+/** Capítulos que te faltan, o null si no sabemos el total. */
+private fun remaining(m: Manhwa): Double? =
+    if (m.totalChapters > 0) maxOf(0.0, m.totalChapters - m.lastChapter) else null
+
+private fun sortItems(list: List<Manhwa>, mode: String): List<Manhwa> = when (mode) {
+    SortMode.TITLE -> list.sortedBy { it.title.lowercase() }
+    // Primero los que les faltan pocos capítulos; los ya terminados y los sin total van al final.
+    SortMode.NEAR_END -> list.sortedWith(
+        compareBy<Manhwa>(
+            { m -> val r = remaining(m); if (r == null) 2 else if (r == 0.0) 1 else 0 },
+            { m -> remaining(m) ?: 0.0 }
+        )
+    )
+    SortMode.MOST_LEFT -> list.sortedWith(
+        compareBy<Manhwa> { remaining(it) == null }.thenByDescending { remaining(it) ?: 0.0 }
+    )
+    // Los que no tienen nota (0) quedan al final.
+    SortMode.RATING -> list.sortedWith(compareByDescending<Manhwa> { it.rating }.thenBy { it.title.lowercase() })
+    else -> list // RECENT: la base de datos ya los entrega del más reciente al más viejo
+}
+
 @Composable
 fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
+    val context = LocalContext.current
     val all by vm.items.collectAsState()
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
-    val shown = if (filter == null) all else all.filter { it.status == filter }
+    var query by rememberSaveable { mutableStateOf("") }
+    var sort by remember { mutableStateOf(Prefs.sort(context)) }
+    var sortMenu by remember { mutableStateOf(false) }
+    var grid by remember { mutableStateOf(Prefs.grid(context)) }
+
+    val shown = remember(all, filter, query, sort) {
+        val byStatus = if (filter == null) all else all.filter { it.status == filter }
+        // titleKey ya viene sin mayúsculas, espacios ni símbolos: la búsqueda los ignora también.
+        val key = titleKeyOf(query.trim())
+        val bySearch = if (query.isBlank()) byStatus else byStatus.filter { it.titleKey.contains(key) }
+        sortItems(bySearch, sort)
+    }
 
     Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text("Buscar") },
+                singleLine = true,
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { query = "" }) {
+                            Icon(Icons.Filled.Clear, contentDescription = "Borrar búsqueda")
+                        }
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            )
+            Box {
+                OutlinedButton(onClick = { sortMenu = true }) { Text("Orden y vista") }
+                DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                    SortMode.all.forEach { mode ->
+                        DropdownMenuItem(
+                            text = { Text(SortMode.label(mode) + if (mode == sort) "  ✓" else "") },
+                            onClick = {
+                                sort = mode
+                                Prefs.setSort(context, mode)
+                                sortMenu = false
+                            }
+                        )
+                    }
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text(if (grid) "Ver como lista" else "Ver como cuadrícula de portadas") },
+                        onClick = {
+                            grid = !grid
+                            Prefs.setGrid(context, grid)
+                            sortMenu = false
+                        }
+                    )
+                }
+            }
+        }
+
         Row(
             Modifier
                 .horizontalScroll(rememberScrollState())
@@ -122,11 +233,32 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
         if (shown.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                 Text(
-                    if (all.isEmpty())
-                        "Aún no tienes nada.\n\nToca “Importar backup” y elige el archivo .tachibk de Komikku, o usa el botón + para agregar uno a mano."
-                    else
-                        "No hay manhwas en esta categoría."
+                    when {
+                        all.isEmpty() ->
+                            "Aún no tienes nada.\n\nToca “Importar backup” y elige el archivo .tachibk de Komikku, o usa el botón + para agregar uno a mano."
+                        query.isNotBlank() -> "Nada coincide con “${query.trim()}”."
+                        else -> "No hay manhwas en esta categoría."
+                    }
                 )
+            }
+        } else if (grid) {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 104.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = 12.dp, end = 12.dp, top = 4.dp, bottom = 88.dp
+                ),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(shown, key = { it.id }) { m ->
+                    ManhwaGridCard(
+                        m = m,
+                        onClick = { onOpen(m.id) },
+                        onPlusOne = { vm.increment(m) },
+                        onCoverMissing = { vm.coverFallback(m) }
+                    )
+                }
             }
         } else {
             LazyColumn(
@@ -176,7 +308,7 @@ fun ManhwaCard(
                 else
                     "Cap. ${fmt(m.lastChapter)}"
                 Text(
-                    "$progress · ${Status.label(m.status)}",
+                    "$progress · ${Status.label(m.status)}" + if (m.rating > 0) " · ★ ${m.rating}" else "",
                     style = MaterialTheme.typography.bodySmall
                 )
                 if (m.totalChapters > 0) {
@@ -189,6 +321,46 @@ fun ManhwaCard(
             }
             IconButton(onClick = onPlusOne) {
                 Icon(Icons.Filled.Add, contentDescription = "Leí un capítulo más")
+            }
+        }
+    }
+}
+
+/** Tarjeta de la vista en cuadrícula: portada grande, título y capítulo. */
+@Composable
+fun ManhwaGridCard(
+    m: Manhwa,
+    onClick: () -> Unit,
+    onPlusOne: () -> Unit,
+    onCoverMissing: () -> Unit
+) {
+    LaunchedEffect(m.id, m.coverUrl) {
+        if (m.coverUrl.isNullOrBlank()) onCoverMissing()
+    }
+
+    Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Column {
+            Cover(m, onCoverMissing, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+            Row(
+                Modifier.padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        m.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        minLines = 2,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "Cap. ${fmt(m.lastChapter)}" + if (m.rating > 0) " · ★ ${m.rating}" else "",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                IconButton(onClick = onPlusOne, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Filled.Add, contentDescription = "Leí un capítulo más")
+                }
             }
         }
     }
@@ -217,10 +389,20 @@ fun Cover(m: Manhwa, onError: () -> Unit, modifier: Modifier) {
 
 // ---------------------------------------------------------------- Detalle
 
+/**
+ * Detalle de un manhwa: progreso, estado, tu nota y comentario, y las palabras que guardaste de él.
+ * [onReviewWords] abre el repaso solo con las palabras de este manhwa (recibe su titleKey y su título).
+ */
 @Composable
-fun DetailScreen(vm: MainViewModel, id: Long, onClose: () -> Unit) {
+fun DetailScreen(
+    vm: MainViewModel,
+    id: Long,
+    onClose: () -> Unit,
+    onReviewWords: (titleKey: String, title: String) -> Unit
+) {
     val flow = remember(id) { vm.observe(id) }
     val m by flow.collectAsState(initial = null)
+    val allWords by vm.words.collectAsState()
     val item = m
 
     // Si se borró (o no existe), volvemos a la lista.
@@ -234,7 +416,31 @@ fun DetailScreen(vm: MainViewModel, id: Long, onClose: () -> Unit) {
     var chapterText by remember(item.id) { mutableStateOf(fmt(item.lastChapter)) }
     var totalText by remember(item.id) { mutableStateOf(if (item.totalChapters > 0) item.totalChapters.toString() else "") }
     var status by remember(item.id) { mutableStateOf(item.status) }
+    var rating by remember(item.id) { mutableStateOf(item.rating) }
+    var review by remember(item.id) { mutableStateOf(item.review.orEmpty()) }
     var confirmDelete by remember { mutableStateOf(false) }
+
+    // Las palabras de este manhwa: se comparan los títulos sin mayúsculas ni símbolos.
+    val mine = remember(allWords, item.titleKey) {
+        allWords.filter { w -> w.manhwaTitle?.let { titleKeyOf(it) } == item.titleKey }
+    }
+    val pending = mine.count { !it.learned }
+
+    /** Guarda lo que hay escrito en la pantalla. */
+    fun saveEdits() {
+        val chapter = chapterText.replace(',', '.').toDoubleOrNull() ?: item.lastChapter
+        val total = totalText.toIntOrNull() ?: 0
+        vm.saveDetail(
+            item,
+            item.copy(
+                lastChapter = chapter,
+                totalChapters = total,
+                status = status,
+                rating = rating,
+                review = review.trim().ifEmpty { null }
+            )
+        )
+    }
 
     Column(
         Modifier
@@ -286,11 +492,70 @@ fun DetailScreen(vm: MainViewModel, id: Long, onClose: () -> Unit) {
             }
         }
 
+        Text(
+            if (rating > 0) "Mi nota: $rating / 10" else "Mi nota",
+            style = MaterialTheme.typography.labelLarge
+        )
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            (1..10).forEach { n ->
+                FilterChip(
+                    selected = rating == n,
+                    // Tocar la nota elegida otra vez la quita.
+                    onClick = { rating = if (rating == n) 0 else n },
+                    label = { Text("$n") }
+                )
+            }
+        }
+        OutlinedTextField(
+            value = review,
+            onValueChange = { review = it },
+            label = { Text("Mi comentario (opcional)") },
+            minLines = 3,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        HorizontalDivider()
+        Text(
+            "Palabras de este manhwa (${mine.size})",
+            style = MaterialTheme.typography.titleSmall
+        )
+        if (mine.isEmpty()) {
+            Text(
+                "Aún no guardaste palabras de este manhwa. En Estudio, al guardar una palabra, elige este título.",
+                style = MaterialTheme.typography.bodySmall
+            )
+        } else {
+            mine.forEach { w ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        w.text + (w.translation?.let { " — $it" } ?: ""),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (w.learned) {
+                        Text("✓", color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+            OutlinedButton(
+                onClick = {
+                    saveEdits()
+                    onReviewWords(item.titleKey, item.title)
+                },
+                enabled = pending > 0,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (pending > 0) "Repasar solo estas ($pending)" else "Ya aprendiste todas estas")
+            }
+        }
+        HorizontalDivider()
+
         Button(
             onClick = {
-                val chapter = chapterText.replace(',', '.').toDoubleOrNull() ?: item.lastChapter
-                val total = totalText.toIntOrNull() ?: 0
-                vm.save(item.copy(lastChapter = chapter, totalChapters = total, status = status))
+                saveEdits()
                 onClose()
             },
             modifier = Modifier.fillMaxWidth()

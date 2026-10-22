@@ -21,9 +21,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -52,9 +54,10 @@ private const val F_REVIEW = "REVIEW"
 private const val F_LEARNED = "LEARNED"
 
 @Composable
-fun StudyScreen(vm: MainViewModel) {
+fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
     val context = LocalContext.current
     val all by vm.words.collectAsState()
+    val speaker = rememberSpeaker()
 
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(F_ALL) }
@@ -92,6 +95,30 @@ fun StudyScreen(vm: MainViewModel) {
         contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 88.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        item {
+            val now = System.currentTimeMillis()
+            val due = all.count { !it.learned && it.dueAt <= now }
+            Card(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Repaso con tarjetas", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            when {
+                                due == 1 -> "Tienes 1 palabra para repasar."
+                                due > 1 -> "Tienes $due palabras para repasar."
+                                else -> "No tienes palabras pendientes por ahora."
+                            },
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Button(onClick = onReview, enabled = all.any { !it.learned }) { Text("Repasar") }
+                }
+            }
+        }
+
         item {
             Card(Modifier.fillMaxWidth()) {
                 Row(
@@ -185,6 +212,8 @@ fun StudyScreen(vm: MainViewModel) {
             items(shown, key = { it.id }) { w ->
                 WordCard(
                     w = w,
+                    speaker = speaker,
+                    onUnavailable = { vm.showMessage(SPEAKER_UNAVAILABLE) },
                     onLearned = { vm.toggleLearned(w) },
                     onRetry = { vm.relookup(w) },
                     onDelete = { vm.deleteWord(w) }
@@ -195,7 +224,14 @@ fun StudyScreen(vm: MainViewModel) {
 }
 
 @Composable
-fun WordCard(w: Word, onLearned: () -> Unit, onRetry: () -> Unit, onDelete: () -> Unit) {
+fun WordCard(
+    w: Word,
+    speaker: Speaker,
+    onUnavailable: () -> Unit,
+    onLearned: () -> Unit,
+    onRetry: () -> Unit,
+    onDelete: () -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
 
@@ -209,6 +245,9 @@ fun WordCard(w: Word, onLearned: () -> Unit, onRetry: () -> Unit, onDelete: () -
                             ?: if (!w.lookupDone) "Traducción pendiente (se busca cuando haya internet)" else "—",
                         style = MaterialTheme.typography.bodyMedium
                     )
+                }
+                IconButton(onClick = { if (!speaker.speak(w.text)) onUnavailable() }) {
+                    Text("🔊")
                 }
                 Checkbox(checked = w.learned, onCheckedChange = { onLearned() })
             }

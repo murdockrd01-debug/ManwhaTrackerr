@@ -4,11 +4,17 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.manhwatracker.app.data.Activity
+import com.manhwatracker.app.data.ActivityKind
 import com.manhwatracker.app.data.AniList
 import com.manhwatracker.app.data.AppDatabase
+import com.manhwatracker.app.data.BackupFormatException
 import com.manhwatracker.app.data.BackupImporter
 import com.manhwatracker.app.data.Manhwa
+import com.manhwatracker.app.data.OwnBackup
 import com.manhwatracker.app.data.Prefs
+import com.manhwatracker.app.data.Srs
+import com.manhwatracker.app.data.Stats
 import com.manhwatracker.app.data.Status
 import com.manhwatracker.app.data.Word
 import com.manhwatracker.app.data.WordRepo
@@ -25,6 +31,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
+/** Aviso con botón "Deshacer" tras sumar un capítulo. [previous] es el manhwa tal como estaba antes. */
+data class UndoInfo(val text: String, val previous: Manhwa)
+
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val dao = AppDatabase.get(app).dao()
@@ -39,7 +48,38 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _message.value = null
     }
 
+    private val _undo = MutableStateFlow<UndoInfo?>(null)
+    val undo: StateFlow<UndoInfo?> = _undo.asStateFlow()
+
+    /** Solo borra el aviso si sigue siendo [info]; si ya llegó uno más nuevo, no lo toca. */
+    fun clearUndo(info: UndoInfo) {
+        _undo.compareAndSet(info, null)
+    }
+
+    fun undoIncrement(previous: Manhwa) {
+        viewModelScope.launch {
+            dao.update(previous)
+            logActivity(ActivityKind.CHAPTER, -1)
+        }
+    }
+
     fun observe(id: Long) = dao.observe(id)
+
+    // ---------- Actividad (estadísticas) ----------
+
+    private val activityDao = AppDatabase.get(app).activity()
+
+    val activity: StateFlow<List<Activity>> = activityDao.observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Suma [n] a lo que se cuenta ese día (por defecto hoy). */
+    private suspend fun logActivity(kind: String, n: Int, millis: Long = System.currentTimeMillis()) {
+        activityDao.bump(Stats.dayOf(millis), kind, n)
+    }
+
+    /** Cuántos capítulos enteros se avanzaron entre dos posiciones (0 si no avanzó). */
+    private fun chaptersBetween(from: Double, to: Double): Int =
+        maxOf(0, Math.floor(to).toInt() - Math.floor(from).toInt())
 
     fun showMessage(text: String) {
         _message.value = text
@@ -68,7 +108,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleLearned(w: Word) {
         viewModelScope.launch {
             val fresh = wordDao.findById(w.id) ?: return@launch
-            wordDao.update(fresh.copy(learned = !fresh.learned))
+            wordDao.update(Srs.setLearned(fresh, !fresh.learned, System.currentTimeMillis()))
         }
     }
 
@@ -96,6 +136,55 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
             } finally {
                 retryMutex.unlock()
+            }
+        }
+    }
+
+    // ---------- Repaso con tarjetas ----------
+
+    /**
+     * Tarjetas de una ronda: las que ya tocan, o (si [all]) todas las no aprendidas.
+     * [titleKey] limita a las palabras de un manhwa; [writing] deja solo las que tienen traducción.
+     */
+    suspend fun reviewQueue(all: Boolean, titleKey: String?, writing: Boolean): List<Word> =
+        Srs.queue(wordDao.all(), System.currentTimeMillis(), all, titleKey, writing)
+
+    /** Guarda la respuesta de una tarjeta y programa cuándo volverá a salir. */
+    fun reviewed(w: Word, known: Boolean) {
+        viewModelScope.launch {
+            val fresh = wordDao.findById(w.id) ?: return@launch
+            val next = Srs.next(fresh, known, System.currentTimeMillis())
+            wordDao.update(next)
+            logActivity(ActivityKind.REVIEW, 1)
+            if (next.learned && !fresh.learned) _message.value = "¡Aprendida!: ${w.text}"
+        }
+    }
+
+    // ---------- Copia propia (exportar / restaurar) ----------
+
+    fun exportOwnBackup(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val r = withContext(Dispatchers.IO) { OwnBackup.write(getApplication(), uri) }
+                _message.value = "Copia guardada: ${r.manhwas} manhwas y ${r.words} palabras"
+            } catch (e: BackupFormatException) {
+                _message.value = e.message ?: "No pude guardar la copia"
+            } catch (e: Exception) {
+                _message.value = "No pude guardar la copia"
+            }
+        }
+    }
+
+    fun restoreOwnBackup(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val r = withContext(Dispatchers.IO) { OwnBackup.restore(getApplication(), uri) }
+                _message.value = "Restaurado: ${r.manhwasAdded} manhwas nuevos, ${r.manhwasUpdated} actualizados; " +
+                    "${r.wordsAdded} palabras nuevas, ${r.wordsUpdated} actualizadas"
+            } catch (e: BackupFormatException) {
+                _message.value = e.message ?: "No pude restaurar la copia"
+            } catch (e: Exception) {
+                _message.value = "No pude restaurar la copia"
             }
         }
     }
@@ -129,6 +218,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         added++
                     } else {
                         val progressChanged = p.lastChapter > existing.lastChapter
+                        // Los capítulos nuevos se cuentan en el día en que los leíste, no en el de la importación.
+                        if (progressChanged) {
+                            logActivity(ActivityKind.CHAPTER, chaptersBetween(existing.lastChapter, p.lastChapter), readAt)
+                        }
                         dao.update(
                             existing.copy(
                                 lastChapter = if (progressChanged) p.lastChapter else existing.lastChapter,
@@ -176,9 +269,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { dao.update(m.copy(updatedAt = System.currentTimeMillis())) }
     }
 
+    /** Guarda lo editado en la pantalla de detalle y cuenta los capítulos que avanzaste. */
+    fun saveDetail(old: Manhwa, edited: Manhwa) {
+        viewModelScope.launch {
+            dao.update(edited.copy(updatedAt = System.currentTimeMillis()))
+            logActivity(ActivityKind.CHAPTER, chaptersBetween(old.lastChapter, edited.lastChapter))
+        }
+    }
+
     fun increment(m: Manhwa) {
         val next = Math.floor(m.lastChapter) + 1
+        val shown = if (next % 1.0 == 0.0) next.toInt().toString() else next.toString()
+        _undo.value = UndoInfo("Cap. $shown · ${m.title}", m)
         save(m.copy(lastChapter = next))
+        viewModelScope.launch { logActivity(ActivityKind.CHAPTER, 1) }
     }
 
     fun delete(m: Manhwa) {

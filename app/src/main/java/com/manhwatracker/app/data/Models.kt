@@ -4,11 +4,8 @@ import android.content.Context
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Delete
-import androidx.room.Entity
-import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
-import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -17,41 +14,6 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
-object Status {
-    const val READING = "READING"
-    const val PAUSED = "PAUSED"
-    const val COMPLETED = "COMPLETED"
-    const val PLAN = "PLAN"
-
-    val all = listOf(READING, PAUSED, COMPLETED, PLAN)
-
-    fun label(s: String) = when (s) {
-        READING -> "Leyendo"
-        PAUSED -> "Pausado"
-        COMPLETED -> "Terminado"
-        PLAN -> "Pendiente"
-        else -> s
-    }
-}
-
-@Entity(tableName = "manhwa", indices = [Index(value = ["titleKey"], unique = true)])
-data class Manhwa(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val title: String,
-    val titleKey: String,
-    val coverUrl: String? = null,
-    val lastChapter: Double = 0.0,
-    val totalChapters: Int = 0,
-    val status: String = Status.READING,
-    val updatedAt: Long = System.currentTimeMillis()
-)
-
-/** Clave para comparar títulos sin importar mayúsculas, espacios o símbolos. */
-fun titleKeyOf(title: String): String {
-    val key = title.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), "")
-    return key.ifEmpty { title.lowercase().trim() }
-}
-
 @Dao
 interface ManhwaDao {
     @Query("SELECT * FROM manhwa ORDER BY updatedAt DESC")
@@ -59,6 +21,9 @@ interface ManhwaDao {
 
     @Query("SELECT * FROM manhwa WHERE id = :id")
     fun observe(id: Long): Flow<Manhwa?>
+
+    @Query("SELECT * FROM manhwa")
+    suspend fun all(): List<Manhwa>
 
     @Query("SELECT * FROM manhwa WHERE titleKey = :key LIMIT 1")
     suspend fun findByKey(key: String): Manhwa?
@@ -76,24 +41,6 @@ interface ManhwaDao {
     suspend fun delete(m: Manhwa)
 }
 
-/** Palabra o frase guardada para estudiar inglés. */
-@Entity(tableName = "word")
-data class Word(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val text: String,
-    val translation: String? = null,
-    val definition: String? = null,
-    val definitionEs: String? = null,
-    val example: String? = null,
-    val manhwaTitle: String? = null,
-    val chapter: String? = null,
-    val note: String? = null,
-    val learned: Boolean = false,
-    /** true cuando ya se consiguió la traducción; si es false se reintenta al abrir Estudio. */
-    val lookupDone: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
-)
-
 @Dao
 interface WordDao {
     @Query("SELECT * FROM word ORDER BY createdAt DESC")
@@ -107,6 +54,16 @@ interface WordDao {
 
     @Query("SELECT * FROM word WHERE lookupDone = 0")
     suspend fun pending(): List<Word>
+
+    @Query("SELECT * FROM word")
+    suspend fun all(): List<Word>
+
+    /** Palabras que ya toca repasar (no aprendidas y con fecha vencida). */
+    @Query("SELECT * FROM word WHERE learned = 0 AND dueAt <= :now ORDER BY dueAt ASC, createdAt ASC")
+    suspend fun due(now: Long): List<Word>
+
+    @Query("SELECT * FROM word WHERE learned = 0 ORDER BY dueAt ASC, createdAt ASC")
+    suspend fun unlearned(): List<Word>
 
     @Insert
     suspend fun insert(w: Word): Long
@@ -149,10 +106,64 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-@Database(entities = [Manhwa::class, Word::class], version = 3, exportSchema = false)
+/** Versión 3 -> 4: agrega los campos del repaso con tarjetas. Las palabras viejas quedan listas para repasar. */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `word` ADD COLUMN `box` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `word` ADD COLUMN `dueAt` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/**
+ * Versión 4 -> 5: nota y comentario por manhwa, fecha en que se aprendió cada palabra
+ * y el registro de actividad para las estadísticas. No borra ni cambia nada de lo que ya tienes.
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `manhwa` ADD COLUMN `rating` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `manhwa` ADD COLUMN `review` TEXT")
+        db.execSQL("ALTER TABLE `word` ADD COLUMN `learnedAt` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `activity` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`day` INTEGER NOT NULL, " +
+                "`kind` TEXT NOT NULL, " +
+                "`amount` INTEGER NOT NULL)"
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_activity_day_kind` ON `activity` (`day`, `kind`)")
+    }
+}
+
+// Clase abstracta (no interfaz) porque tiene un método con cuerpo, y Room lo admite así sin ajustes.
+@Dao
+abstract class ActivityDao {
+    @Query("SELECT * FROM activity ORDER BY day ASC")
+    abstract fun observeAll(): Flow<List<Activity>>
+
+    @Query("SELECT * FROM activity")
+    abstract suspend fun all(): List<Activity>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    abstract suspend fun insertIgnore(a: Activity): Long
+
+    @Query("UPDATE activity SET amount = amount + :n WHERE day = :day AND kind = :kind")
+    abstract suspend fun addTo(day: Long, kind: String, n: Int): Int
+
+    @Query("UPDATE activity SET amount = :amount WHERE day = :day AND kind = :kind")
+    abstract suspend fun setAmount(day: Long, kind: String, amount: Int): Int
+
+    /** Suma [n] al contador de ese día y tipo (lo crea si no existía). */
+    open suspend fun bump(day: Long, kind: String, n: Int) {
+        if (n == 0) return
+        if (insertIgnore(Activity(day = day, kind = kind, amount = n)) == -1L) addTo(day, kind, n)
+    }
+}
+
+@Database(entities = [Manhwa::class, Word::class, Activity::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dao(): ManhwaDao
     abstract fun words(): WordDao
+    abstract fun activity(): ActivityDao
 
     companion object {
         @Volatile
@@ -164,7 +175,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "manhwa.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { instance = it }
             }
     }
 }

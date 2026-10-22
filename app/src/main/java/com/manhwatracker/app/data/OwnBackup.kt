@@ -28,7 +28,8 @@ class RestoreResult(
 object OwnBackup {
 
     private const val APP = "ManhwaTracker"
-    private const val VERSION = 1
+    // Versión 2: agrega notas de manhwas, fecha de aprendida y actividad (estadísticas). Las copias de la versión 1 se leen igual.
+    private const val VERSION = 2
 
     // ---------------------------------------------------------------- Exportar
 
@@ -36,6 +37,7 @@ object OwnBackup {
         val db = AppDatabase.get(context)
         val manhwas = db.dao().all()
         val words = db.words().all()
+        val activity = db.activity().all()
 
         val root = JSONObject()
             .put("app", APP)
@@ -43,6 +45,7 @@ object OwnBackup {
             .put("exportedAt", System.currentTimeMillis())
             .put("manhwas", JSONArray().also { arr -> manhwas.forEach { arr.put(manhwaToJson(it)) } })
             .put("words", JSONArray().also { arr -> words.forEach { arr.put(wordToJson(it)) } })
+            .put("activity", JSONArray().also { arr -> activity.forEach { arr.put(activityToJson(it)) } })
 
         val out = context.contentResolver.openOutputStream(uri, "wt")
             ?: throw BackupFormatException("No se pudo abrir el archivo para guardar")
@@ -57,6 +60,13 @@ object OwnBackup {
         .put("totalChapters", m.totalChapters)
         .put("status", m.status)
         .put("updatedAt", m.updatedAt)
+        .put("rating", m.rating)
+        .put("review", m.review)
+
+    private fun activityToJson(a: Activity) = JSONObject()
+        .put("day", a.day)
+        .put("kind", a.kind)
+        .put("amount", a.amount)
 
     private fun wordToJson(w: Word) = JSONObject()
         .put("text", w.text)
@@ -72,6 +82,7 @@ object OwnBackup {
         .put("createdAt", w.createdAt)
         .put("box", w.box)
         .put("dueAt", w.dueAt)
+        .put("learnedAt", w.learnedAt)
 
     // ---------------------------------------------------------------- Restaurar
 
@@ -94,6 +105,7 @@ object OwnBackup {
         // Primero se lee y valida todo; solo después se toca la base de datos.
         val manhwas = root.optJSONArray("manhwas").objects().mapNotNull { parseManhwa(it) }
         val words = root.optJSONArray("words").objects().mapNotNull { parseWord(it) }
+        val activity = root.optJSONArray("activity").objects().mapNotNull { parseActivity(it) }
 
         val db = AppDatabase.get(context)
         return db.withTransaction {
@@ -115,7 +127,18 @@ object OwnBackup {
                             totalChapters = maxOf(existing.totalChapters, b.totalChapters),
                             status = b.status,
                             coverUrl = b.coverUrl ?: existing.coverUrl,
-                            updatedAt = b.updatedAt
+                            updatedAt = b.updatedAt,
+                            rating = if (b.rating > 0) b.rating else existing.rating,
+                            review = b.review ?: existing.review
+                        )
+                    )
+                    mUpdated++
+                } else if ((existing.rating == 0 && b.rating > 0) || (existing.review == null && b.review != null)) {
+                    // La copia es más vieja, pero trae una nota o comentario que aquí faltaba.
+                    db.dao().update(
+                        existing.copy(
+                            rating = if (existing.rating == 0) b.rating else existing.rating,
+                            review = existing.review ?: b.review
                         )
                     )
                     mUpdated++
@@ -140,12 +163,24 @@ object OwnBackup {
                         lookupDone = existing.lookupDone || b.lookupDone,
                         box = maxOf(existing.box, b.box),
                         dueAt = if (b.box > existing.box) b.dueAt else existing.dueAt
-                    )
+                    ).let { m ->
+                        // Si queda aprendida, conservamos la fecha más antigua que se conozca.
+                        val date = listOf(existing.learnedAt, b.learnedAt).filter { it > 0 }.minOrNull() ?: 0L
+                        if (m.learned) m.copy(learnedAt = date) else m
+                    }
                     if (merged != existing) {
                         db.words().update(merged)
                         wUpdated++
                     }
                 }
+            }
+
+            // Actividad (rachas y gráficas): por cada día y tipo gana el número más alto, nunca se resta.
+            val known = db.activity().all().associateBy { it.day to it.kind }
+            for (a in activity) {
+                val current = known[a.day to a.kind]
+                if (current == null) db.activity().insertIgnore(a)
+                else if (a.amount > current.amount) db.activity().setAmount(a.day, a.kind, a.amount)
             }
 
             RestoreResult(mAdded, mUpdated, wAdded, wUpdated)
@@ -173,8 +208,18 @@ object OwnBackup {
             lastChapter = o.optDouble("lastChapter", 0.0).takeIf { !it.isNaN() } ?: 0.0,
             totalChapters = o.optInt("totalChapters", 0),
             status = status,
-            updatedAt = o.optLong("updatedAt", System.currentTimeMillis())
+            updatedAt = o.optLong("updatedAt", System.currentTimeMillis()),
+            rating = o.optInt("rating", 0).coerceIn(0, 10),
+            review = o.str("review")
         )
+    }
+
+    private fun parseActivity(o: JSONObject): Activity? {
+        val kind = o.str("kind")?.takeIf { it == ActivityKind.REVIEW || it == ActivityKind.CHAPTER } ?: return null
+        if (!o.has("day")) return null
+        val amount = o.optInt("amount", 0)
+        if (amount <= 0) return null
+        return Activity(day = o.optLong("day"), kind = kind, amount = amount)
     }
 
     private fun parseWord(o: JSONObject): Word? {
@@ -192,7 +237,8 @@ object OwnBackup {
             lookupDone = o.optBoolean("lookupDone", false),
             createdAt = o.optLong("createdAt", System.currentTimeMillis()),
             box = o.optInt("box", 0).coerceIn(0, Srs.MAX_BOX),
-            dueAt = o.optLong("dueAt", 0L)
+            dueAt = o.optLong("dueAt", 0L),
+            learnedAt = o.optLong("learnedAt", 0L)
         )
     }
 }
