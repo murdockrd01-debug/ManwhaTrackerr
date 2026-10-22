@@ -81,7 +81,9 @@ object Translator {
             val json = JSONObject(body)
             if (json.optInt("responseStatus", 200) != 200) return null
             val raw = json.optJSONObject("responseData")?.optString("translatedText").orEmpty()
-            if (raw.isBlank()) null else htmlToText(raw)
+            // Si se acabó el cupo diario gratis, MyMemory devuelve un aviso en vez de traducción.
+            if (raw.isBlank() || raw.contains("MYMEMORY WARNING", ignoreCase = true)) null
+            else htmlToText(raw)
         } catch (e: Exception) {
             null
         }
