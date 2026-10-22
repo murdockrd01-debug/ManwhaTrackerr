@@ -219,14 +219,21 @@ fun WordCard(w: Word, onLearned: () -> Unit, onRetry: () -> Unit, onDelete: () -
             }
 
             if (expanded) {
-                w.definition?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                w.definition?.let {
+                    Text("English", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(it, style = MaterialTheme.typography.bodyMedium)
+                }
+                w.definitionEs?.let {
+                    Text("Español", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(it, style = MaterialTheme.typography.bodyMedium)
+                }
                 w.example?.let {
                     Text("Ej: $it", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic)
                 }
                 w.note?.let { Text("Nota: $it", style = MaterialTheme.typography.bodyMedium) }
-                if (w.definition == null && w.example == null && w.note == null) {
+                if (w.definition == null && w.definitionEs == null && w.example == null && w.note == null) {
                     Text(
-                        "Sin definición. Para frases largas solo se muestra la traducción.",
+                        "No encontré una definición para esto. Toca “Buscar de nuevo” cuando tengas internet.",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
