@@ -82,6 +82,12 @@ import com.manhwatracker.app.data.Status
 import com.manhwatracker.app.data.titleKeyOf
 
 class MainActivity : ComponentActivity() {
+    /** Al salir de la app se guarda la copia automática (si hay carpeta elegida y ya toca). */
+    override fun onStop() {
+        super.onStop()
+        com.manhwatracker.app.data.AutoSync.backupInBackground(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Si la barra rápida está activada, la volvemos a mostrar (por si se cerró o se reinició el teléfono).

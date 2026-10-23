@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.manhwatracker.app.data.Activity
 import com.manhwatracker.app.data.ActivityKind
 import com.manhwatracker.app.data.AniList
+import com.manhwatracker.app.data.AutoSync
 import com.manhwatracker.app.data.AppDatabase
 import com.manhwatracker.app.data.BackupFormatException
 import com.manhwatracker.app.data.BackupImporter
@@ -30,6 +31,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+
+/** Lo que se muestra en la pantalla de Sincronización. */
+data class SyncInfo(
+    val komikkuFolder: String?,
+    val komikkuLastName: String?,
+    val komikkuLastAt: Long,
+    val backupFolder: String?,
+    val backupLastName: String?,
+    val backupLastAt: Long,
+    val backupError: String?
+)
 
 /** Aviso con botón "Deshacer" tras sumar un capítulo. [previous] es el manhwa tal como estaba antes. */
 data class UndoInfo(val text: String, val previous: Manhwa)
@@ -192,51 +204,158 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- Importar backup de Komikku / Mihon ----------
 
     fun importBackup(uri: Uri) {
+        viewModelScope.launch { runImport(uri, quiet = false, prefix = "Listo") }
+    }
+
+    /**
+     * Importa un backup de Komikku. Con [quiet] solo avisa si hubo cambios (para la importación automática).
+     * Devuelve true si pudo leer el archivo.
+     */
+    private suspend fun runImport(uri: Uri, quiet: Boolean, prefix: String): Boolean {
+        try {
+            val parsed = withContext(Dispatchers.IO) { BackupImporter.read(getApplication(), uri) }
+            var added = 0
+            var updated = 0
+
+            for (p in parsed) {
+                val key = titleKeyOf(p.title)
+                val existing = dao.findByKey(key)
+                val readAt = if (p.lastReadAt > 0) p.lastReadAt else System.currentTimeMillis()
+
+                if (existing == null) {
+                    dao.insert(
+                        Manhwa(
+                            title = p.title,
+                            titleKey = key,
+                            coverUrl = p.coverUrl,
+                            lastChapter = p.lastChapter,
+                            totalChapters = p.totalChapters,
+                            status = if (p.lastChapter > 0) Status.READING else Status.PLAN,
+                            updatedAt = readAt
+                        )
+                    )
+                    added++
+                } else {
+                    val progressChanged = p.lastChapter > existing.lastChapter
+                    // Los capítulos nuevos se cuentan en el día en que los leíste, no en el de la importación.
+                    if (progressChanged) {
+                        logActivity(ActivityKind.CHAPTER, chaptersBetween(existing.lastChapter, p.lastChapter), readAt)
+                    }
+                    dao.update(
+                        existing.copy(
+                            lastChapter = if (progressChanged) p.lastChapter else existing.lastChapter,
+                            totalChapters = maxOf(existing.totalChapters, p.totalChapters),
+                            coverUrl = existing.coverUrl ?: p.coverUrl,
+                            updatedAt = if (progressChanged) readAt else existing.updatedAt
+                        )
+                    )
+                    if (progressChanged) updated++
+                }
+            }
+            if (!quiet || added + updated > 0) {
+                _message.value = "$prefix: $added nuevos, $updated actualizados"
+            }
+            return true
+        } catch (e: Exception) {
+            _message.value = "No pude leer ese archivo. ¿Es un backup de Komikku (.tachibk)?"
+            return false
+        }
+    }
+
+    // ---------- Sincronización con carpetas (Komikku y copia propia) ----------
+
+    private fun readSync(): SyncInfo {
+        val c = getApplication<Application>()
+        return SyncInfo(
+            komikkuFolder = Prefs.komikkuFolder(c)?.let { AutoSync.folderLabel(Uri.parse(it)) },
+            komikkuLastName = Prefs.lastKomikkuName(c),
+            komikkuLastAt = Prefs.lastKomikkuAt(c),
+            backupFolder = Prefs.backupFolder(c)?.let { AutoSync.folderLabel(Uri.parse(it)) },
+            backupLastName = Prefs.lastBackupName(c),
+            backupLastAt = Prefs.lastBackupAt(c),
+            backupError = Prefs.backupError(c)
+        )
+    }
+
+    private val _sync = MutableStateFlow(readSync())
+    val sync: StateFlow<SyncInfo> = _sync.asStateFlow()
+
+    fun refreshSync() {
+        _sync.value = readSync()
+    }
+
+    fun setKomikkuFolder(uri: Uri) {
+        val c = getApplication<Application>()
+        AutoSync.takePermission(c, uri, write = false)
+        Prefs.setKomikkuFolder(c, uri.toString())
+        Prefs.setLastKomikku(c, null, null, 0L)
+        refreshSync()
+        autoSync(manual = true)
+    }
+
+    fun clearKomikkuFolder() {
+        val c = getApplication<Application>()
+        Prefs.setKomikkuFolder(c, null)
+        Prefs.setLastKomikku(c, null, null, 0L)
+        refreshSync()
+    }
+
+    /**
+     * Importa la copia más reciente de Komikku si es nueva. Se llama al abrir la app (en silencio)
+     * y desde el botón "Actualizar ahora" ([manual] = true, que también avisa cuando no hay nada nuevo).
+     */
+    fun autoSync(manual: Boolean = false) {
+        val c = getApplication<Application>()
+        if (Prefs.komikkuFolder(c) == null) return
         viewModelScope.launch {
             try {
-                val parsed = withContext(Dispatchers.IO) { BackupImporter.read(getApplication(), uri) }
-                var added = 0
-                var updated = 0
+                when (val check = withContext(Dispatchers.IO) { AutoSync.checkKomikku(c) }) {
+                    is AutoSync.KomikkuCheck.NoFiles ->
+                        if (manual) _message.value = "No encontré copias de Komikku (.tachibk) en esa carpeta"
 
-                for (p in parsed) {
-                    val key = titleKeyOf(p.title)
-                    val existing = dao.findByKey(key)
-                    val readAt = if (p.lastReadAt > 0) p.lastReadAt else System.currentTimeMillis()
+                    is AutoSync.KomikkuCheck.UpToDate ->
+                        if (manual) _message.value = "Ya estás al día con la última copia de Komikku"
 
-                    if (existing == null) {
-                        dao.insert(
-                            Manhwa(
-                                title = p.title,
-                                titleKey = key,
-                                coverUrl = p.coverUrl,
-                                lastChapter = p.lastChapter,
-                                totalChapters = p.totalChapters,
-                                status = if (p.lastChapter > 0) Status.READING else Status.PLAN,
-                                updatedAt = readAt
-                            )
-                        )
-                        added++
-                    } else {
-                        val progressChanged = p.lastChapter > existing.lastChapter
-                        // Los capítulos nuevos se cuentan en el día en que los leíste, no en el de la importación.
-                        if (progressChanged) {
-                            logActivity(ActivityKind.CHAPTER, chaptersBetween(existing.lastChapter, p.lastChapter), readAt)
-                        }
-                        dao.update(
-                            existing.copy(
-                                lastChapter = if (progressChanged) p.lastChapter else existing.lastChapter,
-                                totalChapters = maxOf(existing.totalChapters, p.totalChapters),
-                                coverUrl = existing.coverUrl ?: p.coverUrl,
-                                updatedAt = if (progressChanged) readAt else existing.updatedAt
-                            )
-                        )
-                        if (progressChanged) updated++
+                    is AutoSync.KomikkuCheck.Pending -> {
+                        val ok = runImport(check.uri, quiet = !manual, prefix = "Komikku")
+                        if (ok) Prefs.setLastKomikku(c, check.key, check.name, System.currentTimeMillis())
                     }
                 }
-                _message.value = "Listo: $added nuevos, $updated actualizados"
             } catch (e: Exception) {
-                _message.value = "No pude leer ese archivo. ¿Es un backup de Komikku (.tachibk)?"
+                _message.value = "No pude leer la carpeta de Komikku. Elígela otra vez en Sincronización."
             }
+            refreshSync()
+        }
+    }
+
+    fun setBackupFolder(uri: Uri) {
+        val c = getApplication<Application>()
+        AutoSync.takePermission(c, uri, write = true)
+        Prefs.setBackupFolder(c, uri.toString())
+        Prefs.setBackupError(c, null)
+        refreshSync()
+        backupNow()
+    }
+
+    fun clearBackupFolder() {
+        val c = getApplication<Application>()
+        Prefs.setBackupFolder(c, null)
+        Prefs.setBackupError(c, null)
+        refreshSync()
+    }
+
+    /** Guarda una copia propia ahora mismo en la carpeta elegida. */
+    fun backupNow() {
+        val c = getApplication<Application>()
+        viewModelScope.launch {
+            try {
+                val name = AutoSync.backupIfDue(c, force = true)
+                if (name != null) _message.value = "Copia guardada: $name"
+            } catch (e: Exception) {
+                Prefs.setBackupError(c, "No pude guardar la copia en la carpeta. Elígela otra vez.")
+                _message.value = "No pude guardar la copia en esa carpeta"
+            }
+            refreshSync()
         }
     }
 

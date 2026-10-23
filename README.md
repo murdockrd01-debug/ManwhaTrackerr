@@ -16,6 +16,7 @@ App Android sencilla para llevar tu lista de manhwas.
 - **Estadísticas**: racha de días repasando, palabras aprendidas por semana, capítulos leídos por mes y de qué obras aprendes más (menú lateral → *Estadísticas*).
 - **Nota y comentario** por manhwa (1 a 10), y orden por *Mejor calificados*.
 - **Cuadrícula de portadas**: botón *Orden y vista* → *Ver como cuadrícula*.
+- **Sincronización automática** (menú lateral → *Sincronización y copias*): la app lee sola la copia de seguridad automática de Komikku de la carpeta que elijas (se actualiza al abrir la app), y guarda sola una copia de tus datos en otra carpeta (una por día, se conservan las 7 últimas).
 - **Mi copia (exportar / restaurar)**: menú ⋮ → *Exportar mi copia* guarda un archivo `.json` con tus manhwas y tu vocabulario. *Restaurar mi copia* lo mezcla con lo que ya tengas, sin borrar nada.
 - Todo se guarda en tu teléfono. No usa cuentas.
 

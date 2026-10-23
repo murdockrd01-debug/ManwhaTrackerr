@@ -33,6 +33,36 @@ object Prefs {
         p(c).edit().putBoolean("grid", on).apply()
     }
 
+    // ---- Sincronización con carpetas (ver AutoSync)
+    fun komikkuFolder(c: Context): String? = p(c).getString("komikku_folder", null)
+    fun setKomikkuFolder(c: Context, uri: String?) {
+        p(c).edit().putString("komikku_folder", uri).apply()
+    }
+
+    fun lastKomikkuKey(c: Context): String? = p(c).getString("komikku_last_key", null)
+    fun lastKomikkuName(c: Context): String? = p(c).getString("komikku_last_name", null)
+    fun lastKomikkuAt(c: Context): Long = p(c).getLong("komikku_last_at", 0L)
+    fun setLastKomikku(c: Context, key: String?, name: String?, at: Long) {
+        p(c).edit().putString("komikku_last_key", key).putString("komikku_last_name", name)
+            .putLong("komikku_last_at", at).apply()
+    }
+
+    fun backupFolder(c: Context): String? = p(c).getString("backup_folder", null)
+    fun setBackupFolder(c: Context, uri: String?) {
+        p(c).edit().putString("backup_folder", uri).apply()
+    }
+
+    fun lastBackupAt(c: Context): Long = p(c).getLong("backup_last_at", 0L)
+    fun lastBackupName(c: Context): String? = p(c).getString("backup_last_name", null)
+    fun setLastBackup(c: Context, at: Long, name: String?) {
+        p(c).edit().putLong("backup_last_at", at).putString("backup_last_name", name).apply()
+    }
+
+    fun backupError(c: Context): String? = p(c).getString("backup_error", null)
+    fun setBackupError(c: Context, message: String?) {
+        p(c).edit().putString("backup_error", message).apply()
+    }
+
     fun quickBar(c: Context): Boolean = p(c).getBoolean("quick_bar", false)
     fun setQuickBar(c: Context, on: Boolean) {
         p(c).edit().putBoolean("quick_bar", on).apply()

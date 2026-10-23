@@ -51,6 +51,7 @@ private const val SECTION_MANHWA = "MANHWA"
 private const val SECTION_STUDY = "STUDY"
 private const val SECTION_REVIEW = "REVIEW"
 private const val SECTION_STATS = "STATS"
+private const val SECTION_SYNC = "SYNC"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +70,9 @@ fun App(vm: MainViewModel = viewModel()) {
     var reviewReturnId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     val manhwas by vm.items.collectAsState()
+
+    // Al abrir la app, si hay una copia nueva de Komikku en la carpeta elegida, se importa sola.
+    LaunchedEffect(Unit) { vm.autoSync() }
     val message by vm.message.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(message) {
@@ -131,6 +135,7 @@ fun App(vm: MainViewModel = viewModel()) {
     // El último BackHandler habilitado es el que manda.
     BackHandler(enabled = currentId == null && section == SECTION_STUDY) { section = SECTION_MANHWA }
     BackHandler(enabled = currentId == null && section == SECTION_STATS) { section = SECTION_MANHWA }
+    BackHandler(enabled = currentId == null && section == SECTION_SYNC) { section = SECTION_MANHWA }
     BackHandler(enabled = currentId == null && section == SECTION_REVIEW) { leaveReview() }
     BackHandler(enabled = currentId != null) { selectedId = null }
     BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
@@ -181,6 +186,15 @@ fun App(vm: MainViewModel = viewModel()) {
                     },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
+                NavigationDrawerItem(
+                    label = { Text("Sincronización y copias") },
+                    selected = section == SECTION_SYNC,
+                    onClick = {
+                        section = SECTION_SYNC
+                        scope.launch { drawerState.close() }
+                    },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
             }
         }
     ) {
@@ -195,6 +209,7 @@ fun App(vm: MainViewModel = viewModel()) {
                                 section == SECTION_STUDY -> "Estudio"
                                 section == SECTION_REVIEW -> "Repaso"
                                 section == SECTION_STATS -> "Estadísticas"
+                                section == SECTION_SYNC -> "Sincronización"
                                 else -> "Mis manhwas"
                             }
                         )
@@ -247,7 +262,7 @@ fun App(vm: MainViewModel = viewModel()) {
                 )
             },
             floatingActionButton = {
-                if (currentId == null && section != SECTION_REVIEW && section != SECTION_STATS) {
+                if (currentId == null && section != SECTION_REVIEW && section != SECTION_STATS && section != SECTION_SYNC) {
                     FloatingActionButton(
                         onClick = {
                             if (section == SECTION_STUDY) showAddWord = true else showAddManhwa = true
@@ -279,6 +294,7 @@ fun App(vm: MainViewModel = viewModel()) {
                         onExit = { leaveReview() }
                     )
                     section == SECTION_STATS -> StatsScreen(vm)
+                    section == SECTION_SYNC -> SyncScreen(vm)
                     section == SECTION_STUDY -> StudyScreen(vm, onReview = { openReview() })
                     else -> ListScreen(vm, onOpen = { selectedId = it })
                 }
