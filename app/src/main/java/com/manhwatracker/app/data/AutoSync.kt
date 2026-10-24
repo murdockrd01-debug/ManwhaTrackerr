@@ -33,8 +33,8 @@ object AutoSync {
         class Pending(val uri: Uri, val name: String, val key: String) : KomikkuCheck()
     }
 
-    /** Como mínimo pasa una hora entre dos copias automáticas. */
-    private const val BACKUP_MIN_INTERVAL = 60 * 60 * 1000L
+    /** Como mínimo pasa un minuto entre dos copias automáticas (evita copiar al cambiar rápido de app). */
+    private const val BACKUP_MIN_INTERVAL = 60 * 1000L
 
     /** Cuántas copias automáticas se guardan (una por día). Las más viejas se borran. */
     private const val BACKUP_KEEP = 7
@@ -98,8 +98,23 @@ object AutoSync {
 
     /** Mira la carpeta de Komikku y dice si hay una copia nueva. Puede lanzar excepción si la carpeta ya no se puede leer. */
     fun checkKomikku(context: Context): KomikkuCheck {
-        val tree = Prefs.komikkuFolder(context)?.let { Uri.parse(it) } ?: return KomikkuCheck.NoFiles
-        val entries = list(context, tree)
+        val folders = Prefs.komikkuFolders(context)
+        if (folders.isEmpty()) return KomikkuCheck.NoFiles
+
+        // Se juntan los archivos de todas las carpetas; gana la copia más reciente, sea automática o manual.
+        val entries = mutableListOf<Entry>()
+        var failure: Exception? = null
+        var readable = 0
+        for (folder in folders) {
+            try {
+                entries += list(context, Uri.parse(folder))
+                readable++
+            } catch (e: Exception) {
+                failure = e
+            }
+        }
+        if (readable == 0) throw failure ?: IllegalStateException("No se pudo leer ninguna carpeta")
+
         val newest = SyncLogic.newestKomikku(entries.map { it.info }) ?: return KomikkuCheck.NoFiles
         val key = SyncLogic.fingerprint(newest)
         if (key == Prefs.lastKomikkuKey(context)) return KomikkuCheck.UpToDate

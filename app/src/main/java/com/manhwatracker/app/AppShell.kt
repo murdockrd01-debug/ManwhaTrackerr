@@ -70,9 +70,6 @@ fun App(vm: MainViewModel = viewModel()) {
     var reviewReturnId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     val manhwas by vm.items.collectAsState()
-
-    // Al abrir la app, si hay una copia nueva de Komikku en la carpeta elegida, se importa sola.
-    LaunchedEffect(Unit) { vm.autoSync() }
     val message by vm.message.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(message) {

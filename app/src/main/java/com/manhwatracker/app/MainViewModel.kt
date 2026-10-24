@@ -33,8 +33,10 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Lo que se muestra en la pantalla de Sincronización. */
+data class FolderInfo(val uri: String, val label: String)
+
 data class SyncInfo(
-    val komikkuFolder: String?,
+    val komikkuFolders: List<FolderInfo>,
     val komikkuLastName: String?,
     val komikkuLastAt: Long,
     val backupFolder: String?,
@@ -267,7 +269,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun readSync(): SyncInfo {
         val c = getApplication<Application>()
         return SyncInfo(
-            komikkuFolder = Prefs.komikkuFolder(c)?.let { AutoSync.folderLabel(Uri.parse(it)) },
+            komikkuFolders = Prefs.komikkuFolders(c).map { FolderInfo(it, AutoSync.folderLabel(Uri.parse(it))) },
             komikkuLastName = Prefs.lastKomikkuName(c),
             komikkuLastAt = Prefs.lastKomikkuAt(c),
             backupFolder = Prefs.backupFolder(c)?.let { AutoSync.folderLabel(Uri.parse(it)) },
@@ -284,18 +286,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _sync.value = readSync()
     }
 
-    fun setKomikkuFolder(uri: Uri) {
+    /** Agrega una carpeta donde Komikku guarda copias (se pueden tener varias). */
+    fun addKomikkuFolder(uri: Uri) {
         val c = getApplication<Application>()
         AutoSync.takePermission(c, uri, write = false)
-        Prefs.setKomikkuFolder(c, uri.toString())
+        val current = Prefs.komikkuFolders(c)
+        if (uri.toString() !in current) Prefs.setKomikkuFolders(c, current + uri.toString())
         Prefs.setLastKomikku(c, null, null, 0L)
         refreshSync()
         autoSync(manual = true)
     }
 
-    fun clearKomikkuFolder() {
+    fun removeKomikkuFolder(uri: String) {
         val c = getApplication<Application>()
-        Prefs.setKomikkuFolder(c, null)
+        Prefs.setKomikkuFolders(c, Prefs.komikkuFolders(c).filter { it != uri })
         Prefs.setLastKomikku(c, null, null, 0L)
         refreshSync()
     }
@@ -306,8 +310,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun autoSync(manual: Boolean = false) {
         val c = getApplication<Application>()
-        if (Prefs.komikkuFolder(c) == null) return
+        if (Prefs.komikkuFolders(c).isEmpty()) return
         viewModelScope.launch {
+            // Si ya hay una revisión en curso, no se lanza otra (evita importar dos veces lo mismo).
+            if (!syncMutex.tryLock()) return@launch
             try {
                 when (val check = withContext(Dispatchers.IO) { AutoSync.checkKomikku(c) }) {
                     is AutoSync.KomikkuCheck.NoFiles ->
@@ -323,10 +329,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
             } catch (e: Exception) {
                 _message.value = "No pude leer la carpeta de Komikku. Elígela otra vez en Sincronización."
+            } finally {
+                syncMutex.unlock()
             }
             refreshSync()
         }
     }
+
+    private val syncMutex = Mutex()
 
     fun setBackupFolder(uri: Uri) {
         val c = getApplication<Application>()

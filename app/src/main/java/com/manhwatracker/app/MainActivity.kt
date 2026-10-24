@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.ViewModelProvider
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -82,6 +83,15 @@ import com.manhwatracker.app.data.Status
 import com.manhwatracker.app.data.titleKeyOf
 
 class MainActivity : ComponentActivity() {
+    /**
+     * Cada vez que la app pasa a primer plano (al abrirla o al volver a ella) se mira si hay una copia
+     * nueva de Komikku. Así una copia manual hecha mientras la app estaba en segundo plano se lee al volver.
+     */
+    override fun onStart() {
+        super.onStart()
+        ViewModelProvider(this)[MainViewModel::class.java].autoSync()
+    }
+
     /** Al salir de la app se guarda la copia automática (si hay carpeta elegida y ya toca). */
     override fun onStop() {
         super.onStop()

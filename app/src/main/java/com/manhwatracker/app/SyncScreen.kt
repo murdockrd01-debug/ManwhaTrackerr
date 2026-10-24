@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.text.DateFormat
@@ -41,7 +43,7 @@ fun SyncScreen(vm: MainViewModel) {
     LaunchedEffect(Unit) { vm.refreshSync() }
 
     val komikkuPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) vm.setKomikkuFolder(uri)
+        if (uri != null) vm.addKomikkuFolder(uri)
     }
     val backupPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) vm.setBackupFolder(uri)
@@ -59,20 +61,29 @@ fun SyncScreen(vm: MainViewModel) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Importar de Komikku automáticamente", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "En Komikku activa la copia de seguridad automática y elige una carpeta (por ejemplo Documentos/Manwhas). " +
-                        "Aquí elige esa misma carpeta una vez. Cada vez que abras la app, leerá la copia más reciente " +
-                        "y actualizará tus manhwas sola. No hace falta exportar nada a mano.",
+                    "Elige la carpeta donde Komikku guarda sus copias de seguridad (por ejemplo Documentos/Manwhas). " +
+                        "Sirven las automáticas y las manuales: si agregas varias carpetas, se usa siempre la copia más reciente de todas. " +
+                        "Cada vez que abras la app o vuelvas a ella, la leerá y actualizará tus manhwas sola.",
                     style = MaterialTheme.typography.bodySmall
                 )
 
-                val folder = info.komikkuFolder
-                if (folder == null) {
+                val folders = info.komikkuFolders
+                if (folders.isEmpty()) {
                     Text("Todavía no elegiste carpeta.", style = MaterialTheme.typography.bodyMedium)
                     Button(onClick = { komikkuPicker.launch(null) }, modifier = Modifier.fillMaxWidth()) {
                         Text("Elegir carpeta de Komikku")
                     }
                 } else {
-                    Text("Carpeta: $folder", style = MaterialTheme.typography.bodyMedium)
+                    folders.forEach { f ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                f.label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(onClick = { vm.removeKomikkuFolder(f.uri) }) { Text("Quitar") }
+                        }
+                    }
                     Text(
                         if (info.komikkuLastName != null)
                             "Última copia importada: ${info.komikkuLastName} (${formatTime(info.komikkuLastAt)})"
@@ -84,10 +95,7 @@ fun SyncScreen(vm: MainViewModel) {
                         Text("Actualizar ahora")
                     }
                     OutlinedButton(onClick = { komikkuPicker.launch(null) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Cambiar carpeta")
-                    }
-                    TextButton(onClick = { vm.clearKomikkuFolder() }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Dejar de usar esta carpeta")
+                        Text("Agregar otra carpeta")
                     }
                 }
             }
@@ -99,8 +107,8 @@ fun SyncScreen(vm: MainViewModel) {
                 Text("Copia automática de mis datos", style = MaterialTheme.typography.titleMedium)
                 Text(
                     "Guarda una copia de tus manhwas, palabras, notas y estadísticas en la carpeta que elijas. " +
-                        "Se hace sola cuando sales de la app (como máximo una vez por hora), una por día, " +
-                        "y se conservan las 7 más recientes. Elige una carpeta que sincronice Google Drive para tenerla también en la nube.",
+                        "Se hace sola cada vez que sales de la app (con un minuto de margen), " +
+                        "se guarda un archivo por día y se conservan los 7 más recientes. Elige una carpeta que sincronice Google Drive para tenerla también en la nube.",
                     style = MaterialTheme.typography.bodySmall
                 )
 

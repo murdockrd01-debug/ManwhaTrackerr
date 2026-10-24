@@ -34,9 +34,16 @@ object Prefs {
     }
 
     // ---- Sincronización con carpetas (ver AutoSync)
-    fun komikkuFolder(c: Context): String? = p(c).getString("komikku_folder", null)
-    fun setKomikkuFolder(c: Context, uri: String?) {
-        p(c).edit().putString("komikku_folder", uri).apply()
+    /** Carpetas donde Komikku guarda sus copias (automáticas o manuales). Se guardan separadas por saltos de línea. */
+    fun komikkuFolders(c: Context): List<String> {
+        val joined = p(c).getString("komikku_folders", null)
+        if (joined != null) return joined.split("\n").filter { it.isNotBlank() }
+        // Versión 1.4 guardaba una sola carpeta.
+        return listOfNotNull(p(c).getString("komikku_folder", null))
+    }
+
+    fun setKomikkuFolders(c: Context, uris: List<String>) {
+        p(c).edit().putString("komikku_folders", uris.joinToString("\n")).remove("komikku_folder").apply()
     }
 
     fun lastKomikkuKey(c: Context): String? = p(c).getString("komikku_last_key", null)
