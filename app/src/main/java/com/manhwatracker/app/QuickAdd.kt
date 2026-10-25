@@ -55,6 +55,13 @@ object QuickAdd {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val pickIntent = PendingIntent.getActivity(
+            context,
+            2,
+            Intent(context, PickManhwaActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val remoteInput = RemoteInput.Builder(KEY_TEXT).setLabel("Palabra o frase").build()
         val action = NotificationCompat.Action.Builder(R.drawable.ic_notif, "Guardar palabra", replyIntent)
             .addRemoteInput(remoteInput)
@@ -64,12 +71,13 @@ object QuickAdd {
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notif)
             .setContentTitle("Estudio de inglés")
-            .setContentText(status ?: "Toca “Guardar palabra” y escribe")
+            .setContentText(status ?: ("En: " + (Prefs.lastManhwa(context) ?: "ningún manhwa") + " — toca “Guardar palabra”"))
             .setContentIntent(openIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .addAction(action)
+            .addAction(R.drawable.ic_notif, "Cambiar manhwa", pickIntent)
             .build()
 
         try {
@@ -102,10 +110,11 @@ class QuickAddReceiver : BroadcastReceiver() {
                 val result = withTimeoutOrNull(8_000) {
                     WordRepo.save(app, text, Prefs.lastManhwa(app), Prefs.lastChapter(app), null)
                 }
+                val where = Prefs.lastManhwa(app)?.let { " en $it" }.orEmpty()
                 val status = if (result != null && !result.added) {
                     "Ya la tenías: $text"
                 } else {
-                    "Guardada: $text"
+                    "Guardada: $text$where"
                 }
                 QuickAdd.show(app, status)
             } finally {

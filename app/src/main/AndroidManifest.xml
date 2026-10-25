@@ -43,6 +43,14 @@
             </intent-filter>
         </activity>
 
+        <!-- Ventana para elegir a qué manhwa se guardan las palabras (desde la notificación) -->
+        <activity
+            android:name=".PickManhwaActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Transparent" />
+
         <!-- Recibe lo que escribes en la barra rápida de notificaciones -->
         <receiver
             android:name=".QuickAddReceiver"

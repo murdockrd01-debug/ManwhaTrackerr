@@ -27,6 +27,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -47,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.manhwatracker.app.data.Manhwa
 import com.manhwatracker.app.data.Prefs
+import com.manhwatracker.app.data.titleKeyOf
+import com.manhwatracker.app.data.Status
 import com.manhwatracker.app.data.Word
 
 private const val F_ALL = "ALL"
@@ -302,19 +305,77 @@ fun WordCard(
     }
 }
 
+/** Lista con buscador para elegir a qué manhwa pertenece una palabra. [onPick] recibe el título (o null = ninguno). */
+@Composable
+fun ManhwaPickerDialog(
+    manhwas: List<Manhwa>,
+    current: String?,
+    onPick: (Manhwa?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var query by remember { mutableStateOf("") }
+    val key = titleKeyOf(query.trim())
+    val shown = remember(manhwas, query) {
+        val list = if (query.isBlank()) manhwas else manhwas.filter { it.titleKey.contains(key) }
+        // Los que estás leyendo salen primero.
+        list.sortedBy { if (it.status == Status.READING) 0 else 1 }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("¿De qué manhwa es?") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("Buscar") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                LazyColumn(Modifier.height(300.dp)) {
+                    item {
+                        TextButton(onClick = { onPick(null) }, modifier = Modifier.fillMaxWidth()) {
+                            Text("Ninguno (sin manhwa)")
+                        }
+                    }
+                    if (shown.isEmpty()) {
+                        item { Text("Nada coincide.", style = MaterialTheme.typography.bodySmall) }
+                    }
+                    items(shown, key = { it.id }) { m ->
+                        TextButton(onClick = { onPick(m) }, modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                (if (m.title == current) "✓ " else "") + m.title,
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLines = 2
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
+}
+
 @Composable
 fun AddWordDialog(
     manhwas: List<Manhwa>,
     onDismiss: () -> Unit,
-    onConfirm: (text: String, manhwa: String, chapter: String, note: String) -> Unit
+    onConfirm: (text: String, manhwa: String, chapter: String, note: String) -> Unit,
+    initialManhwa: String? = null,
+    initialChapter: String? = null
 ) {
     val context = LocalContext.current
     var text by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var manhwa by remember {
-        mutableStateOf(Prefs.lastManhwa(context) ?: manhwas.firstOrNull()?.title.orEmpty())
+        mutableStateOf(initialManhwa ?: Prefs.lastManhwa(context) ?: manhwas.firstOrNull()?.title.orEmpty())
     }
-    var chapter by remember { mutableStateOf(Prefs.lastChapter(context).orEmpty()) }
+    var chapter by remember { mutableStateOf(initialChapter ?: Prefs.lastChapter(context).orEmpty()) }
+    var picking by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -336,25 +397,9 @@ fun AddWordDialog(
                     label = { Text("Nota o contexto (opcional)") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = manhwa,
-                    onValueChange = { manhwa = it },
-                    label = { Text("Manhwa (opcional)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (manhwas.isNotEmpty()) {
-                    Row(
-                        Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        manhwas.take(8).forEach { m ->
-                            FilterChip(
-                                selected = manhwa == m.title,
-                                onClick = { manhwa = m.title },
-                                label = { Text(m.title, maxLines = 1) }
-                            )
-                        }
-                    }
+                Text("Manhwa", style = MaterialTheme.typography.labelLarge)
+                OutlinedButton(onClick = { picking = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (manhwa.isBlank()) "Elegir manhwa…" else manhwa, maxLines = 1)
                 }
                 OutlinedTextField(
                     value = chapter,
@@ -378,4 +423,25 @@ fun AddWordDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
+
+    if (picking) {
+        ManhwaPickerDialog(
+            manhwas = manhwas,
+            current = manhwa,
+            onPick = { m ->
+                if (m != null) {
+                    // Al cambiar de manhwa se propone el último capítulo que llevas en él.
+                    if (m.title != manhwa) chapter = if (m.lastChapter > 0) {
+                        if (m.lastChapter % 1.0 == 0.0) m.lastChapter.toInt().toString() else m.lastChapter.toString()
+                    } else ""
+                    manhwa = m.title
+                } else {
+                    manhwa = ""
+                    chapter = ""
+                }
+                picking = false
+            },
+            onDismiss = { picking = false }
+        )
+    }
 }

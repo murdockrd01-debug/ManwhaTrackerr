@@ -464,6 +464,7 @@ fun DetailScreen(
     val flow = remember(id) { vm.observe(id) }
     val m by flow.collectAsState(initial = null)
     val allWords by vm.words.collectAsState()
+    val allManhwas by vm.items.collectAsState()
     val item = m
 
     // Si se borró (o no existe), volvemos a la lista.
@@ -480,6 +481,7 @@ fun DetailScreen(
     var rating by remember(item.id) { mutableStateOf(item.rating) }
     var review by remember(item.id) { mutableStateOf(item.review.orEmpty()) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var addingWord by remember { mutableStateOf(false) }
 
     // Las palabras de este manhwa: se comparan los títulos sin mayúsculas ni símbolos.
     val mine = remember(allWords, item.titleKey) {
@@ -591,6 +593,9 @@ fun DetailScreen(
             "Palabras de este manhwa (${mine.size})",
             style = MaterialTheme.typography.titleSmall
         )
+        Button(onClick = { addingWord = true }, modifier = Modifier.fillMaxWidth()) {
+            Text("＋ Guardar una palabra de este manhwa")
+        }
         if (mine.isEmpty()) {
             Text(
                 "Aún no guardaste palabras de este manhwa. En Estudio, al guardar una palabra, elige este título.",
@@ -634,6 +639,19 @@ fun DetailScreen(
             onClick = { confirmDelete = true },
             modifier = Modifier.fillMaxWidth()
         ) { Text("Eliminar de mi lista") }
+    }
+
+    if (addingWord) {
+        AddWordDialog(
+            manhwas = allManhwas,
+            initialManhwa = item.title,
+            initialChapter = if (item.lastChapter > 0) fmt(item.lastChapter) else "",
+            onDismiss = { addingWord = false },
+            onConfirm = { text, manhwa, chapter, note ->
+                vm.addWord(text, manhwa, chapter, note)
+                addingWord = false
+            }
+        )
     }
 
     if (confirmDelete) {

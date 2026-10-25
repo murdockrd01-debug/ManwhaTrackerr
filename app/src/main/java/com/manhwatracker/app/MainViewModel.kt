@@ -411,6 +411,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val shown = if (next % 1.0 == 0.0) next.toInt().toString() else next.toString()
         _undo.value = UndoInfo("Cap. $shown · ${m.title}", m)
         save(m.copy(lastChapter = next))
+        // El manhwa que estás leyendo ahora pasa a ser el destino por defecto de las palabras nuevas.
+        Prefs.setLast(getApplication<Application>(), m.title, shown)
         viewModelScope.launch { logActivity(ActivityKind.CHAPTER, 1) }
     }
 
