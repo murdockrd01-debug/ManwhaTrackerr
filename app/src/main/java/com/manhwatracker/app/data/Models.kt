@@ -138,6 +138,57 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+/** Versión 7: géneros y número de AniList en cada manhwa, y listas personalizadas. No cambia nada de lo que ya tienes. */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `manhwa` ADD COLUMN `genres` TEXT")
+        db.execSQL("ALTER TABLE `manhwa` ADD COLUMN `anilistId` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `manhwa_list` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `list_entry` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`listId` INTEGER NOT NULL, `titleKey` TEXT NOT NULL)"
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_list_entry_listId_titleKey` ON `list_entry` (`listId`, `titleKey`)")
+    }
+}
+
+@Dao
+interface ListDao {
+    @Query("SELECT * FROM manhwa_list ORDER BY name COLLATE NOCASE ASC")
+    fun observeLists(): Flow<List<ManhwaList>>
+
+    @Query("SELECT * FROM list_entry")
+    fun observeEntries(): Flow<List<ListEntry>>
+
+    @Query("SELECT * FROM manhwa_list")
+    suspend fun allLists(): List<ManhwaList>
+
+    @Query("SELECT * FROM list_entry")
+    suspend fun allEntries(): List<ListEntry>
+
+    @Insert
+    suspend fun insertList(l: ManhwaList): Long
+
+    @Query("UPDATE manhwa_list SET name = :name WHERE id = :id")
+    suspend fun rename(id: Long, name: String)
+
+    @Query("DELETE FROM manhwa_list WHERE id = :id")
+    suspend fun deleteList(id: Long)
+
+    @Query("DELETE FROM list_entry WHERE listId = :id")
+    suspend fun deleteEntriesOf(id: Long)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun addEntry(e: ListEntry): Long
+
+    @Query("DELETE FROM list_entry WHERE listId = :listId AND titleKey = :key")
+    suspend fun removeEntry(listId: Long, key: String)
+}
+
 /** Versión 6: guarda qué tan común es cada palabra, para ordenar por utilidad. No cambia nada de lo que ya tienes. */
 val MIGRATION_5_6 = object : Migration(5, 6) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -170,11 +221,12 @@ abstract class ActivityDao {
     }
 }
 
-@Database(entities = [Manhwa::class, Word::class, Activity::class], version = 6, exportSchema = false)
+@Database(entities = [Manhwa::class, Word::class, Activity::class, ManhwaList::class, ListEntry::class], version = 7, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dao(): ManhwaDao
     abstract fun words(): WordDao
     abstract fun activity(): ActivityDao
+    abstract fun lists(): ListDao
 
     companion object {
         @Volatile
@@ -186,7 +238,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "manhwa.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build().also { instance = it }
             }
     }
 }

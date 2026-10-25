@@ -37,6 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
@@ -67,6 +68,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -82,6 +85,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.manhwatracker.app.data.AniList
+import com.manhwatracker.app.data.Genres
 import com.manhwatracker.app.data.Manhwa
 import com.manhwatracker.app.data.Prefs
 import com.manhwatracker.app.data.Status
@@ -174,8 +179,32 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
     var sortMenu by remember { mutableStateOf(false) }
     var grid by remember { mutableStateOf(Prefs.grid(context)) }
 
-    val shown = remember(all, filter, query, sort) {
-        val byStatus = if (filter == null) all else all.filter { it.status == filter }
+    val lists by vm.lists.collectAsState()
+    val entries by vm.entries.collectAsState()
+    var listFilter by rememberSaveable { mutableStateOf<Long?>(null) }
+    var genreFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var newList by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf(false) }
+
+    // Trae los géneros de AniList en segundo plano (solo los que faltan).
+    LaunchedEffect(all.size) { vm.fillMeta() }
+
+    // Si la lista elegida se borró, se quita el filtro.
+    val activeList = lists.firstOrNull { it.id == listFilter }
+    LaunchedEffect(lists) { if (listFilter != null && activeList == null) listFilter = null }
+
+    val genreCounts = remember(all) {
+        all.flatMap { Genres.parse(it.genres) }.groupingBy { it }.eachCount().entries
+            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+            .take(14)
+    }
+
+    val shown = remember(all, filter, query, sort, listFilter, genreFilter, entries) {
+        val inList = listFilter?.let { id -> entries.filter { it.listId == id }.map { it.titleKey }.toSet() }
+        val byList = if (inList == null) all else all.filter { it.titleKey in inList }
+        val byGenre = if (genreFilter == null) byList else byList.filter { genreFilter in Genres.parse(it.genres) }
+        val byStatus = if (filter == null) byGenre else byGenre.filter { it.status == filter }
         // titleKey ya viene sin mayúsculas, espacios ni símbolos: la búsqueda los ignora también.
         val key = titleKeyOf(query.trim())
         val bySearch = if (query.isBlank()) byStatus else byStatus.filter { it.titleKey.contains(key) }
@@ -264,6 +293,51 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
             }
         }
 
+        // Listas personalizadas
+        Row(
+            Modifier
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Listas:", style = MaterialTheme.typography.labelLarge)
+            lists.forEach { l ->
+                FilterChip(
+                    selected = listFilter == l.id,
+                    onClick = { listFilter = if (listFilter == l.id) null else l.id },
+                    label = { Text(l.name) }
+                )
+            }
+            AssistChip(onClick = { newList = true }, label = { Text("＋ Nueva") })
+        }
+        if (activeList != null) {
+            Row(Modifier.padding(horizontal = 12.dp)) {
+                TextButton(onClick = { renaming = true }) { Text("Renombrar “${activeList.name}”") }
+                TextButton(onClick = { deleting = true }) { Text("Eliminar lista") }
+            }
+        }
+
+        // Géneros (vienen de AniList)
+        if (genreCounts.isNotEmpty()) {
+            Row(
+                Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Géneros:", style = MaterialTheme.typography.labelLarge)
+                genreCounts.forEach { (g, n) ->
+                    FilterChip(
+                        selected = genreFilter == g,
+                        onClick = { genreFilter = if (genreFilter == g) null else g },
+                        label = { Text("${Genres.label(g)} ($n)") }
+                    )
+                }
+            }
+        }
+
         if (shown.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                 Text(
@@ -313,6 +387,56 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
             }
         }
     }
+
+    if (newList) {
+        NameDialog("Nueva lista", "", "Crear", { newList = false }) { name ->
+            vm.createList(name)
+            newList = false
+        }
+    }
+    if (renaming && activeList != null) {
+        NameDialog("Renombrar lista", activeList.name, "Guardar", { renaming = false }) { name ->
+            vm.renameList(activeList.id, name)
+            renaming = false
+        }
+    }
+    if (deleting && activeList != null) {
+        AlertDialog(
+            onDismissRequest = { deleting = false },
+            title = { Text("¿Eliminar la lista?") },
+            text = { Text("Se borrará “${activeList.name}”. Tus manhwas no se tocan.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.deleteList(activeList.id)
+                    deleting = false
+                }) { Text("Eliminar") }
+            },
+            dismissButton = { TextButton(onClick = { deleting = false }) { Text("Cancelar") } }
+        )
+    }
+}
+
+/** Pide un nombre (para crear o renombrar una lista). */
+@Composable
+fun NameDialog(title: String, initial: String, confirm: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var text by remember { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text("Nombre") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(enabled = text.isNotBlank(), onClick = { onConfirm(text) }) { Text(confirm) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
 }
 
 @Composable
@@ -505,6 +629,10 @@ fun DetailScreen(
     val m by flow.collectAsState(initial = null)
     val allWords by vm.words.collectAsState()
     val allManhwas by vm.items.collectAsState()
+    val all = allManhwas
+    val allLists by vm.lists.collectAsState()
+    val allEntries by vm.entries.collectAsState()
+    val scope = rememberCoroutineScope()
     val item = m
 
     // Si se borró (o no existe), volvemos a la lista.
@@ -522,6 +650,10 @@ fun DetailScreen(
     var review by remember(item.id) { mutableStateOf(item.review.orEmpty()) }
     var confirmDelete by remember { mutableStateOf(false) }
     var addingWord by remember { mutableStateOf(false) }
+    var newListHere by remember { mutableStateOf(false) }
+    var similar by remember(item.id) { mutableStateOf<List<AniList.Similar>?>(null) }
+    var loadingSimilar by remember(item.id) { mutableStateOf(false) }
+    var similarError by remember(item.id) { mutableStateOf<String?>(null) }
 
     // Las palabras de este manhwa: se comparan los títulos sin mayúsculas ni símbolos.
     val mine = remember(allWords, item.titleKey) {
@@ -628,6 +760,103 @@ fun DetailScreen(
             }
         }
 
+        // ---- Géneros
+        val genreList = Genres.parse(item.genres)
+        if (genreList.isNotEmpty()) {
+            Text("Géneros", style = MaterialTheme.typography.labelLarge)
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                genreList.forEach { g -> AssistChip(onClick = {}, label = { Text(Genres.label(g)) }) }
+            }
+        }
+
+        // ---- Listas personalizadas
+        Text("Mis listas", style = MaterialTheme.typography.labelLarge)
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            allLists.forEach { l ->
+                val inIt = allEntries.any { it.listId == l.id && it.titleKey == item.titleKey }
+                FilterChip(
+                    selected = inIt,
+                    onClick = { vm.toggleInList(l.id, item.titleKey, !inIt) },
+                    label = { Text(l.name) }
+                )
+            }
+            AssistChip(onClick = { newListHere = true }, label = { Text("＋ Nueva lista") })
+        }
+
+        // ---- Parecidos (AniList)
+        HorizontalDivider()
+        Text("Parecidos", style = MaterialTheme.typography.titleSmall)
+        val sims = similar
+        when {
+            loadingSimilar -> Text("Buscando…", style = MaterialTheme.typography.bodySmall)
+            sims == null -> {
+                OutlinedButton(
+                    onClick = {
+                        loadingSimilar = true
+                        similarError = null
+                        scope.launch {
+                            val result = vm.loadSimilar(item)
+                            if (result == null) similarError = "No pude conectar con AniList. Revisa tu internet."
+                            else similar = result
+                            loadingSimilar = false
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Ver manhwas parecidos") }
+                similarError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+            }
+            sims.isEmpty() -> Text("AniList no tiene recomendaciones para este título.", style = MaterialTheme.typography.bodySmall)
+            else -> Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                sims.forEach { s ->
+                    val have = all.any { it.titleKey == titleKeyOf(s.title) }
+                    Column(Modifier.width(110.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Box(
+                            Modifier.width(110.dp).height(160.dp).clip(RoundedCornerShape(14.dp))
+                        ) {
+                            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surfaceVariant) {}
+                            if (!s.cover.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = s.cover,
+                                    contentDescription = s.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            s.score?.let {
+                                Text(
+                                    "★ ${it / 10.0}",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(Color(0xCC000000))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Text(s.title, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (have) {
+                            Text("✓ Ya lo tienes", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        } else {
+                            TextButton(onClick = { vm.addPlanned(s.title, s.cover) }) { Text("＋ Pendiente") }
+                        }
+                    }
+                }
+            }
+        }
+
         HorizontalDivider()
         Text(
             "Palabras de este manhwa (${mine.size})",
@@ -679,6 +908,13 @@ fun DetailScreen(
             onClick = { confirmDelete = true },
             modifier = Modifier.fillMaxWidth()
         ) { Text("Eliminar de mi lista") }
+    }
+
+    if (newListHere) {
+        NameDialog("Nueva lista", "", "Crear y agregar", { newListHere = false }) { name ->
+            vm.createList(name, addKey = item.titleKey)
+            newListHere = false
+        }
     }
 
     if (addingWord) {

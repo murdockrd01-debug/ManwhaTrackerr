@@ -29,7 +29,7 @@ object OwnBackup {
 
     private const val APP = "ManhwaTracker"
     // Versión 2: agrega notas de manhwas, fecha de aprendida y actividad (estadísticas). Las copias de la versión 1 se leen igual.
-    private const val VERSION = 2
+    private const val VERSION = 3
 
     // ---------------------------------------------------------------- Exportar
 
@@ -38,6 +38,8 @@ object OwnBackup {
         val manhwas = db.dao().all()
         val words = db.words().all()
         val activity = db.activity().all()
+        val lists = db.lists().allLists()
+        val entries = db.lists().allEntries()
 
         val root = JSONObject()
             .put("app", APP)
@@ -46,6 +48,16 @@ object OwnBackup {
             .put("manhwas", JSONArray().also { arr -> manhwas.forEach { arr.put(manhwaToJson(it)) } })
             .put("words", JSONArray().also { arr -> words.forEach { arr.put(wordToJson(it)) } })
             .put("activity", JSONArray().also { arr -> activity.forEach { arr.put(activityToJson(it)) } })
+            .put("lists", JSONArray().also { arr ->
+                lists.forEach { l ->
+                    arr.put(
+                        JSONObject().put("name", l.name).put(
+                            "items",
+                            JSONArray().also { items -> entries.filter { it.listId == l.id }.forEach { items.put(it.titleKey) } }
+                        )
+                    )
+                }
+            })
 
         val out = context.contentResolver.openOutputStream(uri, "wt")
             ?: throw BackupFormatException("No se pudo abrir el archivo para guardar")
@@ -62,6 +74,8 @@ object OwnBackup {
         .put("updatedAt", m.updatedAt)
         .put("rating", m.rating)
         .put("review", m.review)
+        .put("genres", m.genres)
+        .put("anilistId", m.anilistId)
 
     private fun activityToJson(a: Activity) = JSONObject()
         .put("day", a.day)
@@ -106,6 +120,7 @@ object OwnBackup {
         val manhwas = root.optJSONArray("manhwas").objects().mapNotNull { parseManhwa(it) }
         val words = root.optJSONArray("words").objects().mapNotNull { parseWord(it) }
         val activity = root.optJSONArray("activity").objects().mapNotNull { parseActivity(it) }
+        val lists = root.optJSONArray("lists").objects()
 
         val db = AppDatabase.get(context)
         return db.withTransaction {
@@ -129,7 +144,9 @@ object OwnBackup {
                             coverUrl = b.coverUrl ?: existing.coverUrl,
                             updatedAt = b.updatedAt,
                             rating = if (b.rating > 0) b.rating else existing.rating,
-                            review = b.review ?: existing.review
+                            review = b.review ?: existing.review,
+                            genres = existing.genres ?: b.genres,
+                            anilistId = if (existing.anilistId > 0) existing.anilistId else b.anilistId
                         )
                     )
                     mUpdated++
@@ -183,6 +200,18 @@ object OwnBackup {
                 else if (a.amount > current.amount) db.activity().setAmount(a.day, a.kind, a.amount)
             }
 
+            // Listas personalizadas: se juntan por nombre y solo se agregan manhwas, nunca se quitan.
+            for (l in lists) {
+                val name = l.str("name") ?: continue
+                val existing = db.lists().allLists().firstOrNull { it.name.equals(name, ignoreCase = true) }
+                val listId = existing?.id ?: db.lists().insertList(ManhwaList(name = name))
+                val items = l.optJSONArray("items")
+                for (i in 0 until (items?.length() ?: 0)) {
+                    val key = items?.optString(i)?.takeIf { it.isNotBlank() } ?: continue
+                    db.lists().addEntry(ListEntry(listId = listId, titleKey = key))
+                }
+            }
+
             RestoreResult(mAdded, mUpdated, wAdded, wUpdated)
         }
     }
@@ -210,7 +239,9 @@ object OwnBackup {
             status = status,
             updatedAt = o.optLong("updatedAt", System.currentTimeMillis()),
             rating = o.optInt("rating", 0).coerceIn(0, 10),
-            review = o.str("review")
+            review = o.str("review"),
+            genres = o.str("genres"),
+            anilistId = o.optLong("anilistId", 0)
         )
     }
 

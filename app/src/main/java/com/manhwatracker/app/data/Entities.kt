@@ -35,7 +35,26 @@ data class Manhwa(
     /** Tu nota de 1 a 10. 0 = todavía sin nota. */
     @ColumnInfo(defaultValue = "0") val rating: Int = 0,
     /** Tu comentario sobre el manhwa. */
-    val review: String? = null
+    val review: String? = null,
+    /** Géneros de AniList separados por coma. null = todavía no se consultó; "" = AniList no tiene. */
+    val genres: String? = null,
+    /** Identificador del manhwa en AniList (para buscar parecidos). 0 = no se sabe. */
+    @ColumnInfo(defaultValue = "0") val anilistId: Long = 0
+)
+
+/** Lista personalizada de manhwas ("Para recomendar", "Mejor arte"...). */
+@Entity(tableName = "manhwa_list")
+data class ManhwaList(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String
+)
+
+/** Un manhwa dentro de una lista. Se enlaza por titleKey para que sobreviva a importar y restaurar copias. */
+@Entity(tableName = "list_entry", indices = [Index(value = ["listId", "titleKey"], unique = true)])
+data class ListEntry(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val listId: Long,
+    val titleKey: String
 )
 
 /** Clave para comparar títulos sin importar mayúsculas, espacios o símbolos. */

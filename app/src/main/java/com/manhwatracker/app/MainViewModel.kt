@@ -11,7 +11,9 @@ import com.manhwatracker.app.data.AutoSync
 import com.manhwatracker.app.data.AppDatabase
 import com.manhwatracker.app.data.BackupFormatException
 import com.manhwatracker.app.data.BackupImporter
+import com.manhwatracker.app.data.ListEntry
 import com.manhwatracker.app.data.Manhwa
+import com.manhwatracker.app.data.ManhwaList
 import com.manhwatracker.app.data.OwnBackup
 import com.manhwatracker.app.data.Prefs
 import com.manhwatracker.app.data.Srs
@@ -419,6 +421,101 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun delete(m: Manhwa) {
         viewModelScope.launch { dao.delete(m) }
+    }
+
+    // ---------- Listas personalizadas ----------
+
+    private val listDao = AppDatabase.get(app).lists()
+
+    val lists: StateFlow<List<ManhwaList>> =
+        listDao.observeLists().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val entries: StateFlow<List<ListEntry>> =
+        listDao.observeEntries().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Crea una lista (y, si se pasa [addKey], mete ahí ese manhwa). */
+    fun createList(name: String, addKey: String? = null) {
+        val clean = name.trim()
+        if (clean.isEmpty()) return
+        viewModelScope.launch {
+            val existing = listDao.allLists().firstOrNull { it.name.equals(clean, ignoreCase = true) }
+            val id = existing?.id ?: listDao.insertList(ManhwaList(name = clean))
+            if (addKey != null) listDao.addEntry(ListEntry(listId = id, titleKey = addKey))
+            if (existing != null) _message.value = "Ya tenías una lista llamada “${existing.name}”"
+        }
+    }
+
+    fun renameList(id: Long, name: String) {
+        val clean = name.trim()
+        if (clean.isEmpty()) return
+        viewModelScope.launch { listDao.rename(id, clean) }
+    }
+
+    fun deleteList(id: Long) {
+        viewModelScope.launch {
+            listDao.deleteEntriesOf(id)
+            listDao.deleteList(id)
+        }
+    }
+
+    fun toggleInList(listId: Long, titleKey: String, on: Boolean) {
+        viewModelScope.launch {
+            if (on) listDao.addEntry(ListEntry(listId = listId, titleKey = titleKey))
+            else listDao.removeEntry(listId, titleKey)
+        }
+    }
+
+    // ---------- Géneros y parecidos (AniList) ----------
+
+    private val metaMutex = Mutex()
+
+    /** Trae géneros (y el número de AniList) de los manhwas que todavía no los tienen. Va despacio para respetar el límite de AniList. */
+    fun fillMeta() {
+        viewModelScope.launch {
+            if (!metaMutex.tryLock()) return@launch
+            try {
+                for (m in dao.all().filter { it.genres == null }) {
+                    val meta = coverMutex.withLock {
+                        AniList.searchMeta(m.title).also { delay(800) }
+                    } ?: break // sin conexión: se reintenta la próxima vez
+                    val current = dao.findById(m.id) ?: continue
+                    dao.update(
+                        current.copy(
+                            genres = meta.genres.joinToString(","),
+                            anilistId = if (meta.id > 0) meta.id else current.anilistId,
+                            coverUrl = current.coverUrl ?: meta.cover
+                        )
+                    )
+                }
+            } finally {
+                metaMutex.unlock()
+            }
+        }
+    }
+
+    /** Manhwas parecidos al de [m]. Devuelve null si no hay conexión. */
+    suspend fun loadSimilar(m: Manhwa): List<AniList.Similar>? {
+        var id = m.anilistId
+        if (id <= 0L) {
+            val meta = coverMutex.withLock { AniList.searchMeta(m.title) } ?: return null
+            if (meta.id <= 0L) return emptyList()
+            id = meta.id
+            dao.findById(m.id)?.let { dao.update(it.copy(anilistId = id, genres = it.genres ?: meta.genres.joinToString(","))) }
+        }
+        return AniList.similar(id)
+    }
+
+    /** Agrega un manhwa sugerido a "Pendientes". */
+    fun addPlanned(title: String, cover: String?) {
+        viewModelScope.launch {
+            val key = titleKeyOf(title)
+            if (dao.findByKey(key) != null) {
+                _message.value = "Ya lo tienes en tu lista"
+                return@launch
+            }
+            dao.insert(Manhwa(title = title, titleKey = key, coverUrl = cover, status = Status.PLAN))
+            _message.value = "Agregado a pendientes: $title"
+        }
     }
 
     // ---------- Portadas ----------
