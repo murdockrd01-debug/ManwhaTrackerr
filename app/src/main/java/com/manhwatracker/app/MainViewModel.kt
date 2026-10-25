@@ -148,6 +148,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     WordRepo.lookup(getApplication(), w.id)
                     delay(400)
                 }
+                WordRepo.fillFrequencies(getApplication())
             } finally {
                 retryMutex.unlock()
             }

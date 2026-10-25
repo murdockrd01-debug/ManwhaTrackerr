@@ -65,7 +65,9 @@ data class Word(
     /** Desde cuándo toca repasarla (milisegundos). 0 = ya toca. */
     @ColumnInfo(defaultValue = "0") val dueAt: Long = 0,
     /** Cuándo se marcó como aprendida (milisegundos). 0 = no se sabe o no está aprendida. */
-    @ColumnInfo(defaultValue = "0") val learnedAt: Long = 0
+    @ColumnInfo(defaultValue = "0") val learnedAt: Long = 0,
+    /** Veces por millón de palabras en inglés (para saber qué tan útil es). -1 = todavía no se consultó. */
+    @ColumnInfo(defaultValue = "-1") val freq: Double = -1.0
 )
 
 /**

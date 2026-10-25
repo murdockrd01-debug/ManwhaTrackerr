@@ -172,7 +172,7 @@ object Dictionary {
         return try {
             val meanings = JSONArray(body).optJSONObject(0)?.optJSONArray("meanings") ?: return null
             val definitions = mutableListOf<String>()
-            var example: String? = null
+            val examples = mutableListOf<String>()
             for (i in 0 until meanings.length()) {
                 val m = meanings.getJSONObject(i)
                 val pos = m.optString("partOfSpeech")
@@ -180,16 +180,16 @@ object Dictionary {
                 for (j in 0 until defs.length()) {
                     val d = defs.getJSONObject(j)
                     val text = d.optString("definition")
-                    if (example == null) {
+                    if (examples.size < 3) {
                         val e = d.optString("example")
-                        if (e.isNotBlank()) example = e
+                        if (e.isNotBlank()) examples += e
                     }
                     if (j == 0 && text.isNotBlank() && definitions.size < 2) {
                         definitions += if (pos.isNotBlank()) "($pos) $text" else text
                     }
                 }
             }
-            if (definitions.isEmpty()) null else Entry(definitions, example, "dictionaryapi.dev")
+            if (definitions.isEmpty()) null else Entry(definitions, examples.joinToString("\n").ifEmpty { null }, "dictionaryapi.dev")
         } catch (e: Exception) {
             null
         }
@@ -202,7 +202,7 @@ object Dictionary {
             try {
                 val entries = JSONObject(body).optJSONArray("en") ?: continue
                 val definitions = mutableListOf<String>()
-                var example: String? = null
+                val examples = mutableListOf<String>()
                 for (i in 0 until entries.length()) {
                     val e = entries.getJSONObject(i)
                     val pos = e.optString("partOfSpeech").lowercase()
@@ -211,11 +211,11 @@ object Dictionary {
                         val d = defs.getJSONObject(j)
                         val text = htmlToText(d.optString("definition"))
                         if (text.isBlank()) continue
-                        if (example == null) {
+                        if (examples.size < 3) {
                             val parsed = d.optJSONArray("parsedExamples")?.optJSONObject(0)?.optString("example")
                             val plain = d.optJSONArray("examples")?.optString(0)
                             val raw = parsed?.takeIf { it.isNotBlank() } ?: plain
-                            if (!raw.isNullOrBlank()) example = htmlToText(raw)
+                            if (!raw.isNullOrBlank()) examples += htmlToText(raw)
                         }
                         if (definitions.size < 2) {
                             definitions += if (pos.isNotBlank()) "($pos) $text" else text
@@ -223,7 +223,7 @@ object Dictionary {
                         break // solo la primera definición de cada categoría gramatical
                     }
                 }
-                if (definitions.isNotEmpty()) return Entry(definitions, example, "Wiktionary")
+                if (definitions.isNotEmpty()) return Entry(definitions, examples.joinToString("\n").ifEmpty { null }, "Wiktionary")
             } catch (e: Exception) {
                 // pasa a la siguiente variante
             }
@@ -257,6 +257,66 @@ object Dictionary {
                 out += if (pos.isNotBlank()) "($pos) $text" else text
             }
             if (out.isEmpty()) null else Entry(out, null, "WordNet")
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Busca el primer texto en español dentro de la respuesta de Tatoeba (que anida listas y objetos). */
+    private fun findSpanish(node: Any?): String? = when (node) {
+        is JSONObject ->
+            if (node.optString("lang") == "spa" && node.optString("text").isNotBlank()) node.optString("text").trim()
+            else node.keys().asSequence().firstNotNullOfOrNull { findSpanish(node.opt(it)) }
+        is JSONArray -> (0 until node.length()).firstNotNullOfOrNull { findSpanish(node.opt(it)) }
+        else -> null
+    }
+
+    /**
+     * Oraciones reales de ejemplo (Tatoeba, gratis y sin cuenta), con su traducción al español si la tienen.
+     * Cada línea sale como "inglés⇒español".
+     */
+    private suspend fun fromTatoeba(term: String): List<String> {
+        val q = URLEncoder.encode(term.trim(), "UTF-8")
+        val body = Http.get(
+            "https://tatoeba.org/en/api_v0/search?from=eng&query=$q&orphans=no&unapproved=no" +
+                "&sort=relevance&trans_filter=limit&trans_to=spa"
+        ) ?: return emptyList()
+        return try {
+            val results = JSONObject(body).optJSONArray("results") ?: return emptyList()
+            val out = mutableListOf<String>()
+            for (i in 0 until results.length()) {
+                val r = results.getJSONObject(i)
+                val text = r.optString("text").trim()
+                if (text.length !in 15..120 || !text.contains(term.trim(), ignoreCase = true)) continue
+                val spanish = findSpanish(r.opt("translations"))
+                out += if (spanish != null) "$text⇒$spanish" else text
+                if (out.size >= 3) break
+            }
+            out
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Qué tan común es la palabra (veces por millón de palabras), con Datamuse.
+     * Devuelve null si no hubo internet (para reintentar luego) y 0.0 si la palabra no aparece en sus datos.
+     */
+    suspend fun frequency(word: String): Double? {
+        val w = word.lowercase().trim { !it.isLetter() }
+        if (w.isEmpty() || w.contains(' ')) return null
+        val body = Http.get(
+            "https://api.datamuse.com/words?sp=" + URLEncoder.encode(w, "UTF-8") + "&md=f&max=1"
+        ) ?: return null
+        return try {
+            val first = JSONArray(body).optJSONObject(0)
+            if (first == null || !first.optString("word").equals(w, ignoreCase = true)) {
+                0.0
+            } else {
+                val tags = first.optJSONArray("tags")
+                val list = (0 until (tags?.length() ?: 0)).map { tags!!.optString(it) }
+                Utility.parseFreqTag(list) ?: 0.0
+            }
         } catch (e: Exception) {
             null
         }
@@ -351,7 +411,15 @@ object Dictionary {
                 .takeIf { list -> list.any { it != null } }
                 ?.joinToString("\n") { it ?: "" }
             val english = entry.definitions.joinToString("\n") + "\n(fuente: ${entry.source})"
-            return Defined(english, spanish, entry.example)
+            // Si el diccionario trajo pocos ejemplos, se completan con oraciones reales de Tatoeba.
+            val examples = entry.example?.split("\n")?.filter { it.isNotBlank() }.orEmpty().toMutableList()
+            if (examples.size < 3 && clean.length <= 40) {
+                for (extra in fromTatoeba(clean)) {
+                    if (examples.size >= 4) break
+                    if (examples.none { it.equals(extra, ignoreCase = true) }) examples += extra
+                }
+            }
+            return Defined(english, spanish, examples.joinToString("\n").ifEmpty { null })
         }
 
         // 2) Frase larga: definimos sus palabras clave una por una.
@@ -412,6 +480,7 @@ object WordRepo {
 
         val translation = Translator.toSpanish(clean)
         val defined = Dictionary.define(clean)
+        val freq = Dictionary.frequency(clean)
 
         // Se vuelve a leer por si la palabra cambió mientras esperábamos la red.
         val fresh = dao.findById(id) ?: return false
@@ -421,9 +490,21 @@ object WordRepo {
                 definition = defined?.english ?: fresh.definition,
                 definitionEs = defined?.spanish ?: fresh.definitionEs,
                 example = defined?.example ?: fresh.example,
+                freq = freq ?: fresh.freq,
                 lookupDone = translation != null || fresh.lookupDone
             )
         )
         return translation != null
+    }
+
+    /** Mide la frecuencia de las palabras guardadas antes de esta versión (o sin internet en su momento). */
+    suspend fun fillFrequencies(context: Context) {
+        val dao = AppDatabase.get(context).words()
+        for (w in dao.needFreq()) {
+            val f = Dictionary.frequency(w.text) ?: continue
+            val fresh = dao.findById(w.id) ?: continue
+            dao.update(fresh.copy(freq = f))
+            delay(250)
+        }
     }
 }

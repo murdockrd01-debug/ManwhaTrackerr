@@ -5,6 +5,10 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -50,11 +54,16 @@ import com.manhwatracker.app.data.Manhwa
 import com.manhwatracker.app.data.Prefs
 import com.manhwatracker.app.data.titleKeyOf
 import com.manhwatracker.app.data.Status
+import com.manhwatracker.app.data.Utility
 import com.manhwatracker.app.data.Word
 
 private const val F_ALL = "ALL"
 private const val F_REVIEW = "REVIEW"
 private const val F_LEARNED = "LEARNED"
+
+private const val S_RECENT = "RECENT"
+private const val S_USEFUL = "USEFUL"
+private const val S_AZ = "AZ"
 
 @Composable
 fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
@@ -64,6 +73,7 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
 
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(F_ALL) }
+    var sort by rememberSaveable { mutableStateOf(S_RECENT) }
     var quickBar by remember { mutableStateOf(Prefs.quickBar(context)) }
 
     // Completa las palabras que se guardaron sin internet.
@@ -91,7 +101,18 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
         val okQuery = q.isEmpty() ||
             listOfNotNull(w.text, w.translation, w.manhwaTitle).any { it.contains(q, ignoreCase = true) }
         okFilter && okQuery
+    }.let { list ->
+        when (sort) {
+            S_USEFUL -> list.sortedWith(Utility.byUsefulness)
+            S_AZ -> list.sortedBy { it.text.lowercase() }
+            else -> list
+        }
     }
+
+    // Las 3 más útiles que todavía no aprendes: buen punto de partida.
+    val suggested = all.filter {
+        !it.learned && Utility.tier(it.freq, it.text).let { t -> t == Utility.Tier.VERY_USEFUL || t == Utility.Tier.USEFUL }
+    }.sortedWith(Utility.byUsefulness).take(3)
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -118,6 +139,30 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
                         )
                     }
                     Button(onClick = onReview, enabled = all.any { !it.learned }) { Text("Repasar") }
+                }
+            }
+        }
+
+        if (suggested.isNotEmpty()) {
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Empieza por estas", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "Son las que más te van a servir según qué tan común es cada una en inglés.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        suggested.forEach { w ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    w.text + (w.translation?.let { " — $it" } ?: ""),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TierBadge(Utility.tier(w.freq, w.text))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -195,6 +240,19 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
             }
         }
 
+        item {
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Orden:", style = MaterialTheme.typography.labelLarge)
+                FilterChip(selected = sort == S_RECENT, onClick = { sort = S_RECENT }, label = { Text("Recientes") })
+                FilterChip(selected = sort == S_USEFUL, onClick = { sort = S_USEFUL }, label = { Text("Más útiles primero") })
+                FilterChip(selected = sort == S_AZ, onClick = { sort = S_AZ }, label = { Text("A–Z") })
+            }
+        }
+
         if (shown.isEmpty()) {
             item {
                 Text(
@@ -226,6 +284,23 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
     }
 }
 
+/** Etiqueta de color con el nivel de utilidad de la palabra. */
+@Composable
+fun TierBadge(tier: Utility.Tier) {
+    if (tier == Utility.Tier.UNKNOWN) return
+    val color = tierColor(tier)
+    Text(
+        tier.label,
+        style = MaterialTheme.typography.labelSmall,
+        color = color,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(color.copy(alpha = 0.16f))
+            .padding(horizontal = 8.dp, vertical = 3.dp)
+    )
+}
+
 @Composable
 fun WordCard(
     w: Word,
@@ -237,16 +312,18 @@ fun WordCard(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    val tier = Utility.tier(w.freq, w.text)
 
     Card(Modifier.fillMaxWidth().clickable { expanded = !expanded }) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(w.text, style = MaterialTheme.typography.titleMedium)
                     Text(
                         w.translation
                             ?: if (!w.lookupDone) "Traducción pendiente (se busca cuando haya internet)" else "—",
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 IconButton(onClick = { if (!speaker.speak(w.text)) onUnavailable() }) {
@@ -255,24 +332,58 @@ fun WordCard(
                 Checkbox(checked = w.learned, onCheckedChange = { onLearned() })
             }
 
-            val tag = listOfNotNull(w.manhwaTitle, w.chapter?.let { "cap. $it" }).joinToString(" · ")
-            if (tag.isNotBlank()) {
-                Text(tag, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TierBadge(tier)
+                val tag = listOfNotNull(w.manhwaTitle, w.chapter?.let { "cap. $it" }).joinToString(" · ")
+                if (tag.isNotBlank()) {
+                    Text(tag, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                }
             }
 
             if (expanded) {
+                Text(tier.hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+
+                // Tu propia línea de diálogo: suele ser el mejor ejemplo para recordarla.
+                w.note?.let {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
+                            .padding(10.dp)
+                    ) {
+                        Text("En tu manhwa", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(it, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic)
+                    }
+                }
+
                 w.definition?.let {
-                    Text("English", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text("Significado (English)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     Text(it, style = MaterialTheme.typography.bodyMedium)
                 }
                 w.definitionEs?.let {
-                    Text("Español", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text("Significado (Español)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     Text(it, style = MaterialTheme.typography.bodyMedium)
                 }
-                w.example?.let {
-                    Text("Ej: $it", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic)
+
+                val examples = w.example?.split("\n")?.filter { it.isNotBlank() }.orEmpty()
+                if (examples.isNotEmpty()) {
+                    Text("Ejemplos", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    examples.forEach { line ->
+                        val (en, es) = Utility.splitExample(line)
+                        Column(Modifier.padding(bottom = 2.dp)) {
+                            Text("• $en", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic)
+                            es?.let {
+                                Text(
+                                    "   $it",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 }
-                w.note?.let { Text("Nota: $it", style = MaterialTheme.typography.bodyMedium) }
+
                 if (w.definition == null && w.definitionEs == null && w.example == null && w.note == null) {
                     Text(
                         "No encontré una definición para esto. Toca “Buscar de nuevo” cuando tengas internet.",

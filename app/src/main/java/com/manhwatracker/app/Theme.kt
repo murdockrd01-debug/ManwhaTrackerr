@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.manhwatracker.app.data.Status
+import com.manhwatracker.app.data.Utility
 
 private val DarkColors = darkColorScheme(
     primary = Color(0xFFB9A4FF),
@@ -96,4 +97,14 @@ fun ratingColor(rating: Int): Color = when {
     rating >= 7 -> Color(0xFF4CC38A)
     rating >= 5 -> Color(0xFF9A96B0)
     else -> Color(0xFFE5736A)
+}
+
+/** Color de cada nivel de utilidad de una palabra. */
+fun tierColor(t: Utility.Tier): Color = when (t) {
+    Utility.Tier.VERY_USEFUL -> Color(0xFF4CC38A)
+    Utility.Tier.USEFUL -> Color(0xFF6C8CFF)
+    Utility.Tier.UNCOMMON -> Color(0xFFF0A93B)
+    Utility.Tier.RARE -> Color(0xFFE5736A)
+    Utility.Tier.PHRASE -> Color(0xFFB9A4FF)
+    else -> Color(0xFF9A96B0)
 }

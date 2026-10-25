@@ -55,6 +55,10 @@ interface WordDao {
     @Query("SELECT * FROM word WHERE lookupDone = 0")
     suspend fun pending(): List<Word>
 
+    /** Palabras sueltas a las que todavía no se les midió la frecuencia. */
+    @Query("SELECT * FROM word WHERE freq < 0 AND instr(text, ' ') = 0")
+    suspend fun needFreq(): List<Word>
+
     @Query("SELECT * FROM word")
     suspend fun all(): List<Word>
 
@@ -134,6 +138,13 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+/** Versión 6: guarda qué tan común es cada palabra, para ordenar por utilidad. No cambia nada de lo que ya tienes. */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `word` ADD COLUMN `freq` REAL NOT NULL DEFAULT -1")
+    }
+}
+
 // Clase abstracta (no interfaz) porque tiene un método con cuerpo, y Room lo admite así sin ajustes.
 @Dao
 abstract class ActivityDao {
@@ -159,7 +170,7 @@ abstract class ActivityDao {
     }
 }
 
-@Database(entities = [Manhwa::class, Word::class, Activity::class], version = 5, exportSchema = false)
+@Database(entities = [Manhwa::class, Word::class, Activity::class], version = 6, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dao(): ManhwaDao
     abstract fun words(): WordDao
@@ -175,7 +186,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "manhwa.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { instance = it }
             }
     }
 }

@@ -452,13 +452,17 @@ private fun WordDetails(w: Word) {
         Text("Español", style = MaterialTheme.typography.labelMedium)
         Text(it, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
     }
-    w.example?.let {
+    w.example?.split("\n")?.filter { it.isNotBlank() }?.take(2)?.forEach { line ->
+        val (en, es) = com.manhwatracker.app.data.Utility.splitExample(line)
         Text(
-            "Ej: $it",
+            "Ej: $en",
             style = MaterialTheme.typography.bodyMedium,
             fontStyle = FontStyle.Italic,
             textAlign = TextAlign.Center
         )
+        es?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+        }
     }
     w.note?.let {
         Text("Nota: $it", style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
