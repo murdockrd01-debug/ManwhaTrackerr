@@ -22,6 +22,14 @@ object Prefs {
         p(c).edit().putString("last_manhwa", manhwa).putString("last_chapter", chapter).apply()
     }
 
+    // ---- Apariencia
+    fun palette(c: Context): String = p(c).getString("palette", "VIOLET") ?: "VIOLET"
+    fun themeMode(c: Context): String = p(c).getString("theme_mode", "SYSTEM") ?: "SYSTEM"
+    fun amoled(c: Context): Boolean = p(c).getBoolean("amoled", false)
+    fun setLook(c: Context, palette: String, mode: String, amoled: Boolean) {
+        p(c).edit().putString("palette", palette).putString("theme_mode", mode).putBoolean("amoled", amoled).apply()
+    }
+
     fun sort(c: Context): String = p(c).getString("sort", "RECENT") ?: "RECENT"
     fun setSort(c: Context, value: String) {
         p(c).edit().putString("sort", value).apply()

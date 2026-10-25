@@ -1,6 +1,19 @@
 package com.manhwatracker.app
 
+import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
+import com.manhwatracker.app.data.Prefs
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -14,73 +27,139 @@ import androidx.compose.ui.unit.dp
 import com.manhwatracker.app.data.Status
 import com.manhwatracker.app.data.Utility
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFFB9A4FF),
-    onPrimary = Color(0xFF2B1B66),
-    primaryContainer = Color(0xFF423384),
-    onPrimaryContainer = Color(0xFFE6DEFF),
-    secondary = Color(0xFFCBC2E8),
-    onSecondary = Color(0xFF332D4D),
-    secondaryContainer = Color(0xFF3F3858),
-    onSecondaryContainer = Color(0xFFE8DFFF),
-    tertiary = Color(0xFFFFC857),
-    background = Color(0xFF0F0E17),
-    onBackground = Color(0xFFE8E4F2),
-    surface = Color(0xFF0F0E17),
-    onSurface = Color(0xFFE8E4F2),
-    surfaceVariant = Color(0xFF2A2740),
-    onSurfaceVariant = Color(0xFFC8C3DA),
-    surfaceContainer = Color(0xFF181624),
-    surfaceContainerHigh = Color(0xFF1F1C2E),
-    surfaceContainerHighest = Color(0xFF221F33),
-    outline = Color(0xFF8F8AA6),
-    outlineVariant = Color(0xFF3A3652)
-)
+/** Una paleta: un color principal (matiz en grados) y uno de acento. [sat] baja la saturación para la paleta gris. */
+class Palette(val id: String, val label: String, val hue: Float, val accentHue: Float, val sat: Float = 1f)
 
-private val LightColors = lightColorScheme(
-    primary = Color(0xFF6B4EFF),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFE6DEFF),
-    onPrimaryContainer = Color(0xFF22005D),
-    secondary = Color(0xFF5E5875),
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE6DEFA),
-    onSecondaryContainer = Color(0xFF1B1730),
-    tertiary = Color(0xFFB77900),
-    background = Color(0xFFFAF8FF),
-    onBackground = Color(0xFF1B1A22),
-    surface = Color(0xFFFAF8FF),
-    onSurface = Color(0xFF1B1A22),
-    surfaceVariant = Color(0xFFE7E2F3),
-    onSurfaceVariant = Color(0xFF48455A),
-    surfaceContainer = Color(0xFFF1EDFB),
-    surfaceContainerHigh = Color(0xFFEBE6F7),
-    surfaceContainerHighest = Color(0xFFFFFFFF),
-    outline = Color(0xFF7A7690),
-    outlineVariant = Color(0xFFCBC6DC)
-)
+object Palettes {
+    const val DYNAMIC = "DYNAMIC"
+
+    val all = listOf(
+        Palette("VIOLET", "Violeta", 258f, 330f),
+        Palette("OCEAN", "Océano", 203f, 165f),
+        Palette("EMERALD", "Esmeralda", 152f, 52f),
+        Palette("SUNSET", "Atardecer", 16f, 335f),
+        Palette("ROSE", "Rosa", 334f, 262f),
+        Palette("GOLD", "Dorado", 42f, 12f),
+        Palette("GRAPHITE", "Grafito", 230f, 200f, 0.12f)
+    )
+
+    fun find(id: String): Palette = all.firstOrNull { it.id == id } ?: all.first()
+}
+
+/** Estado del tema: cambia al instante cuando eliges otra paleta en Apariencia. */
+object ThemeState {
+    var palette by mutableStateOf("VIOLET")
+    var mode by mutableStateOf("SYSTEM") // SYSTEM, LIGHT, DARK
+    var amoled by mutableStateOf(false)
+
+    fun load(context: Context) {
+        palette = Prefs.palette(context)
+        mode = Prefs.themeMode(context)
+        amoled = Prefs.amoled(context)
+    }
+
+    fun save(context: Context) = Prefs.setLook(context, palette, mode, amoled)
+}
+
+private fun hsv(h: Float, s: Float, v: Float, k: Float) = Color.hsv(h.mod(360f), (s * k).coerceIn(0f, 1f), v.coerceIn(0f, 1f))
+
+private fun darkScheme(p: Palette, amoled: Boolean): ColorScheme {
+    val h = p.hue
+    val k = p.sat
+    val bg = if (amoled) Color.Black else hsv(h, 0.45f, 0.075f, k)
+    return darkColorScheme(
+        primary = hsv(h, 0.38f, 1.0f, k),
+        onPrimary = hsv(h, 0.9f, 0.25f, k),
+        primaryContainer = hsv(h, 0.65f, 0.52f, k),
+        onPrimaryContainer = hsv(h, 0.12f, 1.0f, k),
+        secondary = hsv(h, 0.22f, 0.88f, k),
+        onSecondary = hsv(h, 0.6f, 0.2f, k),
+        secondaryContainer = hsv(h, 0.4f, 0.32f, k),
+        onSecondaryContainer = hsv(h, 0.1f, 0.95f, k),
+        tertiary = hsv(p.accentHue, 0.55f, 1.0f, k),
+        onTertiary = hsv(p.accentHue, 0.9f, 0.25f, k),
+        background = bg,
+        onBackground = hsv(h, 0.05f, 0.93f, k),
+        surface = bg,
+        onSurface = hsv(h, 0.05f, 0.93f, k),
+        surfaceVariant = hsv(h, 0.35f, 0.23f, k),
+        onSurfaceVariant = hsv(h, 0.10f, 0.85f, k),
+        surfaceContainer = if (amoled) hsv(h, 0.4f, 0.07f, k) else hsv(h, 0.40f, 0.12f, k),
+        surfaceContainerHigh = if (amoled) hsv(h, 0.4f, 0.10f, k) else hsv(h, 0.40f, 0.155f, k),
+        surfaceContainerHighest = if (amoled) hsv(h, 0.4f, 0.13f, k) else hsv(h, 0.38f, 0.19f, k),
+        outline = hsv(h, 0.15f, 0.62f, k),
+        outlineVariant = hsv(h, 0.30f, 0.30f, k)
+    )
+}
+
+private fun lightScheme(p: Palette): ColorScheme {
+    val h = p.hue
+    val k = p.sat
+    return lightColorScheme(
+        primary = hsv(h, 0.70f, 0.80f, k),
+        onPrimary = Color.White,
+        primaryContainer = hsv(h, 0.14f, 1.0f, k),
+        onPrimaryContainer = hsv(h, 0.9f, 0.30f, k),
+        secondary = hsv(h, 0.35f, 0.45f, k),
+        onSecondary = Color.White,
+        secondaryContainer = hsv(h, 0.12f, 0.97f, k),
+        onSecondaryContainer = hsv(h, 0.6f, 0.22f, k),
+        tertiary = hsv(p.accentHue, 0.85f, 0.80f, k),
+        onTertiary = Color.White,
+        background = hsv(h, 0.03f, 0.99f, k),
+        onBackground = hsv(h, 0.3f, 0.12f, k),
+        surface = hsv(h, 0.03f, 0.99f, k),
+        onSurface = hsv(h, 0.3f, 0.12f, k),
+        surfaceVariant = hsv(h, 0.10f, 0.92f, k),
+        onSurfaceVariant = hsv(h, 0.25f, 0.35f, k),
+        surfaceContainer = hsv(h, 0.06f, 0.96f, k),
+        surfaceContainerHigh = hsv(h, 0.08f, 0.94f, k),
+        surfaceContainerHighest = Color.White,
+        outline = hsv(h, 0.2f, 0.5f, k),
+        outlineVariant = hsv(h, 0.12f, 0.82f, k)
+    )
+}
 
 private val AppShapes = Shapes(
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(24.dp)
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(20.dp),
+    large = RoundedCornerShape(28.dp)
 )
 
 private val base = Typography()
 private val AppTypography = base.copy(
+    headlineSmall = base.headlineSmall.copy(fontWeight = FontWeight.Bold),
     titleLarge = base.titleLarge.copy(fontWeight = FontWeight.Bold),
     titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-    titleSmall = base.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+    titleSmall = base.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+    labelLarge = base.labelLarge.copy(fontWeight = FontWeight.SemiBold)
 )
 
 @Composable
 fun ManhwaTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
-        shapes = AppShapes,
-        typography = AppTypography,
-        content = content
-    )
+    val context = LocalContext.current
+    val dark = when (ThemeState.mode) {
+        "LIGHT" -> false
+        "DARK" -> true
+        else -> isSystemInDarkTheme()
+    }
+    val scheme = if (ThemeState.palette == Palettes.DYNAMIC && Build.VERSION.SDK_INT >= 31) {
+        if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else {
+        val p = Palettes.find(ThemeState.palette)
+        if (dark) darkScheme(p, ThemeState.amoled) else lightScheme(p)
+    }
+    MaterialTheme(colorScheme = scheme, shapes = AppShapes, typography = AppTypography, content = content)
+}
+
+/** Degradado de la marca (principal → acento). Pensado para llevar texto blanco encima. */
+@Composable
+fun brandBrush(): Brush {
+    val c = MaterialTheme.colorScheme
+    val dark = c.background.luminance() < 0.5f
+    val start = if (dark) c.primaryContainer else c.primary
+    val end = lerp(start, c.tertiary, if (dark) 0.35f else 0.6f)
+    return Brush.linearGradient(listOf(start, end))
 }
 
 /** Color de cada estado (se usa en etiquetas y franjas de las tarjetas). */

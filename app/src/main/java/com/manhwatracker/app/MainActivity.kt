@@ -79,6 +79,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.manhwatracker.app.data.Manhwa
@@ -106,6 +107,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Si la barra rápida está activada, la volvemos a mostrar (por si se cerró o se reinició el teléfono).
         if (com.manhwatracker.app.data.Prefs.quickBar(this)) QuickAdd.show(this)
+        ThemeState.load(this)
         setContent {
             ManhwaTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -184,6 +186,20 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
         Row(
             Modifier
                 .fillMaxWidth()
+                .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 4.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(brandBrush())
+                .padding(vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            HeroStat("${all.count { it.status == Status.READING }}", "Leyendo")
+            HeroStat("${all.count { it.status == Status.COMPLETED }}", "Terminados")
+            HeroStat("${all.count { it.status == Status.PLAN }}", "Pendientes")
+            HeroStat("${all.size}", "Total")
+        }
+        Row(
+            Modifier
+                .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -253,7 +269,7 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
                 Text(
                     when {
                         all.isEmpty() ->
-                            "Aún no tienes nada.\n\nToca “Importar backup” y elige el archivo .tachibk de Komikku, o usa el botón + para agregar uno a mano."
+                            "Aún no tienes nada.\n\nVe a Más → Importar copia de Komikku y elige el archivo .tachibk, o usa el botón + para agregar uno a mano."
                         query.isNotBlank() -> "Nada coincide con “${query.trim()}”."
                         else -> "No hay manhwas en esta categoría."
                     }
@@ -300,6 +316,14 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
 }
 
 @Composable
+private fun HeroStat(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.85f))
+    }
+}
+
+@Composable
 fun ManhwaCard(
     m: Manhwa,
     onClick: () -> Unit,
@@ -310,7 +334,10 @@ fun ManhwaCard(
         if (m.coverUrl.isNullOrBlank()) onCoverMissing()
     }
 
-    Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    Card(
+        Modifier.fillMaxWidth().clickable(onClick = onClick),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Cover(m, onCoverMissing, Modifier.width(64.dp).height(92.dp))
             Spacer(Modifier.width(14.dp))
@@ -363,7 +390,7 @@ fun ManhwaCard(
     }
 }
 
-/** Tarjeta de la vista en cuadrícula: portada grande, título y capítulo. */
+/** Tarjeta de la vista en cuadrícula: portada grande con el título encima y el progreso abajo. */
 @Composable
 fun ManhwaGridCard(
     m: Manhwa,
@@ -376,50 +403,63 @@ fun ManhwaGridCard(
     }
 
     Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        Column {
-            Box {
-                Cover(m, onCoverMissing, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
-                if (m.rating > 0) {
-                    Text(
-                        "★ ${m.rating}",
-                        color = ratingColor(m.rating),
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(6.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(Color(0xCC000000))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
+        Box {
+            Cover(m, onCoverMissing, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+
+            // Degradado oscuro para que el texto se lea sobre cualquier portada.
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            0.45f to Color.Transparent,
+                            1f to Color(0xE6000000)
+                        )
                     )
-                }
-                Box(
-                    Modifier
-                        .align(Alignment.TopStart)
-                        .padding(8.dp)
-                        .size(10.dp)
+            )
+
+            if (m.rating > 0) {
+                Text(
+                    "★ ${m.rating}",
+                    color = ratingColor(m.rating),
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(statusColor(m.status))
+                        .background(Color(0xCC000000))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
                 )
             }
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp)
+                    .size(10.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(statusColor(m.status))
+            )
+
             Row(
-                Modifier.padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = 8.dp, end = 4.dp),
+                verticalAlignment = Alignment.Bottom
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         m.title,
                         style = MaterialTheme.typography.titleSmall,
-                        minLines = 2,
+                        color = Color.White,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        "Cap. ${fmt(m.lastChapter)}",
-                        style = MaterialTheme.typography.bodySmall
+                        "Cap. ${fmt(m.lastChapter)}" + if (m.totalChapters > 0) " / ${m.totalChapters}" else "",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.85f)
                     )
                 }
-                IconButton(onClick = onPlusOne, modifier = Modifier.size(40.dp)) {
+                FilledTonalIconButton(onClick = onPlusOne, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.Filled.Add, contentDescription = "Leí un capítulo más")
                 }
             }
