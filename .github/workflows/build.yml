@@ -3,9 +3,14 @@ name: Compilar APK
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
 
@@ -18,6 +23,22 @@ jobs:
         with:
           gradle-version: "8.9"
 
+      # La llave de firma vive en los secretos del repositorio (Settings > Secrets and variables > Actions).
+      - name: Preparar la llave de firma
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/manhwa.keystore"
+            echo "KEYSTORE_PATH=$RUNNER_TEMP/manhwa.keystore" >> "$GITHUB_ENV"
+            echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+            echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> "$GITHUB_ENV"
+            echo "Firmando con la llave de los secretos"
+          else
+            echo "No hay secretos de firma: se usa la llave del repositorio"
+          fi
+
       - name: Compilar
         run: gradle assembleDebug --no-daemon
 
@@ -26,3 +47,16 @@ jobs:
         with:
           name: ManhwaTracker-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      # Publica el APK como release: siempre queda uno con enlace fijo a la última versión.
+      - name: Publicar release
+        run: |
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          cp app/build/outputs/apk/debug/app-debug.apk ManhwaTracker.apk
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            gh release upload "v$VERSION" ManhwaTracker.apk --clobber
+          else
+            gh release create "v$VERSION" ManhwaTracker.apk --title "Versión $VERSION" \
+              --notes "APK de Manhwa Tracker versión $VERSION. Se instala encima de la anterior." \
+              --target "$GITHUB_SHA" --latest
+          fi

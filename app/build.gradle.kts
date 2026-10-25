@@ -21,10 +21,11 @@ android {
     // Clave fija: así cada APK nuevo se instala encima del anterior sin desinstalar.
     signingConfigs {
         create("shared") {
-            storeFile = file("manhwa.keystore")
-            storePassword = "android"
-            keyAlias = "manhwa"
-            keyPassword = "android"
+            // En GitHub la llave llega por secretos (variables de entorno). Sin ellas se usa el archivo del repositorio.
+            storeFile = file(System.getenv("KEYSTORE_PATH") ?: "manhwa.keystore")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "android"
+            keyAlias = System.getenv("KEY_ALIAS") ?: "manhwa"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: "android"
         }
     }
 
