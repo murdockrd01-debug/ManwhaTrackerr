@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.ViewModelProvider
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -42,6 +43,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -70,6 +72,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -103,9 +107,7 @@ class MainActivity : ComponentActivity() {
         // Si la barra rápida está activada, la volvemos a mostrar (por si se cerró o se reinició el teléfono).
         if (com.manhwatracker.app.data.Prefs.quickBar(this)) QuickAdd.show(this)
         setContent {
-            MaterialTheme(
-                colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
-            ) {
+            ManhwaTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     App()
                 }
@@ -309,9 +311,9 @@ fun ManhwaCard(
     }
 
     Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Cover(m, onCoverMissing, Modifier.width(56.dp).height(80.dp))
-            Spacer(Modifier.width(12.dp))
+        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Cover(m, onCoverMissing, Modifier.width(64.dp).height(92.dp))
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     m.title,
@@ -319,23 +321,42 @@ fun ManhwaCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(8.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(statusColor(m.status))
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(Status.label(m.status), style = MaterialTheme.typography.labelMedium)
+                    if (m.rating > 0) {
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            "★ ${m.rating}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = ratingColor(m.rating)
+                        )
+                    }
+                }
                 val progress = if (m.totalChapters > 0)
-                    "Cap. ${fmt(m.lastChapter)} / ${m.totalChapters}"
+                    "Cap. ${fmt(m.lastChapter)} de ${m.totalChapters}"
                 else
                     "Cap. ${fmt(m.lastChapter)}"
-                Text(
-                    "$progress · ${Status.label(m.status)}" + if (m.rating > 0) " · ★ ${m.rating}" else "",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text(progress, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (m.totalChapters > 0) {
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(8.dp))
                     LinearProgressIndicator(
                         progress = { (m.lastChapter / m.totalChapters).toFloat().coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)),
+                        color = statusColor(m.status),
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
             }
-            IconButton(onClick = onPlusOne) {
+            FilledTonalIconButton(onClick = onPlusOne) {
                 Icon(Icons.Filled.Add, contentDescription = "Leí un capítulo más")
             }
         }
@@ -356,7 +377,31 @@ fun ManhwaGridCard(
 
     Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column {
-            Cover(m, onCoverMissing, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+            Box {
+                Cover(m, onCoverMissing, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+                if (m.rating > 0) {
+                    Text(
+                        "★ ${m.rating}",
+                        color = ratingColor(m.rating),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color(0xCC000000))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+                Box(
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                        .size(10.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(statusColor(m.status))
+                )
+            }
             Row(
                 Modifier.padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -370,7 +415,7 @@ fun ManhwaGridCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        "Cap. ${fmt(m.lastChapter)}" + if (m.rating > 0) " · ★ ${m.rating}" else "",
+                        "Cap. ${fmt(m.lastChapter)}",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -386,7 +431,7 @@ fun ManhwaGridCard(
 fun Cover(m: Manhwa, onError: () -> Unit, modifier: Modifier) {
     Box(
         modifier
-            .clip(RoundedCornerShape(6.dp))
+            .clip(RoundedCornerShape(12.dp))
             .then(Modifier),
         contentAlignment = Alignment.Center
     ) {
@@ -508,30 +553,38 @@ fun DetailScreen(
             }
         }
 
-        Text(
-            if (rating > 0) "Mi nota: $rating / 10" else "Mi nota",
-            style = MaterialTheme.typography.labelLarge
-        )
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            (1..10).forEach { n ->
-                FilterChip(
-                    selected = rating == n,
-                    // Tocar la nota elegida otra vez la quita.
-                    onClick = { rating = if (rating == n) 0 else n },
-                    label = { Text("$n") }
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Mi calificación", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Text(
+                        if (rating > 0) "★ $rating / 10" else "Sin calificar",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (rating > 0) ratingColor(rating) else MaterialTheme.colorScheme.outline
+                    )
+                }
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    (1..10).forEach { n ->
+                        FilterChip(
+                            selected = rating == n,
+                            // Tocar la nota elegida otra vez la quita.
+                            onClick = { rating = if (rating == n) 0 else n },
+                            label = { Text("$n") }
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = review,
+                    onValueChange = { review = it },
+                    label = { Text("Mi comentario (opcional)") },
+                    minLines = 3,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
-        OutlinedTextField(
-            value = review,
-            onValueChange = { review = it },
-            label = { Text("Mi comentario (opcional)") },
-            minLines = 3,
-            modifier = Modifier.fillMaxWidth()
-        )
 
         HorizontalDivider()
         Text(

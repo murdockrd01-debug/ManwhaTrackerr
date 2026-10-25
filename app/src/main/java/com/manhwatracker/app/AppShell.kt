@@ -51,6 +51,7 @@ private const val SECTION_MANHWA = "MANHWA"
 private const val SECTION_STUDY = "STUDY"
 private const val SECTION_REVIEW = "REVIEW"
 private const val SECTION_STATS = "STATS"
+private const val SECTION_RATINGS = "RATINGS"
 private const val SECTION_SYNC = "SYNC"
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -132,6 +133,7 @@ fun App(vm: MainViewModel = viewModel()) {
     // El último BackHandler habilitado es el que manda.
     BackHandler(enabled = currentId == null && section == SECTION_STUDY) { section = SECTION_MANHWA }
     BackHandler(enabled = currentId == null && section == SECTION_STATS) { section = SECTION_MANHWA }
+    BackHandler(enabled = currentId == null && section == SECTION_RATINGS) { section = SECTION_MANHWA }
     BackHandler(enabled = currentId == null && section == SECTION_SYNC) { section = SECTION_MANHWA }
     BackHandler(enabled = currentId == null && section == SECTION_REVIEW) { leaveReview() }
     BackHandler(enabled = currentId != null) { selectedId = null }
@@ -152,6 +154,15 @@ fun App(vm: MainViewModel = viewModel()) {
                     selected = section == SECTION_MANHWA,
                     onClick = {
                         section = SECTION_MANHWA
+                        scope.launch { drawerState.close() }
+                    },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                NavigationDrawerItem(
+                    label = { Text("Calificaciones") },
+                    selected = section == SECTION_RATINGS,
+                    onClick = {
+                        section = SECTION_RATINGS
                         scope.launch { drawerState.close() }
                     },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
@@ -206,6 +217,7 @@ fun App(vm: MainViewModel = viewModel()) {
                                 section == SECTION_STUDY -> "Estudio"
                                 section == SECTION_REVIEW -> "Repaso"
                                 section == SECTION_STATS -> "Estadísticas"
+                                section == SECTION_RATINGS -> "Calificaciones"
                                 section == SECTION_SYNC -> "Sincronización"
                                 else -> "Mis manhwas"
                             }
@@ -259,7 +271,7 @@ fun App(vm: MainViewModel = viewModel()) {
                 )
             },
             floatingActionButton = {
-                if (currentId == null && section != SECTION_REVIEW && section != SECTION_STATS && section != SECTION_SYNC) {
+                if (currentId == null && section != SECTION_REVIEW && section != SECTION_STATS && section != SECTION_SYNC && section != SECTION_RATINGS) {
                     FloatingActionButton(
                         onClick = {
                             if (section == SECTION_STUDY) showAddWord = true else showAddManhwa = true
@@ -291,6 +303,7 @@ fun App(vm: MainViewModel = viewModel()) {
                         onExit = { leaveReview() }
                     )
                     section == SECTION_STATS -> StatsScreen(vm)
+                    section == SECTION_RATINGS -> RatingsScreen(vm, onOpen = { selectedId = it })
                     section == SECTION_SYNC -> SyncScreen(vm)
                     section == SECTION_STUDY -> StudyScreen(vm, onReview = { openReview() })
                     else -> ListScreen(vm, onOpen = { selectedId = it })
