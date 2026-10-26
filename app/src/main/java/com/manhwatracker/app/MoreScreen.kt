@@ -99,15 +99,15 @@ fun AppearanceScreen() {
             listOf(Palettes.CUSTOM to "Personalizada") +
             (if (Build.VERSION.SDK_INT >= 31) listOf(Palettes.DYNAMIC to "Colores del teléfono") else emptyList())
 
-        options.chunked(2).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        options.chunked(5).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 row.forEach { (id, label) ->
-                    SwatchCard(id, label, Modifier.weight(1f)) {
+                    Swatch(id, label, Modifier.weight(1f)) {
                         ThemeState.palette = id
                         ThemeState.save(context)
                     }
                 }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
+                repeat(5 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
 
@@ -167,8 +167,9 @@ fun AppearanceScreen() {
     }
 }
 
+/** Un círculo de color con su nombre debajo; el elegido lleva un aro. */
 @Composable
-private fun SwatchCard(id: String, label: String, modifier: Modifier, onClick: () -> Unit) {
+private fun Swatch(id: String, label: String, modifier: Modifier, onClick: () -> Unit) {
     val selected = ThemeState.palette == id
     val colors: List<Color> = if (id == Palettes.DYNAMIC) {
         listOf(Color(0xFF8AB4F8), Color(0xFFF28B82), Color(0xFFFDD663))
@@ -176,34 +177,35 @@ private fun SwatchCard(id: String, label: String, modifier: Modifier, onClick: (
         val p = Palettes.resolve(id)
         listOf(
             Color.hsv(p.hue, 0.7f * p.sat, 0.85f),
-            Color.hsv((p.hue + p.accentHue) / 2f % 360f, 0.7f * p.sat, 0.9f),
             Color.hsv(p.accentHue, 0.8f * p.sat, 0.9f)
         )
     }
-    Card(
-        modifier.clickable(onClick = onClick),
-        border = BorderStroke(
-            if (selected) 2.dp else 1.dp,
-            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-        )
+    Column(
+        modifier.clickable(onClick = onClick).padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Brush.horizontalGradient(colors))
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                if (selected) {
-                    Box(
-                        Modifier.size(18.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center
-                    ) { Text("✓", color = MaterialTheme.colorScheme.onPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
-                }
-            }
+        Box(
+            Modifier
+                .size(50.dp)
+                .clip(CircleShape)
+                .border(
+                    if (selected) 3.dp else 1.dp,
+                    if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                    CircleShape
+                )
+                .padding(4.dp)
+                .clip(CircleShape)
+                .background(Brush.linearGradient(colors)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selected) Text("✓", color = Color.White, fontWeight = FontWeight.Bold)
         }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

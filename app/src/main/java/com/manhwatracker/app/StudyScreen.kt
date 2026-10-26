@@ -15,6 +15,15 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -123,99 +132,73 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
         !it.learned && Utility.tier(it.freq, it.text).let { t -> t == Utility.Tier.VERY_USEFUL || t == Utility.Tier.USEFUL }
     }.sortedWith(Utility.byUsefulness).take(3)
 
+    var menuOpen by remember { mutableStateOf(false) }
+
+    fun toggleQuickBar(checked: Boolean) {
+        if (checked) {
+            val needsPermission = Build.VERSION.SDK_INT >= 33 &&
+                ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            if (needsPermission) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                Prefs.setQuickBar(context, true)
+                quickBar = true
+                QuickAdd.show(context)
+            }
+        } else {
+            Prefs.setQuickBar(context, false)
+            quickBar = false
+            QuickAdd.hide(context)
+        }
+    }
+
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 88.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // Una sola tarjeta de arriba: repaso y, si hay, las palabras que más te conviene aprender.
         item {
             val now = System.currentTimeMillis()
             val due = all.count { !it.learned && it.dueAt <= now }
-            Card(Modifier.fillMaxWidth()) {
-                Row(
-                    Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Repaso con tarjetas", style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            when {
-                                due == 1 -> "Tienes 1 palabra para repasar."
-                                due > 1 -> "Tienes $due palabras para repasar."
-                                else -> "No tienes palabras pendientes por ahora."
-                            },
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    Button(onClick = onReview, enabled = all.any { !it.learned }) { Text("Repasar") }
-                }
-            }
-        }
-
-        if (suggested.isNotEmpty()) {
-            item {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Empieza por estas", style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            "Son las que más te van a servir según qué tan común es cada una en inglés.",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        suggested.forEach { w ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    w.text + (w.translation?.let { " — $it" } ?: ""),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                TierBadge(Utility.tier(w.freq, w.text))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            Card(Modifier.fillMaxWidth()) {
-                Row(
-                    Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Barra rápida en notificaciones", style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            "Guarda palabras sin salir de Komikku: baja la barra de notificaciones, toca “Guardar palabra”, escribe y envía. " +
-                                "También puedes seleccionar texto en otras apps y elegir “Guardar en vocabulario”.",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    Switch(
-                        checked = quickBar,
-                        onCheckedChange = { checked ->
-                            if (checked) {
-                                val needsPermission = Build.VERSION.SDK_INT >= 33 &&
-                                    ContextCompat.checkSelfPermission(
-                                        context, Manifest.permission.POST_NOTIFICATIONS
-                                    ) != PackageManager.PERMISSION_GRANTED
-                                if (needsPermission) {
-                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                } else {
-                                    Prefs.setQuickBar(context, true)
-                                    quickBar = true
-                                    QuickAdd.show(context)
-                                }
-                            } else {
-                                Prefs.setQuickBar(context, false)
-                                quickBar = false
-                                QuickAdd.hide(context)
-                            }
-                        }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(brandBrush())
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        when {
+                            due == 1 -> "1 palabra por repasar"
+                            due > 1 -> "$due palabras por repasar"
+                            else -> "Todo al día"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White
                     )
+                    if (suggested.isNotEmpty()) {
+                        Text(
+                            "Empieza por: " + suggested.joinToString(", ") { it.text },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.85f),
+                            maxLines = 1
+                        )
+                    }
                 }
+                Button(
+                    onClick = onReview,
+                    enabled = all.any { !it.learned },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF3B2A99))
+                ) { Text("Repasar") }
             }
         }
 
+        // Barra compacta: lupa, filtros y menú (orden y barra rápida).
         item {
             if (searching) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -236,48 +219,47 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
                     IconButton(onClick = { searching = true }) {
                         Icon(Icons.Filled.Search, contentDescription = "Buscar")
                     }
-                    Text(
-                        "Toca la lupa para buscar",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(selected = filter == F_ALL, onClick = { filter = F_ALL }, label = { Text("Todas (${all.size})") })
+                        FilterChip(
+                            selected = filter == F_REVIEW,
+                            onClick = { filter = if (filter == F_REVIEW) F_ALL else F_REVIEW },
+                            label = { Text("Por repasar (${all.count { !it.learned }})") }
+                        )
+                        FilterChip(
+                            selected = filter == F_LEARNED,
+                            onClick = { filter = if (filter == F_LEARNED) F_ALL else F_LEARNED },
+                            label = { Text("Aprendidas (${all.count { it.learned }})") }
+                        )
+                    }
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "Orden y opciones")
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            listOf(S_RECENT to "Orden: recientes", S_USEFUL to "Orden: más útiles primero", S_AZ to "Orden: A–Z").forEach { (id, label) ->
+                                DropdownMenuItem(
+                                    text = { Text(label + if (sort == id) "  ✓" else "") },
+                                    onClick = {
+                                        sort = id
+                                        menuOpen = false
+                                    }
+                                )
+                            }
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Barra rápida en notificaciones" + if (quickBar) "  ✓" else "") },
+                                onClick = {
+                                    menuOpen = false
+                                    toggleQuickBar(!quickBar)
+                                }
+                            )
+                        }
+                    }
                 }
-            }
-        }
-
-        item {
-            Row(
-                Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = filter == F_ALL,
-                    onClick = { filter = F_ALL },
-                    label = { Text("Todas (${all.size})") }
-                )
-                FilterChip(
-                    selected = filter == F_REVIEW,
-                    onClick = { filter = if (filter == F_REVIEW) F_ALL else F_REVIEW },
-                    label = { Text("Por repasar (${all.count { !it.learned }})") }
-                )
-                FilterChip(
-                    selected = filter == F_LEARNED,
-                    onClick = { filter = if (filter == F_LEARNED) F_ALL else F_LEARNED },
-                    label = { Text("Aprendidas (${all.count { it.learned }})") }
-                )
-            }
-        }
-
-        item {
-            Row(
-                Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Orden:", style = MaterialTheme.typography.labelLarge)
-                FilterChip(selected = sort == S_RECENT, onClick = { sort = S_RECENT }, label = { Text("Recientes") })
-                FilterChip(selected = sort == S_USEFUL, onClick = { sort = S_USEFUL }, label = { Text("Más útiles primero") })
-                FilterChip(selected = sort == S_AZ, onClick = { sort = S_AZ }, label = { Text("A–Z") })
             }
         }
 
@@ -292,12 +274,6 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
                 )
             }
         } else {
-            item {
-                Text(
-                    "Toca una palabra para ver el significado. Marca la casilla cuando ya te la sepas.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
             items(shown, key = { it.id }) { w ->
                 WordCard(
                     w = w,
@@ -345,6 +321,15 @@ fun WordCard(
     Card(Modifier.fillMaxWidth().clickable { expanded = !expanded }) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (tier != Utility.Tier.UNKNOWN) {
+                    Box(
+                        Modifier
+                            .size(9.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(tierColor(tier))
+                    )
+                    Spacer(Modifier.width(10.dp))
+                }
                 Column(Modifier.weight(1f)) {
                     Text(w.text, style = MaterialTheme.typography.titleMedium)
                     Text(
@@ -354,22 +339,20 @@ fun WordCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                IconButton(onClick = { if (!speaker.speak(w.text)) onUnavailable() }) {
-                    Text("🔊")
-                }
                 Checkbox(checked = w.learned, onCheckedChange = { onLearned() })
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TierBadge(tier)
-                val tag = listOfNotNull(w.manhwaTitle, w.chapter?.let { "cap. $it" }).joinToString(" · ")
-                if (tag.isNotBlank()) {
-                    Text(tag, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                }
+            val tag = listOfNotNull(w.manhwaTitle, w.chapter?.let { "cap. $it" }).joinToString(" · ")
+            if (tag.isNotBlank()) {
+                Text(tag, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             }
 
             if (expanded) {
-                Text(tier.hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TierBadge(tier)
+                    Text(tier.hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { if (!speaker.speak(w.text)) onUnavailable() }) { Text("🔊 Escuchar") }
+                }
 
                 // Tu propia línea de diálogo: suele ser el mejor ejemplo para recordarla.
                 w.note?.let {
