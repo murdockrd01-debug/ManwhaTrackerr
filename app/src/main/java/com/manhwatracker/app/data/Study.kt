@@ -26,8 +26,11 @@ object Prefs {
     fun palette(c: Context): String = p(c).getString("palette", "VIOLET") ?: "VIOLET"
     fun themeMode(c: Context): String = p(c).getString("theme_mode", "SYSTEM") ?: "SYSTEM"
     fun amoled(c: Context): Boolean = p(c).getBoolean("amoled", false)
-    fun setLook(c: Context, palette: String, mode: String, amoled: Boolean) {
-        p(c).edit().putString("palette", palette).putString("theme_mode", mode).putBoolean("amoled", amoled).apply()
+    fun customHue(c: Context): Float = p(c).getFloat("custom_hue", 200f)
+    fun customAccent(c: Context): Float = p(c).getFloat("custom_accent", 320f)
+    fun setLook(c: Context, palette: String, mode: String, amoled: Boolean, hue: Float, accent: Float) {
+        p(c).edit().putString("palette", palette).putString("theme_mode", mode).putBoolean("amoled", amoled)
+            .putFloat("custom_hue", hue).putFloat("custom_accent", accent).apply()
     }
 
     fun sort(c: Context): String = p(c).getString("sort", "RECENT") ?: "RECENT"

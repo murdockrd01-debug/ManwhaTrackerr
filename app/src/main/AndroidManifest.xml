@@ -6,6 +6,10 @@
 
     <!-- Android 11+: sin esto la app no puede encontrar el motor de texto a voz (botón 🔊). -->
     <queries>
+        <!-- Para poder abrir Komikku (o Mihon) desde el detalle de un manhwa. -->
+        <package android:name="app.komikku" />
+        <package android:name="app.komikku.beta" />
+        <package android:name="app.mihon" />
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>

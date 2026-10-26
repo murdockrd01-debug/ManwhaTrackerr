@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -95,6 +96,7 @@ fun AppearanceScreen() {
         Text("Paleta de colores", style = MaterialTheme.typography.titleMedium)
 
         val options = Palettes.all.map { it.id to it.label } +
+            listOf(Palettes.CUSTOM to "Personalizada") +
             (if (Build.VERSION.SDK_INT >= 31) listOf(Palettes.DYNAMIC to "Colores del teléfono") else emptyList())
 
         options.chunked(2).forEach { row ->
@@ -106,6 +108,28 @@ fun AppearanceScreen() {
                     }
                 }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+
+        if (ThemeState.palette == Palettes.CUSTOM) {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Tu combinación", style = MaterialTheme.typography.titleSmall)
+                    Text("Color principal", style = MaterialTheme.typography.labelMedium)
+                    Slider(
+                        value = ThemeState.customHue,
+                        onValueChange = { ThemeState.customHue = it },
+                        onValueChangeFinished = { ThemeState.save(context) },
+                        valueRange = 0f..360f
+                    )
+                    Text("Color de acento", style = MaterialTheme.typography.labelMedium)
+                    Slider(
+                        value = ThemeState.customAccent,
+                        onValueChange = { ThemeState.customAccent = it },
+                        onValueChangeFinished = { ThemeState.save(context) },
+                        valueRange = 0f..360f
+                    )
+                }
             }
         }
 
@@ -149,7 +173,7 @@ private fun SwatchCard(id: String, label: String, modifier: Modifier, onClick: (
     val colors: List<Color> = if (id == Palettes.DYNAMIC) {
         listOf(Color(0xFF8AB4F8), Color(0xFFF28B82), Color(0xFFFDD663))
     } else {
-        val p = Palettes.find(id)
+        val p = Palettes.resolve(id)
         listOf(
             Color.hsv(p.hue, 0.7f * p.sat, 0.85f),
             Color.hsv((p.hue + p.accentHue) / 2f % 360f, 0.7f * p.sat, 0.9f),

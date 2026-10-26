@@ -40,10 +40,23 @@ object Palettes {
         Palette("SUNSET", "Atardecer", 16f, 335f),
         Palette("ROSE", "Rosa", 334f, 262f),
         Palette("GOLD", "Dorado", 42f, 12f),
+        Palette("MINT", "Menta", 172f, 205f),
+        Palette("CHERRY", "Cereza", 350f, 25f),
+        Palette("LAVENDER", "Lavanda", 282f, 215f),
+        Palette("AMBER", "Ámbar", 30f, 350f),
+        Palette("LIME", "Lima", 95f, 50f),
+        Palette("SKY", "Cielo", 222f, 280f),
+        Palette("MIDNIGHT", "Medianoche", 238f, 270f),
+        Palette("FUCHSIA", "Fucsia", 305f, 185f),
         Palette("GRAPHITE", "Grafito", 230f, 200f, 0.12f)
     )
 
-    fun find(id: String): Palette = all.firstOrNull { it.id == id } ?: all.first()
+    const val CUSTOM = "CUSTOM"
+
+    /** Devuelve la paleta; la personalizada se arma con los dos colores que elegiste. */
+    fun resolve(id: String): Palette =
+        if (id == CUSTOM) Palette(CUSTOM, "Personalizada", ThemeState.customHue, ThemeState.customAccent)
+        else all.firstOrNull { it.id == id } ?: all.first()
 }
 
 /** Estado del tema: cambia al instante cuando eliges otra paleta en Apariencia. */
@@ -51,14 +64,18 @@ object ThemeState {
     var palette by mutableStateOf("VIOLET")
     var mode by mutableStateOf("SYSTEM") // SYSTEM, LIGHT, DARK
     var amoled by mutableStateOf(false)
+    var customHue by mutableStateOf(200f)
+    var customAccent by mutableStateOf(320f)
 
     fun load(context: Context) {
         palette = Prefs.palette(context)
         mode = Prefs.themeMode(context)
         amoled = Prefs.amoled(context)
+        customHue = Prefs.customHue(context)
+        customAccent = Prefs.customAccent(context)
     }
 
-    fun save(context: Context) = Prefs.setLook(context, palette, mode, amoled)
+    fun save(context: Context) = Prefs.setLook(context, palette, mode, amoled, customHue, customAccent)
 }
 
 private fun hsv(h: Float, s: Float, v: Float, k: Float) = Color.hsv(h.mod(360f), (s * k).coerceIn(0f, 1f), v.coerceIn(0f, 1f))
@@ -146,7 +163,7 @@ fun ManhwaTheme(content: @Composable () -> Unit) {
     val scheme = if (ThemeState.palette == Palettes.DYNAMIC && Build.VERSION.SDK_INT >= 31) {
         if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     } else {
-        val p = Palettes.find(ThemeState.palette)
+        val p = Palettes.resolve(ThemeState.palette)
         if (dark) darkScheme(p, ThemeState.amoled) else lightScheme(p)
     }
     MaterialTheme(colorScheme = scheme, shapes = AppShapes, typography = AppTypography, content = content)

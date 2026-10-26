@@ -36,6 +36,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -75,6 +77,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.layout.ContentScale
@@ -184,6 +187,10 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
     var listFilter by rememberSaveable { mutableStateOf<Long?>(null) }
     var genreFilter by rememberSaveable { mutableStateOf<String?>(null) }
     var newList by remember { mutableStateOf(false) }
+    var searching by rememberSaveable { mutableStateOf(false) }
+    var showFilters by rememberSaveable { mutableStateOf(false) }
+    val searchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(searching) { if (searching) runCatching { searchFocus.requestFocus() } }
     var renaming by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
 
@@ -218,7 +225,7 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
                 .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 4.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(brandBrush())
-                .padding(vertical = 14.dp),
+                .padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             HeroStat("${all.count { it.status == Status.READING }}", "Leyendo")
@@ -226,73 +233,87 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
             HeroStat("${all.count { it.status == Status.PLAN }}", "Pendientes")
             HeroStat("${all.size}", "Total")
         }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                label = { Text("Buscar") },
-                singleLine = true,
-                trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { query = "" }) {
-                            Icon(Icons.Filled.Clear, contentDescription = "Borrar búsqueda")
-                        }
+        // Barra compacta: lupa, estados y menú de orden en una sola línea.
+        if (searching) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    placeholder = { Text("Buscar") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f).focusRequester(searchFocus)
+                )
+                IconButton(onClick = {
+                    query = ""
+                    searching = false
+                }) {
+                    Icon(Icons.Filled.Clear, contentDescription = "Cerrar búsqueda")
+                }
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { searching = true }) {
+                    Icon(Icons.Filled.Search, contentDescription = "Buscar")
+                }
+                Row(
+                    Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilterChip(
+                        selected = filter == null,
+                        onClick = { filter = null },
+                        label = { Text("Todos (${all.size})") }
+                    )
+                    Status.all.forEach { s ->
+                        FilterChip(
+                            selected = filter == s,
+                            onClick = { filter = if (filter == s) null else s },
+                            label = { Text(Status.label(s)) }
+                        )
                     }
-                },
-                modifier = Modifier.weight(1f)
-            )
-            Box {
-                OutlinedButton(onClick = { sortMenu = true }) { Text("Orden y vista") }
-                DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                    SortMode.all.forEach { mode ->
+                    FilterChip(
+                        selected = showFilters || listFilter != null || genreFilter != null,
+                        onClick = { showFilters = !showFilters },
+                        label = { Text("Listas y géneros" + if (listFilter != null || genreFilter != null) " •" else "") }
+                    )
+                }
+                Box {
+                    IconButton(onClick = { sortMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Orden y vista")
+                    }
+                    DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                        SortMode.all.forEach { mode ->
+                            DropdownMenuItem(
+                                text = { Text(SortMode.label(mode) + if (mode == sort) "  ✓" else "") },
+                                onClick = {
+                                    sort = mode
+                                    Prefs.setSort(context, mode)
+                                    sortMenu = false
+                                }
+                            )
+                        }
+                        HorizontalDivider()
                         DropdownMenuItem(
-                            text = { Text(SortMode.label(mode) + if (mode == sort) "  ✓" else "") },
+                            text = { Text(if (grid) "Ver como lista" else "Ver como cuadrícula de portadas") },
                             onClick = {
-                                sort = mode
-                                Prefs.setSort(context, mode)
+                                grid = !grid
+                                Prefs.setGrid(context, grid)
                                 sortMenu = false
                             }
                         )
                     }
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = { Text(if (grid) "Ver como lista" else "Ver como cuadrícula de portadas") },
-                        onClick = {
-                            grid = !grid
-                            Prefs.setGrid(context, grid)
-                            sortMenu = false
-                        }
-                    )
                 }
             }
         }
 
-        Row(
-            Modifier
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilterChip(
-                selected = filter == null,
-                onClick = { filter = null },
-                label = { Text("Todos (${all.size})") }
-            )
-            Status.all.forEach { s ->
-                FilterChip(
-                    selected = filter == s,
-                    onClick = { filter = if (filter == s) null else s },
-                    label = { Text(Status.label(s)) }
-                )
-            }
-        }
-
+        if (showFilters) {
         // Listas personalizadas
         Row(
             Modifier
@@ -336,6 +357,7 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
                     )
                 }
             }
+        }
         }
 
         if (shown.isEmpty()) {
@@ -442,7 +464,7 @@ fun NameDialog(title: String, initial: String, confirm: String, onDismiss: () ->
 @Composable
 private fun HeroStat(value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Text(label, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.85f))
     }
 }
@@ -633,6 +655,7 @@ fun DetailScreen(
     val allLists by vm.lists.collectAsState()
     val allEntries by vm.entries.collectAsState()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val item = m
 
     // Si se borró (o no existe), volvemos a la lista.
@@ -692,6 +715,12 @@ fun DetailScreen(
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(onClick = { vm.coverFallback(item, force = true) }) {
                     Text("Buscar portada")
+                }
+                Spacer(Modifier.height(4.dp))
+                Button(onClick = {
+                    if (!KomikkuLink.open(context, item.title)) vm.showMessage("No encontré Komikku instalado en este teléfono")
+                }) {
+                    Text("Abrir en Komikku")
                 }
             }
         }

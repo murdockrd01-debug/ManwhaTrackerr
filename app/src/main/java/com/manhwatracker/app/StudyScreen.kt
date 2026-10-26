@@ -9,6 +9,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -74,6 +80,9 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(F_ALL) }
     var sort by rememberSaveable { mutableStateOf(S_RECENT) }
+    var searching by rememberSaveable { mutableStateOf(false) }
+    val searchFocus = remember { FocusRequester() }
+    LaunchedEffect(searching) { if (searching) runCatching { searchFocus.requestFocus() } }
     var quickBar by remember { mutableStateOf(Prefs.quickBar(context)) }
 
     // Completa las palabras que se guardaron sin internet.
@@ -208,13 +217,32 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
         }
 
         item {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                label = { Text("Buscar palabra, traducción o manhwa") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (searching) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        placeholder = { Text("Buscar palabra, traducción o manhwa") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f).focusRequester(searchFocus)
+                    )
+                    IconButton(onClick = {
+                        query = ""
+                        searching = false
+                    }) { Icon(Icons.Filled.Clear, contentDescription = "Cerrar búsqueda") }
+                }
+            } else {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { searching = true }) {
+                        Icon(Icons.Filled.Search, contentDescription = "Buscar")
+                    }
+                    Text(
+                        "Toca la lupa para buscar",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
 
         item {
