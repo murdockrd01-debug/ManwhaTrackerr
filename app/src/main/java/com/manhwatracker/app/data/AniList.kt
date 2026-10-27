@@ -12,8 +12,43 @@ object AniList {
     /** Lo que AniList sabe de un manhwa. [id] = 0 significa que no lo encontró. */
     class Meta(val id: Long, val genres: List<String>, val cover: String?)
 
-    /** Un manhwa parecido a otro. */
-    class Similar(val id: Long, val title: String, val cover: String?, val score: Int?)
+    /** Un manhwa sugerido (parecido a otro, o de las listas de tendencias). [because] = títulos tuyos que lo recomiendan. */
+    data class Similar(
+        val id: Long,
+        val title: String,
+        val cover: String?,
+        val score: Int?,
+        val genres: List<String> = emptyList(),
+        val description: String? = null,
+        val because: List<String> = emptyList()
+    )
+
+    private fun cleanDescription(raw: String?): String? =
+        raw?.takeIf { it.isNotBlank() && it != "null" }
+            ?.replace(Regex("<br\\s*/?>"), "\n")
+            ?.replace(Regex("<[^>]+>"), "")
+            ?.replace(Regex("\\n{3,}"), "\n\n")
+            ?.trim()
+            ?.take(600)
+            ?.ifEmpty { null }
+
+    /** Convierte un nodo "Media" de AniList en un [Similar]. Devuelve null si no tiene título o es para adultos. */
+    private fun parseMedia(m: JSONObject): Similar? {
+        if (m.optBoolean("isAdult", false)) return null
+        val titles = m.optJSONObject("title")
+        val title = titles?.optString("english")?.takeIf { it.isNotBlank() && it != "null" }
+            ?: titles?.optString("romaji")?.takeIf { it.isNotBlank() && it != "null" }
+            ?: return null
+        val genres = m.optJSONArray("genres")?.let { arr -> (0 until arr.length()).map { arr.getString(it) } }.orEmpty()
+        return Similar(
+            id = m.optLong("id"),
+            title = title,
+            cover = m.optJSONObject("coverImage")?.optString("large")?.takeIf { it.isNotBlank() && it != "null" },
+            score = if (m.isNull("averageScore")) null else m.optInt("averageScore"),
+            genres = genres,
+            description = cleanDescription(m.optString("description"))
+        )
+    }
 
     private class Reply(val code: Int, val json: JSONObject?)
 
@@ -58,7 +93,8 @@ object AniList {
 
     private const val SIMILAR_QUERY =
         "query(\$id: Int) { Media(id: \$id) { recommendations(sort: RATING_DESC, perPage: 15) { nodes { " +
-            "mediaRecommendation { id title { romaji english } coverImage { large } averageScore } } } } }"
+            "mediaRecommendation { id isAdult title { romaji english } coverImage { large } averageScore genres " +
+            "description(asHtml: false) } } } } }"
 
     /** Manhwas que otros lectores recomiendan junto a este. null = sin conexión. */
     suspend fun similar(anilistId: Long): List<Similar>? {
@@ -69,16 +105,26 @@ object AniList {
         val out = mutableListOf<Similar>()
         for (i in 0 until nodes.length()) {
             val m = nodes.optJSONObject(i)?.optJSONObject("mediaRecommendation") ?: continue
-            val titles = m.optJSONObject("title")
-            val title = titles?.optString("english")?.takeIf { it.isNotBlank() && it != "null" }
-                ?: titles?.optString("romaji")?.takeIf { it.isNotBlank() && it != "null" }
-                ?: continue
-            out += Similar(
-                m.optLong("id"),
-                title,
-                m.optJSONObject("coverImage")?.optString("large")?.takeIf { it.isNotBlank() && it != "null" },
-                if (m.isNull("averageScore")) null else m.optInt("averageScore")
-            )
+            parseMedia(m)?.let { out += it }
+        }
+        return out
+    }
+
+    private const val LISTING_QUERY =
+        "query(\$p: Int, \$sort: [MediaSort], \$g: String) { Page(page: \$p, perPage: 30) { " +
+            "media(type: MANGA, countryOfOrigin: \"KR\", sort: \$sort, genre: \$g, isAdult: false) { " +
+            "id isAdult title { romaji english } coverImage { large } averageScore genres description(asHtml: false) } } }"
+
+    /** Lista de manhwa coreano ordenada por [sort] (TRENDING_DESC, POPULARITY_DESC, SCORE_DESC), con género opcional. null = sin conexión. */
+    suspend fun listing(sort: String, genre: String?): List<Similar>? {
+        val vars = JSONObject().put("p", 1).put("sort", org.json.JSONArray().put(sort))
+        if (genre != null) vars.put("g", genre)
+        val reply = post(LISTING_QUERY, vars) ?: return null
+        if (reply.code != 200) return null
+        val media = reply.json?.optJSONObject("data")?.optJSONObject("Page")?.optJSONArray("media") ?: return emptyList()
+        val out = mutableListOf<Similar>()
+        for (i in 0 until media.length()) {
+            media.optJSONObject(i)?.let { parseMedia(it) }?.let { out += it }
         }
         return out
     }

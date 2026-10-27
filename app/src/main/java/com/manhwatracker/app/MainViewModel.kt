@@ -12,6 +12,7 @@ import com.manhwatracker.app.data.AppDatabase
 import com.manhwatracker.app.data.BackupFormatException
 import com.manhwatracker.app.data.BackupImporter
 import com.manhwatracker.app.data.ListEntry
+import com.manhwatracker.app.data.Genres
 import com.manhwatracker.app.data.Manhwa
 import com.manhwatracker.app.data.ManhwaList
 import com.manhwatracker.app.data.OwnBackup
@@ -503,6 +504,107 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             dao.findById(m.id)?.let { dao.update(it.copy(anilistId = id, genres = it.genres ?: meta.genres.joinToString(","))) }
         }
         return AniList.similar(id)
+    }
+
+    // ---------- Descubrir ----------
+
+    private val discoverCache = mutableMapOf<String, List<AniList.Similar>>()
+    private val discoverMutex = Mutex()
+
+    class DiscoverResult(val items: List<AniList.Similar>, val error: String?)
+
+    /**
+     * Sugerencias para la pestaña Descubrir. [tab]: FORYOU (según lo que lees), TREND, POPULAR o TOP.
+     * Se guardan en memoria; con [force] se vuelven a pedir.
+     */
+    suspend fun discover(tab: String, genre: String?, force: Boolean = false): DiscoverResult {
+        val key = "$tab|${genre.orEmpty()}"
+        if (!force) discoverCache[key]?.let { return DiscoverResult(it, null) }
+        val offline = "No pude conectar con AniList. Revisa tu internet."
+
+        return discoverMutex.withLock {
+            val result: DiscoverResult = when (tab) {
+                "FORYOU" -> forYou()
+                else -> {
+                    val sort = when (tab) {
+                        "POPULAR" -> "POPULARITY_DESC"
+                        "TOP" -> "SCORE_DESC"
+                        else -> "TRENDING_DESC"
+                    }
+                    val list = AniList.listing(sort, genre)
+                    if (list == null) DiscoverResult(emptyList(), offline) else DiscoverResult(list, null)
+                }
+            }
+            if (result.error == null) discoverCache[key] = result.items
+            result
+        }
+    }
+
+    /** Recomendaciones según tus manhwas: los que más de los tuyos recomiendan, y de tus géneros favoritos. */
+    private suspend fun forYou(): DiscoverResult {
+        val owned = dao.all()
+        val seeds = owned.filter { it.anilistId > 0 }
+            .sortedWith(
+                compareByDescending<Manhwa> { it.rating }
+                    .thenByDescending { it.status == Status.READING }
+                    .thenByDescending { it.updatedAt }
+            )
+            .take(6)
+        if (seeds.isEmpty()) {
+            fillMeta()
+            return DiscoverResult(
+                emptyList(),
+                "Todavía estoy reconociendo tus manhwas en AniList. Espera un momento y toca “Actualizar”."
+            )
+        }
+
+        class Agg(val item: AniList.Similar) {
+            var count = 0
+            val sources = mutableListOf<String>()
+        }
+
+        val found = linkedMapOf<Long, Agg>()
+        var failures = 0
+        for (seed in seeds) {
+            val recs = coverMutex.withLock { AniList.similar(seed.anilistId).also { delay(700) } }
+            if (recs == null) {
+                failures++
+                continue
+            }
+            for (r in recs) {
+                val agg = found.getOrPut(r.id) { Agg(r) }
+                agg.count++
+                if (seed.title !in agg.sources) agg.sources += seed.title
+            }
+        }
+        if (failures == seeds.size) return DiscoverResult(emptyList(), "No pude conectar con AniList. Revisa tu internet.")
+
+        val ownedKeys = owned.map { it.titleKey }.toSet()
+        val ownedIds = owned.filter { it.anilistId > 0 }.map { it.anilistId }.toSet()
+
+        // Géneros que más te gustan: pesan más los de los manhwas que calificaste alto.
+        val weights = mutableMapOf<String, Int>()
+        for (m in owned) {
+            val w = when {
+                m.rating >= 8 -> 3
+                m.rating >= 6 -> 2
+                else -> 1
+            }
+            for (g in Genres.parse(m.genres)) weights[g] = (weights[g] ?: 0) + w
+        }
+        val maxWeight = (weights.values.maxOrNull() ?: 1).coerceAtLeast(1)
+
+        val ranked = found.values
+            .filter { it.item.id !in ownedIds && titleKeyOf(it.item.title) !in ownedKeys }
+            .sortedByDescending { agg ->
+                val gs = agg.item.genres
+                val affinity = if (gs.isEmpty()) 0.0 else gs.sumOf { (weights[it] ?: 0).toDouble() } / (gs.size * maxWeight)
+                agg.count * 10.0 + (agg.item.score ?: 60) / 20.0 + affinity * 4.0
+            }
+            .take(40)
+            .map { it.item.copy(because = it.sources.take(3)) }
+
+        return DiscoverResult(ranked, null)
     }
 
     /** Agrega un manhwa sugerido a "Pendientes". */

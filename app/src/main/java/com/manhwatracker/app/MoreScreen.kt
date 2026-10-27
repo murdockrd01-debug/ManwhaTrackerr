@@ -50,6 +50,7 @@ fun MoreScreen(
     onRatings: () -> Unit,
     onSync: () -> Unit,
     onLook: () -> Unit,
+    onDiscover: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
     onRestore: () -> Unit
@@ -76,6 +77,7 @@ fun MoreScreen(
                 Switch(checked = Features.study, onCheckedChange = { Features.setStudy(ctx, it) })
             }
         }
+        if (Features.study) MoreRow("💡", "Descubrir", "Recomendaciones según lo que lees y tendencias", onDiscover)
         MoreRow("⭐", "Calificaciones", "Tu ranking, favoritos y promedio", onRatings)
         MoreRow("🎨", "Apariencia", "Colores, modo claro u oscuro", onLook)
         MoreRow("🔄", "Sincronización y copias", "Importar de Komikku solo y guardar tus datos", onSync)

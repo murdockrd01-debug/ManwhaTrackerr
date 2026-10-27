@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
@@ -53,6 +54,7 @@ private const val SECTION_RATINGS = "RATINGS"
 private const val SECTION_SYNC = "SYNC"
 private const val SECTION_MORE = "MORE"
 private const val SECTION_LOOK = "LOOK"
+private const val SECTION_DISCOVER = "DISCOVER"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,10 +132,13 @@ fun App(vm: MainViewModel = viewModel()) {
         if (!Features.study && (section == SECTION_STUDY || section == SECTION_REVIEW)) section = SECTION_MANHWA
     }
 
-    val subScreen = section == SECTION_RATINGS || section == SECTION_SYNC || section == SECTION_LOOK
+    // Descubrir es una pestaña propia en modo solo tracker; con estudio vive dentro de Más.
+    val discoverInMore = Features.study
+    val subScreen = section == SECTION_RATINGS || section == SECTION_SYNC || section == SECTION_LOOK ||
+        (section == SECTION_DISCOVER && discoverInMore)
 
     // El último BackHandler habilitado es el que manda.
-    BackHandler(enabled = currentId == null && (section == SECTION_STUDY || section == SECTION_STATS || section == SECTION_MORE)) {
+    BackHandler(enabled = currentId == null && (section == SECTION_STUDY || section == SECTION_STATS || section == SECTION_MORE || (section == SECTION_DISCOVER && !discoverInMore))) {
         section = SECTION_MANHWA
     }
     BackHandler(enabled = currentId == null && subScreen) { section = SECTION_MORE }
@@ -155,6 +160,7 @@ fun App(vm: MainViewModel = viewModel()) {
                                 section == SECTION_RATINGS -> "Calificaciones"
                                 section == SECTION_SYNC -> "Sincronización"
                                 section == SECTION_LOOK -> "Apariencia"
+                                section == SECTION_DISCOVER -> "Descubrir"
                                 section == SECTION_MORE -> "Más"
                                 else -> "Mis manhwas"
                             },
@@ -199,6 +205,14 @@ fun App(vm: MainViewModel = viewModel()) {
                             onClick = { openReview() },
                             icon = { Icon(Icons.Filled.Refresh, contentDescription = null) },
                             label = { Text("Repaso") }
+                        )
+                    }
+                    if (!Features.study) {
+                        NavigationBarItem(
+                            selected = section == SECTION_DISCOVER,
+                            onClick = { section = SECTION_DISCOVER },
+                            icon = { Icon(Icons.Filled.Favorite, contentDescription = null) },
+                            label = { Text("Descubrir") }
                         )
                     }
                     NavigationBarItem(
@@ -252,10 +266,12 @@ fun App(vm: MainViewModel = viewModel()) {
                 section == SECTION_RATINGS -> RatingsScreen(vm, onOpen = { selectedId = it })
                 section == SECTION_SYNC -> SyncScreen(vm)
                 section == SECTION_LOOK -> AppearanceScreen()
+                section == SECTION_DISCOVER -> DiscoverScreen(vm)
                 section == SECTION_MORE -> MoreScreen(
                     onRatings = { section = SECTION_RATINGS },
                     onSync = { section = SECTION_SYNC },
                     onLook = { section = SECTION_LOOK },
+                    onDiscover = { section = SECTION_DISCOVER },
                     onImport = { picker.launch(arrayOf("*/*")) },
                     onExport = { exportPicker.launch("manhwa-tracker-${LocalDate.now()}.json") },
                     onRestore = { restorePicker.launch(arrayOf("*/*")) }
