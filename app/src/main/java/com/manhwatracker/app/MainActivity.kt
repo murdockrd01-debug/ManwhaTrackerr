@@ -114,12 +114,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Si la barra rápida está activada, la volvemos a mostrar (por si se cerró o se reinició el teléfono).
-        if (com.manhwatracker.app.data.Prefs.quickBar(this)) QuickAdd.show(this)
         ThemeState.load(this)
+        Features.load(this)
+        if (Features.study && com.manhwatracker.app.data.Prefs.quickBar(this)) QuickAdd.show(this)
         setContent {
             ManhwaTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    App()
+                    if (Features.needsChoice) {
+                        val ctx = LocalContext.current
+                        WelcomeScreen { study -> Features.setStudy(ctx, study) }
+                    } else {
+                        App()
+                    }
                 }
             }
         }
@@ -886,6 +892,7 @@ fun DetailScreen(
             }
         }
 
+        if (Features.study) {
         HorizontalDivider()
         Text(
             "Palabras de este manhwa (${mine.size})",
@@ -922,6 +929,7 @@ fun DetailScreen(
             ) {
                 Text(if (pending > 0) "Repasar solo estas ($pending)" else "Ya aprendiste todas estas")
             }
+        }
         }
         HorizontalDivider()
 

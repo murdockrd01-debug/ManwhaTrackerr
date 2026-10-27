@@ -22,6 +22,18 @@ object Prefs {
         p(c).edit().putString("last_manhwa", manhwa).putString("last_chapter", chapter).apply()
     }
 
+    // ---- Modo de la app (con o sin estudio de inglés)
+    /** null = todavía no se eligió. */
+    fun studyEnabled(c: Context): Boolean? =
+        if (p(c).contains("study_enabled")) p(c).getBoolean("study_enabled", true) else null
+
+    fun setStudyEnabled(c: Context, on: Boolean) {
+        p(c).edit().putBoolean("study_enabled", on).apply()
+    }
+
+    /** true si la app ya guardó alguna preferencia (o sea, no es una instalación nueva). */
+    fun hasAnySettings(c: Context): Boolean = p(c).all.isNotEmpty()
+
     // ---- Apariencia
     fun palette(c: Context): String = p(c).getString("palette", "VIOLET") ?: "VIOLET"
     fun themeMode(c: Context): String = p(c).getString("theme_mode", "SYSTEM") ?: "SYSTEM"

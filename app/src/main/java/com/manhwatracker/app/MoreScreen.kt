@@ -58,6 +58,24 @@ fun MoreScreen(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        Card(
+            Modifier.fillMaxWidth(),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+            val ctx = LocalContext.current
+            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Estudio de inglés", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (Features.study) "Activo: guarda palabras, repásalas y sigue tu racha."
+                        else "Apagado: la app funciona solo como tracker.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = Features.study, onCheckedChange = { Features.setStudy(ctx, it) })
+            }
+        }
         MoreRow("⭐", "Calificaciones", "Tu ranking, favoritos y promedio", onRatings)
         MoreRow("🎨", "Apariencia", "Colores, modo claro u oscuro", onLook)
         MoreRow("🔄", "Sincronización y copias", "Importar de Komikku solo y guardar tus datos", onSync)
@@ -266,5 +284,63 @@ private fun IconChoice(o: AppIcons.Option, selected: Boolean, modifier: Modifier
             style = MaterialTheme.typography.labelMedium,
             color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/** Primera pantalla al instalar: elegir si quiere solo tracker o también estudio de inglés. */
+@Composable
+fun WelcomeScreen(onChoose: (study: Boolean) -> Unit) {
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .background(brandBrush())
+                .padding(horizontal = 24.dp, vertical = 48.dp)
+        ) {
+            Column {
+                Text("Bienvenido", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "Manhwa Tracker lleva la cuenta de lo que lees. ¿Cómo quieres usarlo?",
+                    color = Color.White.copy(alpha = 0.9f),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+        }
+
+        Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            ChoiceCard(
+                "📚", "Solo tracker",
+                "Tu biblioteca con portadas, progreso, notas, listas y recomendaciones. Sin nada de estudio."
+            ) { onChoose(false) }
+            ChoiceCard(
+                "🔤", "Tracker + estudio de inglés",
+                "Además guarda palabras de los diálogos, con traducción y definiciones, repásalas con tarjetas y sigue tu racha."
+            ) { onChoose(true) }
+            Text(
+                "Puedes cambiarlo cuando quieras en Más.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChoiceCard(icon: String, title: String, text: String, onClick: () -> Unit) {
+    Card(
+        Modifier.fillMaxWidth().clickable(onClick = onClick),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(icon, fontSize = 30.sp)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
 }

@@ -66,6 +66,17 @@ fun StatsScreen(vm: MainViewModel) {
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // ---------------- Biblioteca (sin estudio: lo principal de esta pantalla)
+        if (!Features.study) {
+            val library by vm.items.collectAsState()
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatTile("Manhwas", library.size.toString(), Modifier.weight(1f))
+                StatTile("Terminados", library.count { it.status == com.manhwatracker.app.data.Status.COMPLETED }.toString(), Modifier.weight(1f))
+                StatTile("Capítulos leídos", library.sumOf { Math.floor(it.lastChapter).toInt() }.toString(), Modifier.weight(1f))
+            }
+        }
+
+        if (Features.study) {
         // ---------------- Racha
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -116,6 +127,8 @@ fun StatsScreen(vm: MainViewModel) {
             }
         }
 
+        }
+
         // ---------------- Capítulos por mes
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -133,7 +146,7 @@ fun StatsScreen(vm: MainViewModel) {
         }
 
         // ---------------- Obras con más palabras
-        Card(Modifier.fillMaxWidth()) {
+        if (Features.study) Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("De qué obras aprendes más", style = MaterialTheme.typography.titleSmall)
                 if (perManhwa.isEmpty()) {

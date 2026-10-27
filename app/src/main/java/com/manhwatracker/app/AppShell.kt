@@ -125,6 +125,11 @@ fun App(vm: MainViewModel = viewModel()) {
         }
     }
 
+    // Si se apaga el estudio estando en una de sus pantallas, se vuelve a la lista.
+    LaunchedEffect(Features.study) {
+        if (!Features.study && (section == SECTION_STUDY || section == SECTION_REVIEW)) section = SECTION_MANHWA
+    }
+
     val subScreen = section == SECTION_RATINGS || section == SECTION_SYNC || section == SECTION_LOOK
 
     // El último BackHandler habilitado es el que manda.
@@ -182,18 +187,20 @@ fun App(vm: MainViewModel = viewModel()) {
                         icon = { Icon(Icons.Filled.Home, contentDescription = null) },
                         label = { Text("Manhwas") }
                     )
-                    NavigationBarItem(
-                        selected = section == SECTION_STUDY,
-                        onClick = { section = SECTION_STUDY },
-                        icon = { Icon(Icons.Filled.Edit, contentDescription = null) },
-                        label = { Text("Estudio") }
-                    )
-                    NavigationBarItem(
-                        selected = false,
-                        onClick = { openReview() },
-                        icon = { Icon(Icons.Filled.Refresh, contentDescription = null) },
-                        label = { Text("Repaso") }
-                    )
+                    if (Features.study) {
+                        NavigationBarItem(
+                            selected = section == SECTION_STUDY,
+                            onClick = { section = SECTION_STUDY },
+                            icon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                            label = { Text("Estudio") }
+                        )
+                        NavigationBarItem(
+                            selected = false,
+                            onClick = { openReview() },
+                            icon = { Icon(Icons.Filled.Refresh, contentDescription = null) },
+                            label = { Text("Repaso") }
+                        )
+                    }
                     NavigationBarItem(
                         selected = section == SECTION_STATS,
                         onClick = { section = SECTION_STATS },
@@ -210,7 +217,7 @@ fun App(vm: MainViewModel = viewModel()) {
             }
         },
         floatingActionButton = {
-            if (currentId == null && (section == SECTION_MANHWA || section == SECTION_STUDY)) {
+            if (currentId == null && (section == SECTION_MANHWA || (section == SECTION_STUDY && Features.study))) {
                 FloatingActionButton(
                     onClick = {
                         if (section == SECTION_STUDY) showAddWord = true else showAddManhwa = true
@@ -269,7 +276,7 @@ fun App(vm: MainViewModel = viewModel()) {
         )
     }
 
-    if (showAddWord) {
+    if (showAddWord && Features.study) {
         AddWordDialog(
             manhwas = manhwas,
             onDismiss = { showAddWord = false },
