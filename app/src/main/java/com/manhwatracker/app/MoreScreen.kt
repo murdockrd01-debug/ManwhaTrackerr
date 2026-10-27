@@ -50,6 +50,7 @@ fun MoreScreen(
     onRatings: () -> Unit,
     onSync: () -> Unit,
     onLook: () -> Unit,
+    onIcons: () -> Unit,
     onDiscover: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
@@ -80,6 +81,7 @@ fun MoreScreen(
         if (Features.study) MoreRow("💡", "Descubrir", "Recomendaciones según lo que lees y tendencias", onDiscover)
         MoreRow("⭐", "Calificaciones", "Tu ranking, favoritos y promedio", onRatings)
         MoreRow("🎨", "Apariencia", "Colores, modo claro u oscuro", onLook)
+        MoreRow("🖼️", "Icono de la app", "Elige entre 6 diseños", onIcons)
         MoreRow("🔄", "Sincronización y copias", "Importar de Komikku solo y guardar tus datos", onSync)
 
         Spacer(Modifier.height(6.dp))
@@ -159,26 +161,6 @@ fun AppearanceScreen() {
                 }
             }
         }
-
-        Text("Icono de la app", style = MaterialTheme.typography.titleMedium)
-        var currentIcon by remember { mutableStateOf(AppIcons.current(context)) }
-        AppIcons.all.chunked(3).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                row.forEach { o ->
-                    IconChoice(o, o.id == currentIcon.id, Modifier.weight(1f)) {
-                        AppIcons.set(context, o)
-                        currentIcon = o
-                    }
-                }
-                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-            }
-        }
-        Text(
-            "Al cambiarlo, la pantalla de inicio puede tardar unos segundos en mostrar el nuevo icono. " +
-                "Si el acceso directo desaparece, búscalo en la lista de apps y vuelve a colocarlo.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
 
         Text("Modo", style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -344,5 +326,35 @@ private fun ChoiceCard(icon: String, title: String, text: String, onClick: () ->
                 Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+/** Elegir el icono de la app (pantalla aparte para no tocarlo sin querer al cambiar colores). */
+@Composable
+fun IconScreen() {
+    val context = LocalContext.current
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        var currentIcon by remember { mutableStateOf(AppIcons.current(context)) }
+        AppIcons.all.chunked(3).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { o ->
+                    IconChoice(o, o.id == currentIcon.id, Modifier.weight(1f)) {
+                        AppIcons.set(context, o)
+                        currentIcon = o
+                    }
+                }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+        Text(
+            "Al cambiarlo, la pantalla de inicio puede tardar unos segundos en mostrar el nuevo icono. " +
+                "Si el acceso directo desaparece, búscalo en la lista de apps y vuelve a colocarlo.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
     }
 }

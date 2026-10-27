@@ -40,19 +40,19 @@ jobs:
           fi
 
       - name: Compilar
-        run: gradle assembleDebug --no-daemon
+        run: gradle assembleRelease --no-daemon
 
       - name: Guardar el APK
         uses: actions/upload-artifact@v4
         with:
           name: ManhwaTracker-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/release/app-release.apk
 
       # Publica el APK como release: siempre queda uno con enlace fijo a la última versión.
       - name: Publicar release
         run: |
           VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
-          cp app/build/outputs/apk/debug/app-debug.apk ManhwaTracker.apk
+          cp app/build/outputs/apk/release/app-release.apk ManhwaTracker.apk
           if gh release view "v$VERSION" >/dev/null 2>&1; then
             gh release upload "v$VERSION" ManhwaTracker.apk --clobber
           else

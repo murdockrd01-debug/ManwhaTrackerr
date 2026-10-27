@@ -55,6 +55,7 @@ private const val SECTION_SYNC = "SYNC"
 private const val SECTION_MORE = "MORE"
 private const val SECTION_LOOK = "LOOK"
 private const val SECTION_DISCOVER = "DISCOVER"
+private const val SECTION_ICONS = "ICONS"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -134,7 +135,7 @@ fun App(vm: MainViewModel = viewModel()) {
 
     // Descubrir es una pestaña propia en modo solo tracker; con estudio vive dentro de Más.
     val discoverInMore = Features.study
-    val subScreen = section == SECTION_RATINGS || section == SECTION_SYNC || section == SECTION_LOOK ||
+    val subScreen = section == SECTION_RATINGS || section == SECTION_SYNC || section == SECTION_LOOK || section == SECTION_ICONS ||
         (section == SECTION_DISCOVER && discoverInMore)
 
     // El último BackHandler habilitado es el que manda.
@@ -160,6 +161,7 @@ fun App(vm: MainViewModel = viewModel()) {
                                 section == SECTION_RATINGS -> "Calificaciones"
                                 section == SECTION_SYNC -> "Sincronización"
                                 section == SECTION_LOOK -> "Apariencia"
+                                section == SECTION_ICONS -> "Icono de la app"
                                 section == SECTION_DISCOVER -> "Descubrir"
                                 section == SECTION_MORE -> "Más"
                                 else -> "Mis manhwas"
@@ -266,11 +268,13 @@ fun App(vm: MainViewModel = viewModel()) {
                 section == SECTION_RATINGS -> RatingsScreen(vm, onOpen = { selectedId = it })
                 section == SECTION_SYNC -> SyncScreen(vm)
                 section == SECTION_LOOK -> AppearanceScreen()
+                section == SECTION_ICONS -> IconScreen()
                 section == SECTION_DISCOVER -> DiscoverScreen(vm)
                 section == SECTION_MORE -> MoreScreen(
                     onRatings = { section = SECTION_RATINGS },
                     onSync = { section = SECTION_SYNC },
                     onLook = { section = SECTION_LOOK },
+                    onIcons = { section = SECTION_ICONS },
                     onDiscover = { section = SECTION_DISCOVER },
                     onImport = { picker.launch(arrayOf("*/*")) },
                     onExport = { exportPicker.launch("manhwa-tracker-${LocalDate.now()}.json") },
