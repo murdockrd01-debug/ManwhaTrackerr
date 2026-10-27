@@ -607,6 +607,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return DiscoverResult(ranked, null)
     }
 
+    /** Reseñas de AniList para un manhwa tuyo (busca su número en AniList si todavía no se tiene). */
+    suspend fun loadReviews(m: Manhwa): List<AniList.Review>? {
+        var id = m.anilistId
+        if (id <= 0L) {
+            val meta = coverMutex.withLock { AniList.searchMeta(m.title) } ?: return null
+            if (meta.id <= 0L) return emptyList()
+            id = meta.id
+            dao.findById(m.id)?.let { dao.update(it.copy(anilistId = id, genres = it.genres ?: meta.genres.joinToString(","))) }
+        }
+        return AniList.reviews(id)
+    }
+
+    suspend fun loadReviewsById(anilistId: Long): List<AniList.Review>? = AniList.reviews(anilistId)
+
     /** Agrega un manhwa sugerido a "Pendientes". */
     fun addPlanned(title: String, cover: String?) {
         viewModelScope.launch {

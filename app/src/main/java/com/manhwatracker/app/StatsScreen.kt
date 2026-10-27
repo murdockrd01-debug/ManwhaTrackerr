@@ -27,13 +27,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.manhwatracker.app.data.ActivityKind
+import com.manhwatracker.app.data.Genres
 import com.manhwatracker.app.data.Stats
+
+private class GenreStat(val genre: String, val count: Int, val avg: Double?)
 
 /** Estadísticas: racha de repaso, palabras aprendidas por semana, capítulos por mes y obras con más palabras. */
 @Composable
 fun StatsScreen(vm: MainViewModel) {
     val words by vm.words.collectAsState()
     val activity by vm.activity.collectAsState()
+    val library by vm.items.collectAsState()
 
     val today = remember { Stats.dayOf(System.currentTimeMillis()) }
 
@@ -68,7 +72,6 @@ fun StatsScreen(vm: MainViewModel) {
     ) {
         // ---------------- Biblioteca (sin estudio: lo principal de esta pantalla)
         if (!Features.study) {
-            val library by vm.items.collectAsState()
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatTile("Manhwas", library.size.toString(), Modifier.weight(1f))
                 StatTile("Terminados", library.count { it.status == com.manhwatracker.app.data.Status.COMPLETED }.toString(), Modifier.weight(1f))
@@ -127,6 +130,77 @@ fun StatsScreen(vm: MainViewModel) {
             }
         }
 
+        }
+
+        // ---------------- Perfil de lector
+        val genreStats = remember(library) {
+            library
+                .flatMap { m -> Genres.parse(m.genres).map { it to m } }
+                .groupBy({ it.first }, { it.second })
+                .map { (g, ms) ->
+                    val rated = ms.filter { it.rating > 0 }.map { it.rating }
+                    GenreStat(g, ms.size, if (rated.isEmpty()) null else rated.average())
+                }
+                .sortedByDescending { it.count }
+                .take(6)
+        }
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Tu perfil de lector", style = MaterialTheme.typography.titleSmall)
+                if (genreStats.isEmpty()) {
+                    Text(
+                        "Aparece cuando AniList reconoce tus manhwas (se hace solo, en segundo plano).",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else {
+                    val max = genreStats.maxOf { it.count }
+                    genreStats.forEach { g ->
+                        Column {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text(Genres.label(g.genre), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                                g.avg?.let {
+                                    Text("★ ${"%.1f".format(it)}  ", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary)
+                                }
+                                Text("${g.count}", style = MaterialTheme.typography.bodyMedium)
+                            }
+                            Spacer(Modifier.height(2.dp))
+                            LinearProgressIndicator(progress = { g.count.toFloat() / max }, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                    val best = genreStats.filter { it.avg != null && it.count >= 2 }.maxByOrNull { it.avg ?: 0.0 }
+                    if (best != null) {
+                        Text(
+                            "Los que mejor calificas: ${Genres.label(best.genre)}.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+
+        // ---------------- Para retomar
+        val stalled = remember(library) {
+            val limit = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
+            library.filter { it.status == com.manhwatracker.app.data.Status.READING && it.updatedAt < limit }
+                .sortedBy { it.updatedAt }
+                .take(5)
+        }
+        if (stalled.isNotEmpty()) {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Para retomar", style = MaterialTheme.typography.titleSmall)
+                    Text("Los marcas como “Leyendo”, pero hace más de un mes que no avanzas.", style = MaterialTheme.typography.bodySmall)
+                    val now = System.currentTimeMillis()
+                    stalled.forEach { m ->
+                        val days = ((now - m.updatedAt) / (24L * 60 * 60 * 1000)).toInt()
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(m.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Text("hace $days días", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+                }
+            }
         }
 
         // ---------------- Capítulos por mes

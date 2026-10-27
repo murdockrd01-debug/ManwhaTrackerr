@@ -179,6 +179,7 @@ fun DiscoverScreen(vm: MainViewModel) {
                         Text("Porque lees: " + s.because.joinToString(", "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     }
                     Text(s.description ?: "AniList no tiene sinopsis para este título.", style = MaterialTheme.typography.bodyMedium)
+                    ReviewsSection(resetKey = s.id) { vm.loadReviewsById(s.id) }
                 }
             },
             confirmButton = {

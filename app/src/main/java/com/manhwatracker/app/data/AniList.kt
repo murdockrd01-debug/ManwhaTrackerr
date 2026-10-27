@@ -110,6 +110,33 @@ object AniList {
         return out
     }
 
+    /** Reseña de otro lector en AniList. [score] va de 0 a 100. */
+    data class Review(val user: String, val score: Int?, val summary: String, val helpful: Int)
+
+    private const val REVIEWS_QUERY =
+        "query(\$id: Int) { Media(id: \$id) { reviews(sort: RATING_DESC, perPage: 6) { nodes { " +
+            "summary score rating user { name } } } } }"
+
+    /** Reseñas más útiles de un manhwa. null = sin conexión; lista vacía = nadie ha escrito. */
+    suspend fun reviews(anilistId: Long): List<Review>? {
+        val reply = post(REVIEWS_QUERY, JSONObject().put("id", anilistId)) ?: return null
+        if (reply.code != 200) return if (reply.code == 404) emptyList() else null
+        val nodes = reply.json?.optJSONObject("data")?.optJSONObject("Media")
+            ?.optJSONObject("reviews")?.optJSONArray("nodes") ?: return emptyList()
+        val out = mutableListOf<Review>()
+        for (i in 0 until nodes.length()) {
+            val n = nodes.optJSONObject(i) ?: continue
+            val summary = n.optString("summary").trim().takeIf { it.isNotEmpty() && it != "null" } ?: continue
+            out += Review(
+                user = n.optJSONObject("user")?.optString("name")?.takeIf { it.isNotBlank() } ?: "Lector",
+                score = if (n.isNull("score")) null else n.optInt("score"),
+                summary = summary,
+                helpful = n.optInt("rating", 0)
+            )
+        }
+        return out
+    }
+
     private const val LISTING_QUERY =
         "query(\$p: Int, \$sort: [MediaSort], \$g: String) { Page(page: \$p, perPage: 30) { " +
             "media(type: MANGA, countryOfOrigin: \"KR\", sort: \$sort, genre: \$g, isAdult: false) { " +

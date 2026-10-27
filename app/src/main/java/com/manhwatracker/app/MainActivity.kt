@@ -825,6 +825,10 @@ fun DetailScreen(
             AssistChip(onClick = { newListHere = true }, label = { Text("＋ Nueva lista") })
         }
 
+        // ---- Reseñas (AniList)
+        HorizontalDivider()
+        ReviewsSection(resetKey = item.id) { vm.loadReviews(item) }
+
         // ---- Parecidos (AniList)
         HorizontalDivider()
         Text("Parecidos", style = MaterialTheme.typography.titleSmall)
