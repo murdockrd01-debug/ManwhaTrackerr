@@ -40,7 +40,14 @@ jobs:
           fi
 
       - name: Pruebas automáticas
-        run: gradle testDebugUnitTest --no-daemon
+        run: |
+          set +e
+          gradle testDebugUnitTest --no-daemon > test.log 2>&1
+          code=$?
+          if [ $code -ne 0 ]; then
+            grep -E "^e: |FAILED|Error|expected|Exception" test.log | head -25 | while read -r l; do echo "::error::${l:0:400}"; done
+          fi
+          exit $code
 
       - name: Compilar
         run: gradle assembleRelease --no-daemon
