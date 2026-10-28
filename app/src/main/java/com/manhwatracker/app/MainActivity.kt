@@ -87,6 +87,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.manhwatracker.app.data.AniList
 import com.manhwatracker.app.data.Genres
 import com.manhwatracker.app.data.Manhwa
@@ -594,6 +596,7 @@ fun ManhwaGridCard(
                     .align(Alignment.TopStart)
                     .padding(8.dp)
                     .size(10.dp)
+                    .semantics { contentDescription = tr(Status.label(m.status)) }
                     .clip(RoundedCornerShape(50))
                     .background(statusColor(m.status))
             )
