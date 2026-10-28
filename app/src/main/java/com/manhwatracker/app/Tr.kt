@@ -77,7 +77,9 @@ object Tr {
                 val m = p.regex.matchEntire(s) ?: continue
                 var out = p.out
                 m.groupValues.drop(1).forEachIndexed { k, v ->
-                    out = out.replace("{${k + 1}}", if (p.kinds[k]) translate(v, depth + 1) else v)
+                    val piece = if (p.kinds[k]) translate(v, depth + 1) else v
+                    val numbered = "{${k + 1}}"
+                    out = if (out.contains(numbered)) out.replace(numbered, piece) else out.replaceFirst("{}", piece)
                 }
                 return out
             }
