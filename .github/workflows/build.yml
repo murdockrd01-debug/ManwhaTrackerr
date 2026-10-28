@@ -39,6 +39,9 @@ jobs:
             echo "No hay secretos de firma: se usa la llave del repositorio"
           fi
 
+      - name: Pruebas automáticas
+        run: gradle testDebugUnitTest --no-daemon
+
       - name: Compilar
         run: gradle assembleRelease --no-daemon
 

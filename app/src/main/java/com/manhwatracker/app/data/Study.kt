@@ -93,6 +93,17 @@ object Prefs {
         p(c).edit().putString("backup_error", message).apply()
     }
 
+    // ---- Avisos de versión nueva
+    fun updateCheck(c: Context): Boolean = p(c).getBoolean("update_check", true)
+    fun setUpdateCheck(c: Context, on: Boolean) {
+        p(c).edit().putBoolean("update_check", on).apply()
+    }
+    /** Versión nueva que el usuario ya vio, para no repetir el aviso. */
+    fun seenUpdate(c: Context): String? = p(c).getString("seen_update", null)
+    fun setSeenUpdate(c: Context, v: String) {
+        p(c).edit().putString("seen_update", v).apply()
+    }
+
     fun quickBar(c: Context): Boolean = p(c).getBoolean("quick_bar", false)
     fun setQuickBar(c: Context, on: Boolean) {
         p(c).edit().putBoolean("quick_bar", on).apply()

@@ -19,6 +19,9 @@ object Features {
     /** true = es la primera vez y hay que preguntar qué modo quiere. */
     var needsChoice by mutableStateOf(false)
 
+    /** true = se muestra la guía de inicio (tras elegir el modo, o desde Ajustes). */
+    var showIntro by mutableStateOf(false)
+
     fun load(context: Context) {
         val saved = Prefs.studyEnabled(context)
         when {

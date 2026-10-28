@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.LocalDate
+import com.manhwatracker.app.data.UpdateCheck
 
 private const val SECTION_MANHWA = "MANHWA"
 private const val SECTION_STUDY = "STUDY"
@@ -56,6 +57,7 @@ private const val SECTION_MORE = "MORE"
 private const val SECTION_LOOK = "LOOK"
 private const val SECTION_DISCOVER = "DISCOVER"
 private const val SECTION_ICONS = "ICONS"
+private const val SECTION_SETTINGS = "SETTINGS"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +80,17 @@ fun App(vm: MainViewModel = viewModel()) {
             snackbar.showSnackbar(it)
             vm.clearMessage()
         }
+    }
+
+    // Aviso de versión nueva (una vez por versión).
+    val appCtx = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) {
+        if (!com.manhwatracker.app.data.Prefs.updateCheck(appCtx)) return@LaunchedEffect
+        val v = UpdateCheck.newerVersion(appCtx) ?: return@LaunchedEffect
+        if (com.manhwatracker.app.data.Prefs.seenUpdate(appCtx) == v) return@LaunchedEffect
+        com.manhwatracker.app.data.Prefs.setSeenUpdate(appCtx, v)
+        val r = snackbar.showSnackbar("Hay una versión nueva: $v", actionLabel = "Descargar", duration = SnackbarDuration.Long)
+        if (r == SnackbarResult.ActionPerformed) UpdateCheck.openDownload(appCtx)
     }
 
     // Aviso "Deshacer" cuando se suma un capítulo con el botón +.
@@ -135,7 +148,7 @@ fun App(vm: MainViewModel = viewModel()) {
 
     // Descubrir es una pestaña propia en modo solo tracker; con estudio vive dentro de Más.
     val discoverInMore = Features.study
-    val subScreen = section == SECTION_RATINGS || section == SECTION_SYNC || section == SECTION_LOOK || section == SECTION_ICONS ||
+    val subScreen = section == SECTION_RATINGS || section == SECTION_SYNC || section == SECTION_LOOK || section == SECTION_ICONS || section == SECTION_SETTINGS ||
         (section == SECTION_DISCOVER && discoverInMore)
 
     // El último BackHandler habilitado es el que manda.
@@ -162,6 +175,7 @@ fun App(vm: MainViewModel = viewModel()) {
                                 section == SECTION_SYNC -> "Sincronización"
                                 section == SECTION_LOOK -> "Apariencia"
                                 section == SECTION_ICONS -> "Icono de la app"
+                                section == SECTION_SETTINGS -> "Ajustes"
                                 section == SECTION_DISCOVER -> "Descubrir"
                                 section == SECTION_MORE -> "Más"
                                 else -> "Mis manhwas"
@@ -269,6 +283,7 @@ fun App(vm: MainViewModel = viewModel()) {
                 section == SECTION_SYNC -> SyncScreen(vm)
                 section == SECTION_LOOK -> AppearanceScreen()
                 section == SECTION_ICONS -> IconScreen()
+                section == SECTION_SETTINGS -> SettingsScreen()
                 section == SECTION_DISCOVER -> DiscoverScreen(vm)
                 section == SECTION_MORE -> MoreScreen(
                     onRatings = { section = SECTION_RATINGS },
@@ -276,6 +291,7 @@ fun App(vm: MainViewModel = viewModel()) {
                     onLook = { section = SECTION_LOOK },
                     onIcons = { section = SECTION_ICONS },
                     onDiscover = { section = SECTION_DISCOVER },
+                    onSettings = { section = SECTION_SETTINGS },
                     onImport = { picker.launch(arrayOf("*/*")) },
                     onExport = { exportPicker.launch("manhwa-tracker-${LocalDate.now()}.json") },
                     onRestore = { restorePicker.launch(arrayOf("*/*")) }

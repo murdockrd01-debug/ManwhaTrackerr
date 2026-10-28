@@ -122,7 +122,12 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     if (Features.needsChoice) {
                         val ctx = LocalContext.current
-                        WelcomeScreen { study -> Features.setStudy(ctx, study) }
+                        WelcomeScreen { study ->
+                            Features.setStudy(ctx, study)
+                            Features.showIntro = true
+                        }
+                    } else if (Features.showIntro) {
+                        IntroGuide(onDone = { Features.showIntro = false })
                     } else {
                         App()
                     }
