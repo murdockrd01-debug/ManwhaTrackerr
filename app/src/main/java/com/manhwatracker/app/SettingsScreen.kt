@@ -18,7 +18,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,6 +74,20 @@ fun SettingsScreen() {
                 if (Features.study) "Activo: palabras, repaso y racha." else "Apagado: solo tracker.",
                 Features.study
             ) { Features.setStudy(ctx, it) }
+        }
+
+        Text("Idioma", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        SettingCard {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("auto" to "Auto", "es" to "Español", "en" to "English").forEach { (id, label) ->
+                    androidx.compose.material3.FilterChip(
+                        selected = Tr.lang == id,
+                        onClick = { Tr.lang = id; Prefs.setLanguage(ctx, id) },
+                        label = { Text(label) }
+                    )
+                }
+            }
+            Text("Auto sigue el idioma del teléfono.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         Text("Actualizaciones", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)

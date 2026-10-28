@@ -59,7 +59,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
@@ -115,6 +114,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Si la barra rápida está activada, la volvemos a mostrar (por si se cerró o se reinició el teléfono).
         ThemeState.load(this)
+        Tr.lang = com.manhwatracker.app.data.Prefs.language(this)
         Features.load(this)
         if (Features.study && com.manhwatracker.app.data.Prefs.quickBar(this)) QuickAdd.show(this)
         setContent {
@@ -261,7 +261,7 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
                     query = ""
                     searching = false
                 }) {
-                    Icon(Icons.Filled.Clear, contentDescription = "Cerrar búsqueda")
+                    Icon(Icons.Filled.Clear, contentDescription = tr("Cerrar búsqueda"))
                 }
             }
         } else {
@@ -270,7 +270,7 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { searching = true }) {
-                    Icon(Icons.Filled.Search, contentDescription = "Buscar")
+                    Icon(Icons.Filled.Search, contentDescription = tr("Buscar"))
                 }
                 Row(
                     Modifier.weight(1f).horizontalScroll(rememberScrollState()),
@@ -297,7 +297,7 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
                 }
                 Box {
                     IconButton(onClick = { sortMenu = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "Orden y vista")
+                        Icon(Icons.Filled.MoreVert, contentDescription = tr("Orden y vista"))
                     }
                     DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                         SortMode.all.forEach { mode ->
@@ -541,7 +541,7 @@ fun ManhwaCard(
                 }
             }
             FilledTonalIconButton(onClick = onPlusOne) {
-                Icon(Icons.Filled.Add, contentDescription = "Leí un capítulo más")
+                Icon(Icons.Filled.Add, contentDescription = tr("Leí un capítulo más"))
             }
         }
     }
@@ -617,7 +617,7 @@ fun ManhwaGridCard(
                     )
                 }
                 FilledTonalIconButton(onClick = onPlusOne, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Filled.Add, contentDescription = "Leí un capítulo más")
+                    Icon(Icons.Filled.Add, contentDescription = tr("Leí un capítulo más"))
                 }
             }
         }

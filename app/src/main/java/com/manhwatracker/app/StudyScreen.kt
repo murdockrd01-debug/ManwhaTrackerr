@@ -49,7 +49,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -212,12 +211,12 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
                     IconButton(onClick = {
                         query = ""
                         searching = false
-                    }) { Icon(Icons.Filled.Clear, contentDescription = "Cerrar búsqueda") }
+                    }) { Icon(Icons.Filled.Clear, contentDescription = tr("Cerrar búsqueda")) }
                 }
             } else {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { searching = true }) {
-                        Icon(Icons.Filled.Search, contentDescription = "Buscar")
+                        Icon(Icons.Filled.Search, contentDescription = tr("Buscar"))
                     }
                     Row(
                         Modifier.weight(1f).horizontalScroll(rememberScrollState()),
@@ -237,7 +236,7 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
                     }
                     Box {
                         IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "Orden y opciones")
+                            Icon(Icons.Filled.MoreVert, contentDescription = tr("Orden y opciones"))
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             listOf(S_RECENT to "Orden: recientes", S_USEFUL to "Orden: más útiles primero", S_AZ to "Orden: A–Z").forEach { (id, label) ->

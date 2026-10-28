@@ -93,6 +93,11 @@ object Prefs {
         p(c).edit().putString("backup_error", message).apply()
     }
 
+    fun language(c: Context): String = p(c).getString("language", "auto") ?: "auto"
+    fun setLanguage(c: Context, v: String) {
+        p(c).edit().putString("language", v).apply()
+    }
+
     // ---- Avisos de versión nueva
     fun updateCheck(c: Context): Boolean = p(c).getBoolean("update_check", true)
     fun setUpdateCheck(c: Context, on: Boolean) {

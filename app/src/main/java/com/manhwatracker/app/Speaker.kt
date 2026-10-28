@@ -2,7 +2,6 @@ package com.manhwatracker.app
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect

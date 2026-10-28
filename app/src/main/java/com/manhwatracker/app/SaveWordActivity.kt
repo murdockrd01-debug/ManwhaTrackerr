@@ -31,8 +31,8 @@ class SaveWordActivity : ComponentActivity() {
             withContext(Dispatchers.Main) {
                 Toast.makeText(
                     app,
-                    if (result.added) "Guardada: $text" + (Prefs.lastManhwa(app)?.let { " (en $it)" } ?: "")
-                    else "Ya la tenías guardada",
+                    tr(if (result.added) "Guardada: $text" + (Prefs.lastManhwa(app)?.let { " (en $it)" } ?: "")
+                    else "Ya la tenías guardada"),
                     Toast.LENGTH_SHORT
                 ).show()
             }

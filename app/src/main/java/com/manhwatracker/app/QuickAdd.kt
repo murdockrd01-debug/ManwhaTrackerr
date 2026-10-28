@@ -70,8 +70,8 @@ object QuickAdd {
 
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notif)
-            .setContentTitle("Estudio de inglés")
-            .setContentText(status ?: ("En: " + (Prefs.lastManhwa(context) ?: "ningún manhwa") + " — toca “Guardar palabra”"))
+            .setContentTitle(tr("Estudio de inglés"))
+            .setContentText(tr(status ?: ("En: " + (Prefs.lastManhwa(context) ?: "ningún manhwa") + " — toca “Guardar palabra”")))
             .setContentIntent(openIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

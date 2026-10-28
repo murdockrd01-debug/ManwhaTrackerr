@@ -31,7 +31,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -77,7 +76,7 @@ fun App(vm: MainViewModel = viewModel()) {
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(message) {
         message?.let {
-            snackbar.showSnackbar(it)
+            snackbar.showSnackbar(tr(it))
             vm.clearMessage()
         }
     }
@@ -89,7 +88,7 @@ fun App(vm: MainViewModel = viewModel()) {
         val v = UpdateCheck.newerVersion(appCtx) ?: return@LaunchedEffect
         if (com.manhwatracker.app.data.Prefs.seenUpdate(appCtx) == v) return@LaunchedEffect
         com.manhwatracker.app.data.Prefs.setSeenUpdate(appCtx, v)
-        val r = snackbar.showSnackbar("Hay una versión nueva: $v", actionLabel = "Descargar", duration = SnackbarDuration.Long)
+        val r = snackbar.showSnackbar(tr("Hay una versión nueva: $v"), actionLabel = tr("Descargar"), duration = SnackbarDuration.Long)
         if (r == SnackbarResult.ActionPerformed) UpdateCheck.openDownload(appCtx)
     }
 
@@ -98,8 +97,8 @@ fun App(vm: MainViewModel = viewModel()) {
     LaunchedEffect(undo) {
         val info = undo ?: return@LaunchedEffect
         val result = snackbar.showSnackbar(
-            message = info.text,
-            actionLabel = "Deshacer",
+            message = tr(info.text),
+            actionLabel = tr("Deshacer"),
             duration = SnackbarDuration.Short
         )
         if (result == SnackbarResult.ActionPerformed) vm.undoIncrement(info.previous)
@@ -186,13 +185,13 @@ fun App(vm: MainViewModel = viewModel()) {
                     navigationIcon = {
                         when {
                             currentId != null -> IconButton(onClick = { selectedId = null }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver"))
                             }
                             section == SECTION_REVIEW -> IconButton(onClick = { leaveReview() }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver"))
                             }
                             subScreen -> IconButton(onClick = { section = SECTION_MORE }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver"))
                             }
                         }
                     }
@@ -253,7 +252,7 @@ fun App(vm: MainViewModel = viewModel()) {
                         if (section == SECTION_STUDY) showAddWord = true else showAddManhwa = true
                     }
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = "Agregar")
+                    Icon(Icons.Filled.Add, contentDescription = tr("Agregar"))
                 }
             }
         }
