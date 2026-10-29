@@ -88,7 +88,7 @@ fun App(vm: MainViewModel = viewModel()) {
         val v = UpdateCheck.newerVersion(appCtx) ?: return@LaunchedEffect
         if (com.manhwatracker.app.data.Prefs.seenUpdate(appCtx) == v) return@LaunchedEffect
         com.manhwatracker.app.data.Prefs.setSeenUpdate(appCtx, v)
-        val r = snackbar.showSnackbar(tr("Hay una versión nueva: $v"), actionLabel = tr("Actualizar"), duration = SnackbarDuration.Long)
+        val r = snackbar.showSnackbar(tr("Hay una versión nueva: $v"), actionLabel = tr("Actualizar ahora"), duration = SnackbarDuration.Long)
         if (r == SnackbarResult.ActionPerformed) section = SECTION_SETTINGS
     }
 

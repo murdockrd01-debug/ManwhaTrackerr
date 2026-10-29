@@ -248,7 +248,7 @@ object TrData {
         "Ejemplos" to "Examples", "Nota" to "Note",
         "🗂️  Tarjetas" to "🗂️  Cards", "✍️  Escritura" to "✍️  Typing",
         "✗  No la sabía" to "✗  Didn't know it", "✓  La sabía" to "✓  Knew it",
-        "Actualizar" to "Update", "Descargar e instalar" to "Download and install", "Instalar" to "Install",
+        "Descargar e instalar" to "Download and install", "Instalar" to "Install",
         "No se pudo descargar. Revisa tu internet." to "Couldn't download. Check your internet.",
         "Permite a Manhwa Tracker instalar apps, vuelve aquí y toca Instalar." to "Allow Manhwa Tracker to install apps, come back here and tap Install.",
         "No se pudo abrir el instalador." to "Couldn't open the installer.",
