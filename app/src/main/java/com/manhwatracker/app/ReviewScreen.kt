@@ -38,7 +38,10 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.key
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -379,7 +382,8 @@ private fun FlipCard(
     onUnavailable: () -> Unit,
     modifier: Modifier
 ) {
-    val rot by animateFloatAsState(if (flipped) 180f else 0f, tween(380), label = "flip")
+    // Una animación nueva por palabra: así la tarjeta siguiente aparece de frente, sin girar mostrando la respuesta.
+    val rot by key(w.id) { animateFloatAsState(if (flipped) 180f else 0f, tween(550, easing = FastOutSlowInEasing), label = "flip") }
     val density = LocalDensity.current.density
     val threshold = 120f * density
     var dx by remember(w.id, flipped) { mutableFloatStateOf(0f) }
@@ -408,7 +412,11 @@ private fun FlipCard(
                 .fillMaxSize()
                 .graphicsLayer {
                     rotationY = rot
-                    cameraDistance = 14f * density
+                    cameraDistance = 12f * density
+                    // Se encoge un poco a medio giro para que se note más el volteo.
+                    val k = 1f - 0.08f * kotlin.math.sin(Math.toRadians(rot.toDouble())).toFloat()
+                    scaleX = k
+                    scaleY = k
                 }
                 .clickable { onFlip() }
         ) {
@@ -417,7 +425,8 @@ private fun FlipCard(
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
                             w.text,
-                            fontSize = 38.sp,
+                            fontSize = bigSize(w.text, 36),
+                            lineHeight = bigSize(w.text, 36) * 1.25f,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center
                         )
@@ -443,7 +452,8 @@ private fun FlipCard(
                             Text(
                                 w.translation
                                     ?: if (!w.lookupDone) "Traducción pendiente (se busca cuando haya internet)" else "—",
-                                fontSize = 30.sp,
+                                fontSize = bigSize(w.translation.orEmpty(), 30),
+                                lineHeight = bigSize(w.translation.orEmpty(), 30) * 1.25f,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
                                 textAlign = TextAlign.Center
@@ -500,7 +510,8 @@ private fun WriteCard(
                 )
                 Text(
                     w.translation.orEmpty(),
-                    fontSize = 32.sp,
+                    fontSize = bigSize(w.translation.orEmpty(), 30),
+                    lineHeight = bigSize(w.translation.orEmpty(), 30) * 1.25f,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center
@@ -622,4 +633,11 @@ private fun WordDetails(w: Word) {
     w.note?.let {
         DetailBlock("Nota") { Text(it, style = MaterialTheme.typography.bodyMedium) }
     }
+}
+
+/** Tamaño de letra que baja cuando el texto es largo, para que las frases no se pisen ni se salgan. */
+private fun bigSize(text: String, max: Int): TextUnit = when {
+    text.length <= 10 -> max.sp
+    text.length <= 22 -> (max * 0.8f).sp
+    else -> (max * 0.65f).sp
 }
