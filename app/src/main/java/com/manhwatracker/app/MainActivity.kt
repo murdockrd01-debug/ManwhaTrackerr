@@ -619,7 +619,7 @@ fun ManhwaGridCard(
                         color = Color.White.copy(alpha = 0.85f)
                     )
                 }
-                FilledTonalIconButton(onClick = onPlusOne, modifier = Modifier.size(36.dp)) {
+                FilledTonalIconButton(onClick = onPlusOne, modifier = Modifier.size(48.dp)) {
                     Icon(Icons.Filled.Add, contentDescription = tr("Leí un capítulo más"))
                 }
             }

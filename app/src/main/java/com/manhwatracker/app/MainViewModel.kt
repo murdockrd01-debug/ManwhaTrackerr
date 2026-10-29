@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.manhwatracker.app.data.Activity
 import com.manhwatracker.app.data.ActivityKind
+import com.manhwatracker.app.data.DiscoverDisk
 import com.manhwatracker.app.data.AniList
 import com.manhwatracker.app.data.AutoSync
 import com.manhwatracker.app.data.AppDatabase
@@ -535,8 +536,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     if (list == null) DiscoverResult(emptyList(), offline) else DiscoverResult(list, null)
                 }
             }
-            if (result.error == null) discoverCache[key] = result.items
-            result
+            if (result.error == null) {
+                discoverCache[key] = result.items
+                if (result.items.isNotEmpty()) DiscoverDisk.save(getApplication(), key, result.items)
+                result
+            } else {
+                // Sin internet: se muestran las últimas sugerencias guardadas, si las hay.
+                val saved = DiscoverDisk.load(getApplication(), key)
+                if (saved != null) DiscoverResult(saved, null) else result
+            }
         }
     }
 
