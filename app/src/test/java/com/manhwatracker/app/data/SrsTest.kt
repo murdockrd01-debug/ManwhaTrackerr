@@ -25,4 +25,13 @@ class SrsTest {
         assertEquals(3, Srs.queue(ws, now, true, null, false).size)
     }
     @Test fun queueMax() { assertEquals(Srs.SESSION_MAX, Srs.queue(List(50) { Word(id = it.toLong(), text = "w$it") }, now, true, null, false).size) }
+    @Test fun usefulFirst() {
+        val ws = listOf(
+            Word(id = 1, text = "rare", freq = 0.01, dueAt = 0),
+            Word(id = 2, text = "good", freq = 50.0, dueAt = 5),
+            Word(id = 3, text = "mid", freq = 2.0, dueAt = 0)
+        )
+        assertEquals(listOf(2L, 3L, 1L), Srs.queue(ws, now, false, null, false, true).map { it.id })
+        assertEquals(listOf(1L, 3L, 2L), Srs.queue(ws, now, false, null, false, false).map { it.id })
+    }
 }

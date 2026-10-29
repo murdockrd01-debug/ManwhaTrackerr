@@ -39,15 +39,26 @@ object Srs {
      *
      * @param all false = solo las que ya tocan; true = todas las no aprendidas.
      * @param titleKey si no es null, solo las palabras de ese manhwa (ver [titleKeyOf]).
+     * @param byUsefulness true = las más útiles primero (ver [Utility]); false = las que llevan más tiempo esperando.
      * @param writing true = modo escritura: solo sirven las que tienen traducción, porque es lo que se muestra.
      */
-    fun queue(words: List<Word>, now: Long, all: Boolean, titleKey: String?, writing: Boolean): List<Word> =
+    fun queue(
+        words: List<Word>, now: Long, all: Boolean, titleKey: String?, writing: Boolean,
+        byUsefulness: Boolean = true
+    ): List<Word> =
         words.asSequence()
             .filter { !it.learned }
             .filter { all || it.dueAt <= now }
             .filter { titleKey == null || it.manhwaTitle?.let { t -> titleKeyOf(t) } == titleKey }
             .filter { !writing || !it.translation.isNullOrBlank() }
-            .sortedWith(compareBy<Word>({ it.dueAt }, { it.createdAt }))
+            .sortedWith(
+                if (byUsefulness)
+                    compareBy<Word> { Utility.rank(Utility.tier(it.freq, it.text)) }
+                        .thenByDescending { it.freq }
+                        .thenBy { it.dueAt }
+                        .thenBy { it.createdAt }
+                else compareBy<Word>({ it.dueAt }, { it.createdAt })
+            )
             .take(SESSION_MAX)
             .toList()
 }

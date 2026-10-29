@@ -99,6 +99,12 @@ object Prefs {
         p(c).edit().putString("reader", pkg).apply()
     }
 
+    /** true = en el repaso salen primero las palabras más útiles. */
+    fun reviewByUse(c: Context): Boolean = p(c).getBoolean("review_by_use", true)
+    fun setReviewByUse(c: Context, on: Boolean) {
+        p(c).edit().putBoolean("review_by_use", on).apply()
+    }
+
     fun language(c: Context): String = p(c).getString("language", "auto") ?: "auto"
     fun setLanguage(c: Context, v: String) {
         p(c).edit().putString("language", v).apply()

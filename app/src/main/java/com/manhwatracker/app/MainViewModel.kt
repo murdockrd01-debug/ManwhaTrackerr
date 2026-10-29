@@ -167,7 +167,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * [titleKey] limita a las palabras de un manhwa; [writing] deja solo las que tienen traducción.
      */
     suspend fun reviewQueue(all: Boolean, titleKey: String?, writing: Boolean): List<Word> =
-        Srs.queue(wordDao.all(), System.currentTimeMillis(), all, titleKey, writing)
+        Srs.queue(wordDao.all(), System.currentTimeMillis(), all, titleKey, writing, Prefs.reviewByUse(getApplication()))
 
     /** Guarda la respuesta de una tarjeta y programa cuándo volverá a salir. */
     fun reviewed(w: Word, known: Boolean) {

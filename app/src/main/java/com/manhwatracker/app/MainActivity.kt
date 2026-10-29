@@ -52,6 +52,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -651,6 +654,17 @@ fun Cover(m: Manhwa, onError: () -> Unit, modifier: Modifier) {
 
 // ---------------------------------------------------------------- Detalle
 
+@Composable
+private fun HeroPill(text: String, color: Color) {
+    Text(
+        text,
+        color = Color.White,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.clip(RoundedCornerShape(50)).background(color).padding(horizontal = 10.dp, vertical = 4.dp)
+    )
+}
+
 /**
  * Detalle de un manhwa: progreso, estado, tu nota y comentario, y las palabras que guardaste de él.
  * [onReviewWords] abre el repaso solo con las palabras de este manhwa (recibe su titleKey y su título).
@@ -715,63 +729,125 @@ fun DetailScreen(
         )
     }
 
+    val chapterNow = chapterText.replace(',', '.').toDoubleOrNull() ?: item.lastChapter
+    val totalNow = totalText.toIntOrNull() ?: 0
+    fun setChapter(v: Double) { chapterText = fmt(maxOf(0.0, v)) }
+
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(verticalAlignment = Alignment.Top) {
-            Cover(item, { vm.coverFallback(item) }, Modifier.width(110.dp).height(156.dp))
-            Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
-                Text(item.title, style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = { vm.coverFallback(item, force = true) }) {
-                    Text("Buscar portada")
-                }
-                Spacer(Modifier.height(4.dp))
-                Button(onClick = {
-                    if (!ReaderLink.open(context, item.title)) vm.showMessage("No encontré ninguna app lectora instalada en este teléfono")
-                }) {
-                    Text("Abrir en " + (ReaderLink.target(context)?.name ?: "mi lector"))
+        // ---- Cabecera: portada, título y estado
+        Box(Modifier.fillMaxWidth().background(brandBrush()).padding(16.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Cover(
+                    item, { vm.coverFallback(item) },
+                    Modifier.width(112.dp).height(160.dp).clip(RoundedCornerShape(16.dp))
+                )
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(item.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                    Row(
+                        Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        HeroPill(Status.label(status), statusColor(status))
+                        HeroPill(Types.label(item.type), Color(0x33FFFFFF))
+                        if (rating > 0) HeroPill("★ $rating", ratingColor(rating).copy(alpha = 0.9f))
+                    }
+                    TextButton(onClick = { vm.coverFallback(item, force = true) }) {
+                        Text("Buscar portada", color = Color.White)
+                    }
                 }
             }
         }
 
-        OutlinedTextField(
-            value = chapterText,
-            onValueChange = { chapterText = it },
-            label = { Text("Último capítulo leído") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-        OutlinedTextField(
-            value = totalText,
-            onValueChange = { totalText = it.filter { c -> c.isDigit() } },
-            label = { Text("Total de capítulos (opcional)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
 
-        Text("Estado", style = MaterialTheme.typography.labelLarge)
+        // ---- Progreso
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+            Column(
+                Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Progreso", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxWidth())
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FilledTonalIconButton(onClick = { setChapter(chapterNow - 1) }, modifier = Modifier.size(48.dp)) {
+                        Text("−", fontSize = 24.sp)
+                    }
+                    OutlinedTextField(
+                        value = chapterText,
+                        onValueChange = { chapterText = it },
+                        label = { Text("Capítulo") },
+                        textStyle = LocalTextStyle.current.copy(fontSize = 28.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.width(130.dp)
+                    )
+                    FilledTonalIconButton(onClick = { setChapter(chapterNow + 1) }, modifier = Modifier.size(48.dp)) {
+                        Text("+", fontSize = 24.sp)
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("de", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(
+                        value = totalText,
+                        onValueChange = { totalText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Total (opcional)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.width(170.dp)
+                    )
+                }
+                if (totalNow > 0) {
+                    val frac = (chapterNow / totalNow).toFloat().coerceIn(0f, 1f)
+                    val left = maxOf(0, (totalNow - chapterNow).toInt())
+                    LinearProgressIndicator(
+                        progress = { frac },
+                        modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(50)),
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    Text(
+                        if (left == 1) "${(frac * 100).toInt()}% · falta 1 capítulo" else "${(frac * 100).toInt()}% · faltan $left capítulos",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Button(
+                    onClick = {
+                        if (!ReaderLink.open(context, item.title)) vm.showMessage("No encontré ninguna app lectora instalada en este teléfono")
+                    },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("▶  Continuar en " + (ReaderLink.target(context)?.name ?: "mi lector"), fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        // ---- Estado
+        Text("Estado", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         Row(
             Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Status.all.forEach { s ->
+            Status.all.forEach { st ->
                 FilterChip(
-                    selected = status == s,
-                    onClick = { status = s },
-                    label = { Text(Status.label(s)) }
+                    selected = status == st,
+                    onClick = { status = st },
+                    label = { Text(Status.label(st)) },
+                    leadingIcon = {
+                        Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(statusColor(st)))
+                    }
                 )
             }
         }
 
-        Card(Modifier.fillMaxWidth()) {
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Mi calificación", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
@@ -804,7 +880,9 @@ fun DetailScreen(
             }
         }
 
-        // ---- Tipo
+        // ---- Detalles
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Tipo", style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Types.all.forEach { t ->
@@ -844,6 +922,8 @@ fun DetailScreen(
                 )
             }
             AssistChip(onClick = { newListHere = true }, label = { Text("＋ Nueva lista") })
+        }
+        }
         }
 
         // ---- Reseñas (AniList)
@@ -970,6 +1050,7 @@ fun DetailScreen(
             onClick = { confirmDelete = true },
             modifier = Modifier.fillMaxWidth()
         ) { Text("Eliminar de mi lista") }
+        }
     }
 
     if (newListHere) {

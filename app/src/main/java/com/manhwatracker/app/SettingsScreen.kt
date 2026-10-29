@@ -117,6 +117,28 @@ fun SettingsScreen() {
             Text("Auto sigue el idioma del teléfono.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
+        if (Features.study) {
+            Text("Repaso", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            SettingCard {
+                var byUse by remember { mutableStateOf(Prefs.reviewByUse(ctx)) }
+                Text("Orden del repaso", style = MaterialTheme.typography.titleMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.FilterChip(
+                        selected = byUse, onClick = { byUse = true; Prefs.setReviewByUse(ctx, true) },
+                        label = { Text("Más útiles primero") }
+                    )
+                    androidx.compose.material3.FilterChip(
+                        selected = !byUse, onClick = { byUse = false; Prefs.setReviewByUse(ctx, false) },
+                        label = { Text("Más antiguas primero") }
+                    )
+                }
+                Text(
+                    "Cada ronda trae hasta 30 palabras. Con \"más útiles\", las que más se usan en inglés salen antes.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         Text("App para leer", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         SettingCard {
             val readers = remember { ReaderLink.installed(ctx) }
