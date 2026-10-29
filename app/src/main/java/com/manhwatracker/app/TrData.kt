@@ -5,6 +5,7 @@ object TrData {
     val patterns: List<Pair<String, String>> = listOf(
         "AniList: {} nuevos, {} actualizados" to "AniList: {} new, {} updated",
         "Abrir en {}" to "Open in {}",
+        "Descargando… {}%" to "Downloading… {}%",
         "★ {} en AniList" to "★ {} on AniList",
         "Porque lees: {}" to "Because you read: {}",
         "Porque lees {}" to "Because you read {}",
@@ -247,6 +248,10 @@ object TrData {
         "Ejemplos" to "Examples", "Nota" to "Note",
         "🗂️  Tarjetas" to "🗂️  Cards", "✍️  Escritura" to "✍️  Typing",
         "✗  No la sabía" to "✗  Didn't know it", "✓  La sabía" to "✓  Knew it",
+        "Actualizar" to "Update", "Descargar e instalar" to "Download and install", "Instalar" to "Install",
+        "No se pudo descargar. Revisa tu internet." to "Couldn't download. Check your internet.",
+        "Permite a Manhwa Tracker instalar apps, vuelve aquí y toca Instalar." to "Allow Manhwa Tracker to install apps, come back here and tap Install.",
+        "No se pudo abrir el instalador." to "Couldn't open the installer.",
         "Importar desde AniList" to "Import from AniList", "Usuario de AniList" to "AniList username",
         "Importar" to "Import", "Importando…" to "Importing…",
         "No encontré ese usuario en AniList." to "Couldn't find that AniList user.",

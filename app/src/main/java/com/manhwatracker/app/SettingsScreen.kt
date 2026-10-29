@@ -63,6 +63,32 @@ fun SettingsScreen() {
     var status by remember { mutableStateOf<String?>(null) }
     var checking by remember { mutableStateOf(false) }
     var found by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf<Float?>(null) }
+    var apk by remember { mutableStateOf<java.io.File?>(null) }
+
+    fun runCheck() {
+        checking = true
+        status = null
+        scope.launch {
+            val v = UpdateCheck.newerVersion(ctx)
+            checking = false
+            found = v != null
+            status = if (v != null) "Hay una versión nueva: $v" else "Tienes la última versión (o no hay internet)."
+        }
+    }
+
+    fun installNow() {
+        val f = apk ?: return
+        status = when (UpdateCheck.install(ctx, f)) {
+            UpdateCheck.InstallResult.STARTED -> null
+            UpdateCheck.InstallResult.NEEDS_PERMISSION ->
+                "Permite a Manhwa Tracker instalar apps, vuelve aquí y toca Instalar."
+            UpdateCheck.InstallResult.FAILED -> "No se pudo abrir el instalador."
+        }
+    }
+
+    // Al abrir Ajustes se busca solo, para que el botón de descargar ya esté listo.
+    androidx.compose.runtime.LaunchedEffect(Unit) { if (Prefs.updateCheck(ctx)) runCheck() }
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -123,19 +149,31 @@ fun SettingsScreen() {
             Text("Versión instalada: ${UpdateCheck.installedVersion(ctx)}", style = MaterialTheme.typography.bodyMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
-                    enabled = !checking,
-                    onClick = {
-                        checking = true
+                    enabled = !checking && progress == null,
+                    onClick = { runCheck() }
+                ) { Text(if (checking) "Buscando…" else "Buscar ahora") }
+                if (apk != null) {
+                    Button(onClick = { installNow() }) { Text("Instalar") }
+                } else if (found) {
+                    Button(enabled = progress == null, onClick = {
+                        progress = 0f
                         status = null
                         scope.launch {
-                            val v = UpdateCheck.newerVersion(ctx)
-                            checking = false
-                            found = v != null
-                            status = if (v != null) "Hay una versión nueva: $v" else "Tienes la última versión (o no hay internet)."
+                            val f = UpdateCheck.download(ctx) { progress = it }
+                            progress = null
+                            if (f == null) status = "No se pudo descargar. Revisa tu internet."
+                            else { apk = f; installNow() }
                         }
-                    }
-                ) { Text(if (checking) "Buscando…" else "Buscar ahora") }
-                if (found) Button(onClick = { UpdateCheck.openDownload(ctx) }) { Text("Descargar") }
+                    }) { Text("Descargar e instalar") }
+                }
+            }
+            progress?.let { p ->
+                if (p >= 0f) {
+                    androidx.compose.material3.LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth())
+                    Text("Descargando… ${(p * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+                } else {
+                    androidx.compose.material3.LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
             }
             status?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
