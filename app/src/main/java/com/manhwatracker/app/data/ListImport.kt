@@ -10,7 +10,8 @@ object ListImport {
         val rating10: Int,
         val cover: String?,
         val genres: List<String>,
-        val anilistId: Long
+        val anilistId: Long,
+        val country: String? = null
     )
 
     /** Estados de AniList → los de la app. */
@@ -26,7 +27,7 @@ object ListImport {
         title = e.title, titleKey = titleKeyOf(e.title), coverUrl = e.cover,
         lastChapter = e.progress, totalChapters = e.total, status = mapStatus(e.status),
         rating = e.rating10.coerceIn(0, 10), genres = e.genres.takeIf { it.isNotEmpty() }?.joinToString(","),
-        anilistId = e.anilistId
+        anilistId = e.anilistId, type = Types.fromCountry(e.country)
     )
 
     /**

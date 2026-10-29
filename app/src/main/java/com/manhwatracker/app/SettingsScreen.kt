@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -88,6 +89,29 @@ fun SettingsScreen() {
                 }
             }
             Text("Auto sigue el idioma del teléfono.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        Text("App para leer", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        SettingCard {
+            val readers = remember { ReaderLink.installed(ctx) }
+            var chosen by remember { mutableStateOf(Prefs.reader(ctx)) }
+            if (readers.isEmpty()) {
+                Text("No encontré Komikku, Mihon ni Mangayomi instalados.", style = MaterialTheme.typography.bodySmall)
+            } else {
+                Text("Es la app que se abre con el botón de cada manhwa.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.FilterChip(
+                        selected = chosen == null, onClick = { chosen = null; Prefs.setReader(ctx, null) },
+                        label = { Text("Automático") }
+                    )
+                    readers.forEach { r ->
+                        androidx.compose.material3.FilterChip(
+                            selected = chosen == r.pkg, onClick = { chosen = r.pkg; Prefs.setReader(ctx, r.pkg) },
+                            label = { Text(r.name) }
+                        )
+                    }
+                }
+            }
         }
 
         Text("Actualizaciones", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)

@@ -657,6 +657,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Cambia el tipo (manhwa, manga, manhua) sin mover el manhwa en el orden de "recientes". */
+    fun setType(m: Manhwa, type: String) {
+        viewModelScope.launch { dao.update(m.copy(type = type)) }
+    }
+
     fun addPlanned(title: String, cover: String?) {
         viewModelScope.launch {
             val key = titleKeyOf(title)

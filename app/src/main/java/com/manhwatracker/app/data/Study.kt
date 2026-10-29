@@ -93,6 +93,12 @@ object Prefs {
         p(c).edit().putString("backup_error", message).apply()
     }
 
+    /** Paquete de la app lectora elegida; null = la primera que esté instalada. */
+    fun reader(c: Context): String? = p(c).getString("reader", null)
+    fun setReader(c: Context, pkg: String?) {
+        p(c).edit().putString("reader", pkg).apply()
+    }
+
     fun language(c: Context): String = p(c).getString("language", "auto") ?: "auto"
     fun setLanguage(c: Context, v: String) {
         p(c).edit().putString("language", v).apply()

@@ -4,6 +4,7 @@ package com.manhwatracker.app
 object TrData {
     val patterns: List<Pair<String, String>> = listOf(
         "AniList: {} nuevos, {} actualizados" to "AniList: {} new, {} updated",
+        "Abrir en {}" to "Open in {}",
         "★ {} en AniList" to "★ {} on AniList",
         "Porque lees: {}" to "Because you read: {}",
         "Porque lees {}" to "Because you read {}",
@@ -238,6 +239,10 @@ object TrData {
         "ene" to "Jan", "feb" to "Feb", "mar" to "Mar", "abr" to "Apr", "may" to "May", "jun" to "Jun",
         "jul" to "Jul", "ago" to "Aug", "sep" to "Sep", "oct" to "Oct", "nov" to "Nov", "dic" to "Dec",
         // Sync
+        "Tipo" to "Type", "Otro" to "Other", "App para leer" to "Reading app", "Automático" to "Automatic",
+        "No encontré ninguna app lectora instalada en este teléfono" to "No reading app is installed on this phone",
+        "No encontré Komikku, Mihon ni Mangayomi instalados." to "I couldn't find Komikku, Mihon or Mangayomi installed.",
+        "Es la app que se abre con el botón de cada manhwa." to "This is the app opened by each manhwa's button.",
         "Importar desde AniList" to "Import from AniList", "Usuario de AniList" to "AniList username",
         "Importar" to "Import", "Importando…" to "Importing…",
         "No encontré ese usuario en AniList." to "Couldn't find that AniList user.",

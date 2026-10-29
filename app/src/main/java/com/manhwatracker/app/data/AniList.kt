@@ -160,7 +160,7 @@ object AniList {
 
     private const val USER_QUERY =
         "query(\$u: String) { MediaListCollection(userName: \$u, type: MANGA) { lists { entries { status progress " +
-            "score(format: POINT_10) media { id chapters genres isAdult coverImage { large } title { romaji english } } } } } }"
+            "score(format: POINT_10) media { id chapters genres isAdult countryOfOrigin coverImage { large } title { romaji english } } } } } }"
 
     /** La lista de manga/manhwa de un usuario público de AniList. */
     suspend fun userList(username: String): UserList {
@@ -189,7 +189,8 @@ object AniList {
                     rating10 = en.optInt("score", 0),
                     cover = media.optJSONObject("coverImage")?.optString("large")?.takeIf { it.isNotBlank() && it != "null" },
                     genres = media.optJSONArray("genres")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty(),
-                    anilistId = id
+                    anilistId = id,
+                    country = media.optString("countryOfOrigin").takeIf { it.isNotBlank() && it != "null" }
                 )
             }
         }

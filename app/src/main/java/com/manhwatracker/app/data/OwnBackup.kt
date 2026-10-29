@@ -76,6 +76,7 @@ object OwnBackup {
         .put("review", m.review)
         .put("genres", m.genres)
         .put("anilistId", m.anilistId)
+        .put("type", m.type)
 
     private fun activityToJson(a: Activity) = JSONObject()
         .put("day", a.day)
@@ -146,7 +147,8 @@ object OwnBackup {
                             rating = if (b.rating > 0) b.rating else existing.rating,
                             review = b.review ?: existing.review,
                             genres = existing.genres ?: b.genres,
-                            anilistId = if (existing.anilistId > 0) existing.anilistId else b.anilistId
+                            anilistId = if (existing.anilistId > 0) existing.anilistId else b.anilistId,
+                            type = if (existing.type == Types.MANHWA) b.type else existing.type
                         )
                     )
                     mUpdated++
@@ -241,7 +243,8 @@ object OwnBackup {
             rating = o.optInt("rating", 0).coerceIn(0, 10),
             review = o.str("review"),
             genres = o.str("genres"),
-            anilistId = o.optLong("anilistId", 0)
+            anilistId = o.optLong("anilistId", 0),
+            type = o.str("type")?.takeIf { it in Types.all } ?: Types.MANHWA
         )
     }
 

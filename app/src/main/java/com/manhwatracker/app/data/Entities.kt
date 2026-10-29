@@ -39,8 +39,33 @@ data class Manhwa(
     /** Géneros de AniList separados por coma. null = todavía no se consultó; "" = AniList no tiene. */
     val genres: String? = null,
     /** Identificador del manhwa en AniList (para buscar parecidos). 0 = no se sabe. */
-    @ColumnInfo(defaultValue = "0") val anilistId: Long = 0
+    @ColumnInfo(defaultValue = "0") val anilistId: Long = 0,
+    /** MANHWA, MANGA, MANHUA u OTHER (ver [Types]). */
+    @ColumnInfo(defaultValue = "'MANHWA'") val type: String = Types.MANHWA
 )
+
+object Types {
+    const val MANHWA = "MANHWA"
+    const val MANGA = "MANGA"
+    const val MANHUA = "MANHUA"
+    const val OTHER = "OTHER"
+    val all = listOf(MANHWA, MANGA, MANHUA, OTHER)
+
+    fun label(t: String) = when (t) {
+        MANHWA -> "Manhwa"
+        MANGA -> "Manga"
+        MANHUA -> "Manhua"
+        else -> "Otro"
+    }
+
+    /** País de origen de AniList → tipo. */
+    fun fromCountry(code: String?): String = when (code?.uppercase()) {
+        "KR" -> MANHWA
+        "JP" -> MANGA
+        "CN", "TW", "HK" -> MANHUA
+        else -> MANHWA
+    }
+}
 
 /** Lista personalizada de manhwas ("Para recomendar", "Mejor arte"...). */
 @Entity(tableName = "manhwa_list")

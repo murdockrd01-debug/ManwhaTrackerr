@@ -94,6 +94,7 @@ import com.manhwatracker.app.data.Genres
 import com.manhwatracker.app.data.Manhwa
 import com.manhwatracker.app.data.Prefs
 import com.manhwatracker.app.data.Status
+import com.manhwatracker.app.data.Types
 import com.manhwatracker.app.data.titleKeyOf
 
 class MainActivity : ComponentActivity() {
@@ -732,9 +733,9 @@ fun DetailScreen(
                 }
                 Spacer(Modifier.height(4.dp))
                 Button(onClick = {
-                    if (!KomikkuLink.open(context, item.title)) vm.showMessage("No encontré Komikku instalado en este teléfono")
+                    if (!ReaderLink.open(context, item.title)) vm.showMessage("No encontré ninguna app lectora instalada en este teléfono")
                 }) {
-                    Text("Abrir en Komikku")
+                    Text("Abrir en " + (ReaderLink.target(context)?.name ?: "mi lector"))
                 }
             }
         }
@@ -799,6 +800,18 @@ fun DetailScreen(
                     label = { Text("Mi comentario (opcional)") },
                     minLines = 3,
                     modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        // ---- Tipo
+        Text("Tipo", style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Types.all.forEach { t ->
+                FilterChip(
+                    selected = item.type == t,
+                    onClick = { vm.setType(item, t) },
+                    label = { Text(Types.label(t)) }
                 )
             }
         }

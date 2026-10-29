@@ -10,6 +10,10 @@
         <package android:name="app.komikku" />
         <package android:name="app.komikku.beta" />
         <package android:name="app.mihon" />
+        <package android:name="app.mihon.dev" />
+        <package android:name="eu.kanade.tachiyomi" />
+        <package android:name="eu.kanade.tachiyomi.sy" />
+        <package android:name="com.kodjodevf.mangayomi" />
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>

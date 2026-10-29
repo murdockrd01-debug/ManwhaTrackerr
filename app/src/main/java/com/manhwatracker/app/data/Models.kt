@@ -138,6 +138,13 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+/** Versión 8: tipo de obra (manhwa, manga, manhua). Todo lo que ya tienes queda como manhwa. */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `manhwa` ADD COLUMN `type` TEXT NOT NULL DEFAULT 'MANHWA'")
+    }
+}
+
 /** Versión 7: géneros y número de AniList en cada manhwa, y listas personalizadas. No cambia nada de lo que ya tienes. */
 val MIGRATION_6_7 = object : Migration(6, 7) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -221,7 +228,7 @@ abstract class ActivityDao {
     }
 }
 
-@Database(entities = [Manhwa::class, Word::class, Activity::class, ManhwaList::class, ListEntry::class], version = 7, exportSchema = false)
+@Database(entities = [Manhwa::class, Word::class, Activity::class, ManhwaList::class, ListEntry::class], version = 8, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dao(): ManhwaDao
     abstract fun words(): WordDao
@@ -238,7 +245,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "manhwa.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build().also { instance = it }
             }
     }
 }
