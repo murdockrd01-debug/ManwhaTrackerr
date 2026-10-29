@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.manhwatracker.app.data.Activity
 import com.manhwatracker.app.data.ActivityKind
 import com.manhwatracker.app.data.DiscoverDisk
+import com.manhwatracker.app.data.ListImport
 import com.manhwatracker.app.data.AniList
 import com.manhwatracker.app.data.AutoSync
 import com.manhwatracker.app.data.AppDatabase
@@ -630,6 +631,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun loadReviewsById(anilistId: Long): List<AniList.Review>? = AniList.reviews(anilistId)
 
     /** Agrega un manhwa sugerido a "Pendientes". */
+    /** Importa la lista de un usuario de AniList. Nunca baja tus capítulos ni cambia tu estado o nota. */
+    fun importAniList(username: String, onDone: () -> Unit = {}) {
+        val name = username.trim().removePrefix("@")
+        if (name.isEmpty()) { onDone(); return }
+        viewModelScope.launch {
+            val res = AniList.userList(name)
+            if (res.error != null) {
+                _message.value = res.error
+            } else {
+                var added = 0
+                var updated = 0
+                for (e in res.entries) {
+                    val old = dao.findByKey(titleKeyOf(e.title))
+                    if (old == null) {
+                        if (dao.insert(ListImport.create(e)) > 0) added++
+                    } else {
+                        val m = ListImport.merge(old, e)
+                        if (m != old) { dao.update(m); updated++ }
+                    }
+                }
+                _message.value = "AniList: $added nuevos, $updated actualizados"
+            }
+            onDone()
+        }
+    }
+
     fun addPlanned(title: String, cover: String?) {
         viewModelScope.launch {
             val key = titleKeyOf(title)

@@ -146,6 +146,29 @@ fun SyncScreen(vm: MainViewModel) {
             }
         }
 
+        // ---------------- AniList
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                var user by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+                var busy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                Text("Importar desde AniList", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Escribe tu usuario de AniList (tu lista debe ser pública). Se agregan los que no tienes; " +
+                        "los que ya tienes solo se completan, sin bajar tu capítulo ni cambiar tu estado o nota. " +
+                        "Si usas MyAnimeList, AniList puede importar tu lista desde su web y luego la traes aquí.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                androidx.compose.material3.OutlinedTextField(
+                    value = user, onValueChange = { user = it }, singleLine = true,
+                    label = { Text("Usuario de AniList") }, modifier = Modifier.fillMaxWidth()
+                )
+                Button(enabled = !busy && user.isNotBlank(), onClick = {
+                    busy = true
+                    vm.importAniList(user) { busy = false }
+                }) { Text(if (busy) "Importando…" else "Importar") }
+            }
+        }
+
         Spacer(Modifier.height(16.dp))
     }
 }

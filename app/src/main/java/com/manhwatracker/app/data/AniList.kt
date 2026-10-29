@@ -155,6 +155,46 @@ object AniList {
         }
         return out
     }
+
+    class UserList(val entries: List<ListImport.Entry>, val error: String?)
+
+    private const val USER_QUERY =
+        "query(\$u: String) { MediaListCollection(userName: \$u, type: MANGA) { lists { entries { status progress " +
+            "score(format: POINT_10) media { id chapters genres isAdult coverImage { large } title { romaji english } } } } } }"
+
+    /** La lista de manga/manhwa de un usuario público de AniList. */
+    suspend fun userList(username: String): UserList {
+        val reply = post(USER_QUERY, JSONObject().put("u", username.trim()))
+            ?: return UserList(emptyList(), "No pude conectar con AniList. Revisa tu internet.")
+        if (reply.code == 404) return UserList(emptyList(), "No encontré ese usuario en AniList.")
+        if (reply.code != 200) return UserList(emptyList(), "AniList no respondió. Inténtalo más tarde.")
+        val lists = reply.json?.optJSONObject("data")?.optJSONObject("MediaListCollection")?.optJSONArray("lists")
+            ?: return UserList(emptyList(), "No encontré ese usuario en AniList.")
+        val out = LinkedHashMap<Long, ListImport.Entry>()
+        for (i in 0 until lists.length()) {
+            val entries = lists.optJSONObject(i)?.optJSONArray("entries") ?: continue
+            for (j in 0 until entries.length()) {
+                val en = entries.optJSONObject(j) ?: continue
+                val media = en.optJSONObject("media") ?: continue
+                if (media.optBoolean("isAdult", false)) continue
+                val t = media.optJSONObject("title")
+                val title = t?.optString("english")?.takeIf { it.isNotBlank() && it != "null" }
+                    ?: t?.optString("romaji")?.takeIf { it.isNotBlank() && it != "null" } ?: continue
+                val id = media.optLong("id")
+                out[id] = ListImport.Entry(
+                    title = title,
+                    status = en.optString("status", "PLANNING"),
+                    progress = en.optDouble("progress", 0.0),
+                    total = if (media.isNull("chapters")) 0 else media.optInt("chapters"),
+                    rating10 = en.optInt("score", 0),
+                    cover = media.optJSONObject("coverImage")?.optString("large")?.takeIf { it.isNotBlank() && it != "null" },
+                    genres = media.optJSONArray("genres")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty(),
+                    anilistId = id
+                )
+            }
+        }
+        return UserList(out.values.toList(), null)
+    }
 }
 
 /** Nombres de los géneros de AniList en español (los que no estén aquí se muestran como vienen). */

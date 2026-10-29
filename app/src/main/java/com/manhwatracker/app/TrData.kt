@@ -3,6 +3,7 @@ package com.manhwatracker.app
 /** Diccionario español → inglés. {t} = trozo que también se traduce; {} = trozo que se deja igual. */
 object TrData {
     val patterns: List<Pair<String, String>> = listOf(
+        "AniList: {} nuevos, {} actualizados" to "AniList: {} new, {} updated",
         "★ {} en AniList" to "★ {} on AniList",
         "Porque lees: {}" to "Because you read: {}",
         "Porque lees {}" to "Because you read {}",
@@ -237,6 +238,13 @@ object TrData {
         "ene" to "Jan", "feb" to "Feb", "mar" to "Mar", "abr" to "Apr", "may" to "May", "jun" to "Jun",
         "jul" to "Jul", "ago" to "Aug", "sep" to "Sep", "oct" to "Oct", "nov" to "Nov", "dic" to "Dec",
         // Sync
+        "Importar desde AniList" to "Import from AniList", "Usuario de AniList" to "AniList username",
+        "Importar" to "Import", "Importando…" to "Importing…",
+        "No encontré ese usuario en AniList." to "Couldn't find that AniList user.",
+        "AniList no respondió. Inténtalo más tarde." to "AniList didn't respond. Try again later.",
+        "Escribe tu usuario de AniList (tu lista debe ser pública). Se agregan los que no tienes; " to "Type your AniList username (your list must be public). Titles you don't have are added; ",
+        "los que ya tienes solo se completan, sin bajar tu capítulo ni cambiar tu estado o nota. " to "ones you already have are only filled in, without lowering your chapter or changing your status or rating. ",
+        "Si usas MyAnimeList, AniList puede importar tu lista desde su web y luego la traes aquí." to "If you use MyAnimeList, AniList can import your list from its website and then you bring it here.",
         "Importar de Komikku automáticamente" to "Import from Komikku automatically",
         "Elige la carpeta donde Komikku guarda sus copias de seguridad (por ejemplo Documentos/Manwhas). " to "Pick the folder where Komikku saves its backups (for example Documents/Manwhas). ",
         "Sirven las automáticas y las manuales: si agregas varias carpetas, se usa siempre la copia más reciente de todas. " to "Both automatic and manual ones work: if you add several folders, the newest backup of all is always used. ",
