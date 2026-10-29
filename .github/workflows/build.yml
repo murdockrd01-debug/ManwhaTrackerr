@@ -35,8 +35,11 @@ jobs:
             echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> "$GITHUB_ENV"
             echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> "$GITHUB_ENV"
             echo "Firmando con la llave de los secretos"
+            echo "::notice::Llave de los secretos: $(keytool -list -keystore "$RUNNER_TEMP/manhwa.keystore" -storepass "${{ secrets.KEYSTORE_PASSWORD }}" 2>&1 | grep -iE 'SHA|fingerprint|error|invalid' | head -2 | tr '\n' ' ')"
+            echo "::notice::Llave del repositorio: $(keytool -list -keystore app/manhwa.keystore -storepass android 2>&1 | grep -iE 'SHA|fingerprint|error|invalid' | head -2 | tr '\n' ' ')"
           else
             echo "No hay secretos de firma: se usa la llave del repositorio"
+            echo "::warning::NO se encontraron los secretos de firma"
           fi
 
       - name: Pruebas automáticas
