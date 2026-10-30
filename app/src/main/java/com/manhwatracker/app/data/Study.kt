@@ -105,6 +105,17 @@ object Prefs {
         p(c).edit().putBoolean("review_by_use", on).apply()
     }
 
+    /** Burbuja flotante para escribir palabras (la muestra el servicio de captura). */
+    fun bubble(c: Context): Boolean = p(c).getBoolean("bubble", false)
+    fun setBubble(c: Context, on: Boolean) {
+        p(c).edit().putBoolean("bubble", on).apply()
+    }
+    fun bubbleX(c: Context): Int = p(c).getInt("bubble_x", -1)
+    fun bubbleY(c: Context): Int = p(c).getInt("bubble_y", -1)
+    fun setBubblePos(c: Context, x: Int, y: Int) {
+        p(c).edit().putInt("bubble_x", x).putInt("bubble_y", y).apply()
+    }
+
     fun language(c: Context): String = p(c).getString("language", "auto") ?: "auto"
     fun setLanguage(c: Context, v: String) {
         p(c).edit().putString("language", v).apply()

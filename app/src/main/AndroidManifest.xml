@@ -20,6 +20,7 @@
     </queries>
 
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"
@@ -155,6 +156,21 @@
         <receiver
             android:name=".QuickAddReceiver"
             android:exported="false" />
+        <receiver
+            android:name=".QuickAddBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+        <!-- Ventanita para escribir una palabra sin salir de la app de lectura (la abre la burbuja). -->
+        <activity
+            android:name=".QuickInputActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Transparent"
+            android:windowSoftInputMode="stateVisible|adjustResize" />
         <!-- Captura rápida de texto: botón de accesibilidad / teclas de volumen / mosaico del panel rápido. -->
         <service
             android:name=".CaptureService"

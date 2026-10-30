@@ -176,6 +176,30 @@ fun SettingsScreen() {
                         ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     }) { Text("Accesibilidad") }
                 }
+                var bubbleOn by remember { mutableStateOf(Prefs.bubble(ctx)) }
+                SwitchRow(
+                    "Burbuja flotante",
+                    "Un botón que flota sobre Komikku: tócalo para escribir una palabra viendo el manhwa (sin notificación) y mantenlo pulsado para capturar la pantalla. Arrástralo donde quieras.",
+                    bubbleOn
+                ) {
+                    bubbleOn = it
+                    Prefs.setBubble(ctx, it)
+                    CaptureService.instance?.refreshBubble()
+                }
+                if (bubbleOn && !on) {
+                    Text("La burbuja aparece cuando activas la captura rápida en Accesibilidad.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+            }
+            SettingCard {
+                Text("Barra rápida en notificaciones", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Si la quitaste sin querer, vuelve a mostrarla aquí. Si la quitas deslizándola, vuelve a aparecer sola. Si no sale, revisa que las notificaciones de la app estén permitidas.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedButton(onClick = {
+                    Prefs.setQuickBar(ctx, true)
+                    QuickAdd.show(ctx)
+                }) { Text("Mostrar la barra otra vez") }
             }
         }
 

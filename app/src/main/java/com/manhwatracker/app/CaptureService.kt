@@ -46,9 +46,11 @@ class CaptureService : AccessibilityService() {
 
     private val main = Handler(Looper.getMainLooper())
     private var overlay: CaptureOverlay? = null
+    private var bubble: CaptureBubble? = null
 
     override fun onServiceConnected() {
         instance = this
+        refreshBubble()
         if (Build.VERSION.SDK_INT >= 26) {
             accessibilityButtonController.registerAccessibilityButtonCallback(
                 object : AccessibilityButtonController.AccessibilityButtonCallback() {
@@ -66,10 +68,52 @@ class CaptureService : AccessibilityService() {
     override fun onUnbind(intent: Intent?): Boolean {
         instance = null
         close()
+        hideBubble()
         return super.onUnbind(intent)
     }
 
     private fun toast(text: String) = Toast.makeText(applicationContext, tr(text), Toast.LENGTH_SHORT).show()
+
+    /** Muestra u oculta la burbuja según el ajuste. */
+    fun refreshBubble() {
+        if (Prefs.bubble(this) && Prefs.studyEnabled(this) != false) showBubble() else hideBubble()
+    }
+
+    private fun showBubble() {
+        if (bubble != null) return
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = android.view.Gravity.TOP or android.view.Gravity.START }
+        val m = resources.displayMetrics
+        val view = CaptureBubble(
+            this, lp, wm,
+            onTap = {
+                startActivity(Intent(this, QuickInputActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            },
+            onLong = { start() }
+        )
+        val savedX = Prefs.bubbleX(this)
+        val savedY = Prefs.bubbleY(this)
+        lp.x = if (savedX >= 0) savedX else m.widthPixels - view.sizePx
+        lp.y = if (savedY >= 0) savedY else (m.heightPixels * 0.4f).toInt()
+        try {
+            wm.addView(view, lp)
+            bubble = view
+        } catch (e: Exception) {
+            // Sin poder mostrarla, no pasa nada: la captura sigue funcionando.
+        }
+    }
+
+    private fun hideBubble() {
+        val v = bubble ?: return
+        bubble = null
+        runCatching { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(v) }
+    }
 
     /** Cierra el panel de notificaciones (si está abierto) y toma la captura. */
     fun start() {

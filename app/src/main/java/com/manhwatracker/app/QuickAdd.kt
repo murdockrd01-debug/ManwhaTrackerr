@@ -25,6 +25,7 @@ object QuickAdd {
     private const val CHANNEL = "quick_add"
     private const val NOTIFICATION_ID = 1
     const val KEY_TEXT = "word_text"
+    const val ACTION_REPOST = "com.manhwatracker.app.REPOST_QUICK_BAR"
 
     private fun canNotify(context: Context): Boolean =
         Build.VERSION.SDK_INT < 33 ||
@@ -62,6 +63,14 @@ object QuickAdd {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Si la quitas con el gesto de deslizar, vuelve a aparecer sola.
+        val deleteIntent = PendingIntent.getBroadcast(
+            context,
+            3,
+            Intent(context, QuickAddReceiver::class.java).setPackage(context.packageName).setAction(ACTION_REPOST),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val remoteInput = RemoteInput.Builder(KEY_TEXT).setLabel("Palabra o frase").build()
         val action = NotificationCompat.Action.Builder(R.drawable.ic_notif, "Guardar palabra", replyIntent)
             .addRemoteInput(remoteInput)
@@ -73,6 +82,7 @@ object QuickAdd {
             .setContentTitle(tr("Estudio de inglés"))
             .setContentText(tr(status ?: ("En: " + (Prefs.lastManhwa(context) ?: "ningún manhwa") + " — toca “Guardar palabra”")))
             .setContentIntent(openIntent)
+            .setDeleteIntent(deleteIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -95,6 +105,10 @@ object QuickAdd {
 class QuickAddReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val app = context.applicationContext
+        if (intent.action == QuickAdd.ACTION_REPOST) {
+            if (Prefs.quickBar(app) && Prefs.studyEnabled(app) != false) QuickAdd.show(app)
+            return
+        }
         val text = RemoteInput.getResultsFromIntent(intent)
             ?.getCharSequence(QuickAdd.KEY_TEXT)?.toString()?.trim().orEmpty()
 
@@ -121,5 +135,14 @@ class QuickAddReceiver : BroadcastReceiver() {
                 pending.finish()
             }
         }
+    }
+}
+
+/** Al encender el teléfono, vuelve a poner la barra rápida si la tenías activada. */
+class QuickAddBootReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        val app = context.applicationContext
+        if (Prefs.quickBar(app) && Prefs.studyEnabled(app) != false) QuickAdd.show(app)
     }
 }
