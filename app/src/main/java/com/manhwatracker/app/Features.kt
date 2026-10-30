@@ -40,6 +40,15 @@ object Features {
                 needsChoice = true
             }
         }
+        syncComponents(context, study)
+    }
+
+    /** Las entradas del menú "Compartir" y "seleccionar texto" solo existen con el estudio activo. */
+    fun syncComponents(context: Context, on: Boolean) {
+        val state = if (on) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        listOf(SaveWordActivity::class.java, ScanActivity::class.java).forEach {
+            context.packageManager.setComponentEnabledSetting(ComponentName(context, it), state, PackageManager.DONT_KILL_APP)
+        }
     }
 
     fun setStudy(context: Context, on: Boolean) {
@@ -48,11 +57,7 @@ object Features {
         Prefs.setStudyEnabled(context, on)
 
         // "Guardar en vocabulario" del menú de seleccionar texto solo aparece con el estudio activo.
-        context.packageManager.setComponentEnabledSetting(
-            ComponentName(context, SaveWordActivity::class.java),
-            if (on) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP
-        )
+        syncComponents(context, on)
 
         // La barra rápida de notificaciones también es parte del estudio.
         if (!on) QuickAdd.hide(context)

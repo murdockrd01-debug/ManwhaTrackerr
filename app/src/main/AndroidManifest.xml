@@ -129,6 +129,20 @@
             </intent-filter>
         </activity>
 
+        <!-- Aparece al compartir una imagen (captura de pantalla): leer su texto y guardar palabras -->
+        <activity
+            android:name=".ScanActivity"
+            android:exported="true"
+            android:label="Guardar texto de imagen"
+            android:taskAffinity=""
+            android:theme="@style/Theme.ManhwaTracker">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity>
+
         <!-- Ventana para elegir a qué manhwa se guardan las palabras (desde la notificación) -->
         <activity
             android:name=".PickManhwaActivity"
