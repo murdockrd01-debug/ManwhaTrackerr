@@ -155,6 +155,30 @@
         <receiver
             android:name=".QuickAddReceiver"
             android:exported="false" />
+        <!-- Captura rápida de texto: botón de accesibilidad / teclas de volumen / mosaico del panel rápido. -->
+        <service
+            android:name=".CaptureService"
+            android:exported="true"
+            android:label="@string/capture_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/capture_service" />
+        </service>
+        <service
+            android:name=".CaptureTile"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_capture"
+            android:label="Guardar texto"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

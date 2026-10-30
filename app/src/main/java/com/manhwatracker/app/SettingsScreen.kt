@@ -139,6 +139,46 @@ fun SettingsScreen() {
             }
         }
 
+        if (Features.study) {
+            Text("Captura rápida de texto", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            SettingCard {
+                var on by remember { mutableStateOf(CaptureService.isEnabled(ctx)) }
+                val owner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+                androidx.compose.runtime.DisposableEffect(owner) {
+                    val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+                        if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) on = CaptureService.isEnabled(ctx)
+                    }
+                    owner.lifecycle.addObserver(obs)
+                    onDispose { owner.lifecycle.removeObserver(obs) }
+                }
+                Text(if (on) "✓ Activada" else "Sin activar", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Mientras lees en Komikku, toma una captura con un gesto, toca los globos que quieras y se guardan en tu vocabulario con el manhwa y capítulo en que vas. " +
+                        "Todo se lee dentro del teléfono; no se envía nada.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "1. Si Android lo pide, entra a la info de la app, toca ⋮ y elige \"Permitir ajustes restringidos\".\n" +
+                        "2. En Accesibilidad, activa \"Manhwa Tracker: capturar texto\".\n" +
+                        "3. Úsala con el botón de accesibilidad, manteniendo las dos teclas de volumen, o con el mosaico \"Guardar texto\" del panel rápido (edítalo para agregarlo).",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        ctx.startActivity(
+                            android.content.Intent(
+                                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                android.net.Uri.parse("package:" + ctx.packageName)
+                            )
+                        )
+                    }) { Text("Info de la app") }
+                    Button(onClick = {
+                        ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    }) { Text("Accesibilidad") }
+                }
+            }
+        }
+
         Text("App para leer", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         SettingCard {
             val readers = remember { ReaderLink.installed(ctx) }

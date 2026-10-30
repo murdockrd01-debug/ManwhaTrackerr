@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Manhwa Tracker</string>
+    <string name="capture_label">Manhwa Tracker: capturar texto</string>
+    <string name="capture_description">Toma una captura de la pantalla cuando tú lo pides y lee su texto dentro del teléfono para guardar palabras y frases. No lee ni guarda nada más.</string>
 </resources>

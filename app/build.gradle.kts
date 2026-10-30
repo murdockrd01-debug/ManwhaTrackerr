@@ -74,5 +74,8 @@ dependencies {
     // Leer texto de imágenes (en el teléfono, sin internet)
     implementation("com.google.mlkit:text-recognition:16.0.1")
 
+    // Leer el texto de las capturas (modelo incluido: funciona sin internet)
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+
     testImplementation("junit:junit:4.13.2")
 }
