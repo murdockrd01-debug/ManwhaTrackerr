@@ -39,6 +39,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.core.FastOutSlowInEasing
+import com.manhwatracker.app.data.Pronounce
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.DisposableEffect
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.content.pm.PackageManager
+import android.Manifest
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.key
 import androidx.compose.ui.unit.TextUnit
@@ -69,6 +77,7 @@ import com.manhwatracker.app.data.titleKeyOf
 
 private const val MODE_CARDS = "CARDS"
 private const val MODE_WRITE = "WRITE"
+private const val MODE_VOICE = "VOICE"
 
 /**
  * Repaso de palabras, con dos modos:
@@ -217,7 +226,16 @@ fun ReviewScreen(vm: MainViewModel, titleKey: String?, filterLabel: String?, onE
                 ProgressHeader(total = total, known = known, missed = missed, left = queue.size)
                 Spacer(Modifier.height(12.dp))
 
-                if (mode == MODE_WRITE) {
+                if (mode == MODE_VOICE) {
+                    VoiceCard(
+                        w = w,
+                        attempt = attempt,
+                        speaker = speaker,
+                        onUnavailable = { vm.showMessage(SPEAKER_UNAVAILABLE) },
+                        onDone = { correct -> answer(correct) },
+                        modifier = Modifier.weight(1f)
+                    )
+                } else if (mode == MODE_WRITE) {
                     WriteCard(
                         w = w,
                         attempt = attempt,
@@ -285,7 +303,7 @@ private fun ModeSwitch(mode: String, onMode: (String) -> Unit) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(Modifier.padding(4.dp)) {
-            listOf(MODE_CARDS to "🗂️  Tarjetas", MODE_WRITE to "✍️  Escritura").forEach { (id, label) ->
+            listOf(MODE_CARDS to "🗂️ Tarjetas", MODE_WRITE to "✍️ Escritura", MODE_VOICE to "🎤 Voz").forEach { (id, label) ->
                 val sel = mode == id
                 Box(
                     Modifier
@@ -592,6 +610,144 @@ private fun WriteCard(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                 shape = RoundedCornerShape(18.dp)
             ) { Text("Continuar", fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- Modo voz
+
+@Composable
+private fun VoiceCard(
+    w: Word,
+    attempt: Int,
+    speaker: Speaker,
+    onUnavailable: () -> Unit,
+    onDone: (correct: Boolean) -> Unit,
+    modifier: Modifier
+) {
+    val context = LocalContext.current
+    val voice = remember { VoiceInput(context) }
+    DisposableEffect(Unit) { onDispose { voice.stop() } }
+
+    var heard by remember(w.id, attempt) { mutableStateOf<List<String>>(emptyList()) }
+    var result by remember(w.id, attempt) { mutableStateOf<Typing.Result?>(null) }
+    var error by remember(w.id, attempt) { mutableStateOf<String?>(null) }
+
+    fun listen() {
+        error = null
+        voice.start(
+            onResult = { list ->
+                heard = list
+                result = Pronounce.check(list, w.text)
+            },
+            onError = { error = it }
+        )
+    }
+
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) listen() else error = "Necesito permiso para usar el micrófono."
+    }
+
+    fun tapMic() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) listen()
+        else permission.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        CardShell(w, Modifier.weight(1f)) {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    "Léela en voz alta",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    w.text,
+                    fontSize = bigSize(w.text, 36),
+                    lineHeight = bigSize(w.text, 36) * 1.25f,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                w.translation?.let {
+                    Text(it, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
+                }
+                SpeakButton(w.text, speaker, onUnavailable)
+
+                if (voice.listening) {
+                    Text("🎤 Escuchando…", style = MaterialTheme.typography.titleMedium, color = Good)
+                }
+                error?.let {
+                    Surface(shape = RoundedCornerShape(14.dp), color = Warn.copy(alpha = 0.16f)) {
+                        Text(it, textAlign = TextAlign.Center, modifier = Modifier.padding(12.dp))
+                    }
+                }
+                val r = result
+                if (r != null) {
+                    val (tint, msg) = when (r) {
+                        Typing.Result.EXACT -> Good to "¡Perfecto! ${w.text}"
+                        Typing.Result.CLOSE -> Warn to "¡Casi! Se entendió: ${heard.firstOrNull().orEmpty()}"
+                        else -> Bad to "No coincidió. Escuché: ${heard.firstOrNull().orEmpty()}\nEra: ${w.text}"
+                    }
+                    Surface(shape = RoundedCornerShape(16.dp), color = tint.copy(alpha = 0.16f)) {
+                        Text(
+                            msg,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        if (!voice.available()) {
+            Text(
+                "Tu teléfono no tiene reconocimiento de voz.",
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        val r = result
+        val good = r == Typing.Result.EXACT || r == Typing.Result.CLOSE
+        if (!good) {
+            Button(
+                onClick = { if (voice.listening) voice.stop() else tapMic() },
+                enabled = voice.available(),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Text(
+                    when {
+                        voice.listening -> "Escuchando… (toca para parar)"
+                        r == null -> "🎤  Hablar"
+                        else -> "🎤  Intentar otra vez"
+                    },
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (r == null) {
+                OutlinedButton(
+                    onClick = { voice.stop(); onDone(false) },
+                    modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) { Text("No la sé") }
+            } else {
+                Button(
+                    onClick = { voice.stop(); onDone(good) },
+                    modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) { Text("Continuar") }
+            }
         }
     }
 }
