@@ -130,6 +130,7 @@ class MainActivity : ComponentActivity() {
                         val ctx = LocalContext.current
                         WelcomeScreen { study ->
                             Features.setStudy(ctx, study)
+                            com.manhwatracker.app.data.Prefs.setLastVersion(ctx, com.manhwatracker.app.data.UpdateCheck.installedVersion(ctx))
                             Features.showIntro = true
                         }
                     } else if (Features.showIntro) {

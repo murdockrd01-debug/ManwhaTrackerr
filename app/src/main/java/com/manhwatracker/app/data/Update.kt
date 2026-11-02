@@ -25,6 +25,36 @@ object Update {
         return false
     }
 
+    /** Saca "body" (las notas de la versión) del JSON de GitHub, ya sin caracteres de escape. */
+    fun bodyFromJson(json: String): String? {
+        val m = Regex("\"body\"\\s*:\\s*\"").find(json) ?: return null
+        val sb = StringBuilder()
+        var i = m.range.last + 1
+        while (i < json.length) {
+            val c = json[i]
+            when {
+                c == '"' -> return sb.toString().trim().ifEmpty { null }
+                c == '\\' && i + 1 < json.length -> {
+                    when (val n = json[i + 1]) {
+                        'n' -> sb.append('\n')
+                        'r' -> {}
+                        't' -> sb.append(' ')
+                        'u' -> if (i + 5 < json.length) {
+                            json.substring(i + 2, i + 6).toIntOrNull(16)?.let { sb.append(it.toChar()) }
+                            i += 4
+                        }
+                        else -> sb.append(n)
+                    }
+                    i += 2
+                    continue
+                }
+                else -> sb.append(c)
+            }
+            i++
+        }
+        return null
+    }
+
     /** Saca "tag_name" del JSON de GitHub sin depender de librerías. */
     fun tagFromJson(json: String): String? =
         Regex("\"tag_name\"\\s*:\\s*\"([^\"]+)\"").find(json)?.groupValues?.get(1)

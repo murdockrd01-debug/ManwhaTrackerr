@@ -63,6 +63,8 @@ fun SettingsScreen() {
     var status by remember { mutableStateOf<String?>(null) }
     var checking by remember { mutableStateOf(false) }
     var found by remember { mutableStateOf(false) }
+    var notes by remember { mutableStateOf<String?>(null) }
+    var showCurrent by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<Float?>(null) }
     var apk by remember { mutableStateOf<java.io.File?>(null) }
 
@@ -70,10 +72,11 @@ fun SettingsScreen() {
         checking = true
         status = null
         scope.launch {
-            val v = UpdateCheck.newerVersion(ctx)
+            val f = UpdateCheck.latest(ctx)
             checking = false
-            found = v != null
-            status = if (v != null) "Hay una versión nueva: $v" else "Tienes la última versión (o no hay internet)."
+            found = f != null
+            notes = f?.notes
+            status = if (f != null) "Hay una versión nueva: ${f.tag}" else "Tienes la última versión (o no hay internet)."
         }
     }
 
@@ -261,6 +264,11 @@ fun SettingsScreen() {
                     androidx.compose.material3.LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
             }
+            if (found) notes?.let {
+                Text("Novedades:", style = MaterialTheme.typography.labelLarge)
+                Text(it, style = MaterialTheme.typography.bodySmall)
+            }
+            OutlinedButton(onClick = { showCurrent = true }) { Text("Ver las novedades de esta versión") }
             status?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
 
@@ -270,6 +278,15 @@ fun SettingsScreen() {
             Text("Un repaso rápido de cómo usar la app.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             OutlinedButton(onClick = { Features.showIntro = true }) { Text("Ver la guía") }
         }
+    }
+    if (showCurrent) {
+        val cur = UpdateCheck.installedNotes(ctx)
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showCurrent = false },
+            title = { Text("Novedades de la versión " + UpdateCheck.installedVersion(ctx)) },
+            text = { Text(cur ?: "Esta versión no tiene novedades anotadas.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { showCurrent = false }) { Text("Entendido") } }
+        )
     }
 }
 

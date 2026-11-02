@@ -17,8 +17,10 @@ object UpdateCheck {
     fun installedVersion(c: Context): String =
         runCatching { c.packageManager.getPackageInfo(c.packageName, 0).versionName }.getOrNull() ?: "0"
 
-    /** La versión nueva (ej. "v2.7") o null si ya tienes la última o no hay internet. */
-    suspend fun newerVersion(c: Context): String? = withContext(Dispatchers.IO) {
+    class Found(val tag: String, val notes: String?)
+
+    /** La versión nueva (con sus novedades) o null si ya tienes la última o no hay internet. */
+    suspend fun latest(c: Context): Found? = withContext(Dispatchers.IO) {
         try {
             val conn = (URL(Update.LATEST_API).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 8_000
@@ -30,11 +32,19 @@ object UpdateCheck {
             val body = conn.inputStream.bufferedReader().use { it.readText() }
             conn.disconnect()
             val tag = Update.tagFromJson(body) ?: return@withContext null
-            if (Update.isNewer(tag, installedVersion(c))) tag else null
+            if (Update.isNewer(tag, installedVersion(c))) Found(tag, Update.bodyFromJson(body)) else null
         } catch (e: Exception) {
             null
         }
     }
+
+    suspend fun newerVersion(c: Context): String? = latest(c)?.tag
+
+    /** Las novedades de esta versión instalada (vienen dentro de la app, funcionan sin internet). */
+    fun installedNotes(c: Context): String? = runCatching {
+        val text = c.assets.open("changelog.md").bufferedReader().use { it.readText() }
+        Changelog.section(text, installedVersion(c))
+    }.getOrNull()
 
     fun openDownload(c: Context) {
         runCatching {

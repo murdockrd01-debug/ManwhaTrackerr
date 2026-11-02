@@ -116,6 +116,12 @@ object Prefs {
         p(c).edit().putInt("bubble_x", x).putInt("bubble_y", y).apply()
     }
 
+    /** Última versión con la que se abrió la app (para mostrar las novedades tras actualizar). */
+    fun lastVersion(c: Context): String? = p(c).getString("last_version", null)
+    fun setLastVersion(c: Context, v: String) {
+        p(c).edit().putString("last_version", v).apply()
+    }
+
     fun language(c: Context): String = p(c).getString("language", "auto") ?: "auto"
     fun setLanguage(c: Context, v: String) {
         p(c).edit().putString("language", v).apply()

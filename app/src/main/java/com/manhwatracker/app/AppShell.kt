@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -81,8 +83,27 @@ fun App(vm: MainViewModel = viewModel()) {
         }
     }
 
-    // Aviso de versión nueva (una vez por versión).
     val appCtx = androidx.compose.ui.platform.LocalContext.current
+
+    // Novedades: la primera vez que se abre la app después de actualizar.
+    var whatsNew by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        val cur = UpdateCheck.installedVersion(appCtx)
+        if (com.manhwatracker.app.data.Prefs.lastVersion(appCtx) != cur) {
+            com.manhwatracker.app.data.Prefs.setLastVersion(appCtx, cur)
+            whatsNew = UpdateCheck.installedNotes(appCtx)
+        }
+    }
+    whatsNew?.let { notes ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { whatsNew = null },
+            title = { Text("Novedades de la versión " + UpdateCheck.installedVersion(appCtx)) },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(notes) } },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { whatsNew = null }) { Text("Entendido") } }
+        )
+    }
+
+    // Aviso de versión nueva (una vez por versión).
     LaunchedEffect(Unit) {
         if (!com.manhwatracker.app.data.Prefs.updateCheck(appCtx)) return@LaunchedEffect
         val v = UpdateCheck.newerVersion(appCtx) ?: return@LaunchedEffect
