@@ -1,3 +1,7 @@
+## 4.2
+- Registro de errores en Ajustes: si la app se cierra sola, el detalle queda guardado y lo compartes con un toque.
+- La copia automática ya no se reescribe si no cambió nada desde la última.
+
 ## 4.1
 - Novedades: ahora la app muestra qué trae cada versión, al buscar actualizaciones y la primera vez que la abres después de actualizar.
 

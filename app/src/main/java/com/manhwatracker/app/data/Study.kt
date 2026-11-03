@@ -122,6 +122,18 @@ object Prefs {
         p(c).edit().putString("last_version", v).apply()
     }
 
+    /** true = la app se cerró por un error y todavía no se avisó al usuario. */
+    fun crashPending(c: Context): Boolean = p(c).getBoolean("crash_pending", false)
+    fun setCrashPending(c: Context, on: Boolean) {
+        p(c).edit().putBoolean("crash_pending", on).apply()
+    }
+
+    /** Huella del contenido de la última copia automática (para no repetirla si nada cambió). */
+    fun lastBackupHash(c: Context): String? = p(c).getString("backup_hash", null)
+    fun setLastBackupHash(c: Context, h: String) {
+        p(c).edit().putString("backup_hash", h).apply()
+    }
+
     fun language(c: Context): String = p(c).getString("language", "auto") ?: "auto"
     fun setLanguage(c: Context, v: String) {
         p(c).edit().putString("language", v).apply()

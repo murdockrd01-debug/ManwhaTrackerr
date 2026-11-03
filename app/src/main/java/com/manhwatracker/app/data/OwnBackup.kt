@@ -33,7 +33,7 @@ object OwnBackup {
 
     // ---------------------------------------------------------------- Exportar
 
-    suspend fun write(context: Context, uri: Uri): ExportResult {
+    private suspend fun build(context: Context): JSONObject {
         val db = AppDatabase.get(context)
         val manhwas = db.dao().all()
         val words = db.words().all()
@@ -59,10 +59,23 @@ object OwnBackup {
                 }
             })
 
+        return root
+    }
+
+    /** Huella del contenido (sin la hora), para saber si algo cambió desde la última copia. */
+    suspend fun fingerprint(context: Context): String {
+        val root = build(context)
+        root.remove("exportedAt")
+        val bytes = java.security.MessageDigest.getInstance("SHA-256").digest(root.toString().toByteArray(Charsets.UTF_8))
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
+    suspend fun write(context: Context, uri: Uri): ExportResult {
+        val root = build(context)
         val out = context.contentResolver.openOutputStream(uri, "wt")
             ?: throw BackupFormatException("No se pudo abrir el archivo para guardar")
         out.use { it.write(root.toString(2).toByteArray(Charsets.UTF_8)) }
-        return ExportResult(manhwas.size, words.size)
+        return ExportResult(root.getJSONArray("manhwas").length(), root.getJSONArray("words").length())
     }
 
     private fun manhwaToJson(m: Manhwa) = JSONObject()

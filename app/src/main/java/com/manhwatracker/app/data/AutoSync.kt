@@ -142,8 +142,18 @@ object AutoSync {
                     return@withContext null
                 }
 
+                val fp = OwnBackup.fingerprint(context)
+                val files = list(context, tree)
+                // Si nada cambió desde la última copia y ese archivo sigue ahí, no se vuelve a escribir.
+                if (!force && fp == Prefs.lastBackupHash(context) &&
+                    Prefs.lastBackupName(context)?.let { last -> files.any { it.info.name == last } } == true
+                ) {
+                    Prefs.setLastBackup(context, now, Prefs.lastBackupName(context))
+                    return@withContext null
+                }
+
                 val name = SyncLogic.autoName(LocalDate.now())
-                val existing = list(context, tree).firstOrNull { it.info.name == name }
+                val existing = files.firstOrNull { it.info.name == name }
                 val target = existing?.uri
                     ?: createFile(context, tree, name)
                     ?: throw BackupFormatException("No se pudo crear el archivo en esa carpeta")
@@ -161,6 +171,7 @@ object AutoSync {
                 }
 
                 Prefs.setLastBackup(context, now, name)
+                Prefs.setLastBackupHash(context, fp)
                 Prefs.setBackupError(context, null)
                 name
             }

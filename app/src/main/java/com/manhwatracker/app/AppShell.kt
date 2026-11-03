@@ -85,6 +85,19 @@ fun App(vm: MainViewModel = viewModel()) {
 
     val appCtx = androidx.compose.ui.platform.LocalContext.current
 
+    // Si la última vez la app se cerró por un error, se avisa y se lleva a Ajustes para compartirlo.
+    LaunchedEffect(Unit) {
+        if (com.manhwatracker.app.data.Prefs.crashPending(appCtx)) {
+            com.manhwatracker.app.data.Prefs.setCrashPending(appCtx, false)
+            val r = snackbar.showSnackbar(
+                tr("La app se cerró por un error. Puedes enviarlo desde Ajustes."),
+                actionLabel = tr("Ver"),
+                duration = SnackbarDuration.Long
+            )
+            if (r == SnackbarResult.ActionPerformed) section = SECTION_SETTINGS
+        }
+    }
+
     // Novedades: la primera vez que se abre la app después de actualizar.
     var whatsNew by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {

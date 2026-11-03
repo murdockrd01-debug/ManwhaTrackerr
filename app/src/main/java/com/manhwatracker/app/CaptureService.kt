@@ -165,7 +165,8 @@ class CaptureService : AccessibilityService() {
                     show(bmp, items)
                 }
             }
-            .addOnFailureListener {
+            .addOnFailureListener { err ->
+                com.manhwatracker.app.data.CrashLog.note(this, "Captura: falló el lector de texto", err)
                 toast("No pude leer el texto")
                 bmp.recycle()
             }

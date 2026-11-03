@@ -272,6 +272,33 @@ fun SettingsScreen() {
             status?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
 
+        Text("Registro de errores", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        SettingCard {
+            var errors by remember { mutableStateOf(com.manhwatracker.app.data.CrashLog.count(ctx)) }
+            Text(
+                if (errors == 0) "Sin errores guardados." else "Errores guardados: $errors",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                "Si la app se cierra sola o algo falla, el detalle queda aquí. Compártelo para poder arreglarlo; no incluye tus palabras ni tus manhwas.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(enabled = errors > 0, onClick = {
+                    val text = com.manhwatracker.app.data.CrashLog.read(ctx)
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+                        .setType("text/plain")
+                        .putExtra(android.content.Intent.EXTRA_SUBJECT, "Manhwa Tracker: registro de errores")
+                        .putExtra(android.content.Intent.EXTRA_TEXT, text)
+                    ctx.startActivity(android.content.Intent.createChooser(send, null))
+                }) { Text("Compartir") }
+                OutlinedButton(enabled = errors > 0, onClick = {
+                    com.manhwatracker.app.data.CrashLog.clear(ctx)
+                    errors = 0
+                }) { Text("Borrar") }
+            }
+        }
+
         Text("Ayuda", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         SettingCard {
             Text("Guía de inicio", style = MaterialTheme.typography.titleMedium)
