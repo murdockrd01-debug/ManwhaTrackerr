@@ -651,9 +651,70 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         if (m != old) { dao.update(m); updated++ }
                     }
                 }
+                Prefs.setAnilistUser(getApplication(), name)
+                _aniState.value = AniState(false, System.currentTimeMillis())
+                Prefs.setAnilistLastAt(getApplication(), System.currentTimeMillis())
                 _message.value = "AniList: $added nuevos, $updated actualizados"
             }
             onDone()
+        }
+    }
+
+    class AniState(val syncing: Boolean, val lastAt: Long)
+
+    private val _aniState = MutableStateFlow(AniState(false, Prefs.anilistLastAt(app)))
+    val aniState: StateFlow<AniState> = _aniState.asStateFlow()
+    private val aniMutex = Mutex()
+
+    /**
+     * Pone al día tus capítulos con AniList. Komikku sube tu progreso a AniList al terminar cada capítulo,
+     * así que al volver a esta app (o al tocar "Actualizar ahora") se ve casi al instante.
+     */
+    fun syncAniList(manual: Boolean = false) {
+        val c = getApplication<Application>()
+        val user = Prefs.anilistUser(c)
+        if (user == null) {
+            if (manual) _message.value = "Escribe primero tu usuario de AniList"
+            return
+        }
+        val now0 = System.currentTimeMillis()
+        if (!manual && (!Prefs.anilistAuto(c) || now0 - Prefs.anilistLastAt(c) < 60_000)) return
+        viewModelScope.launch {
+            if (!aniMutex.tryLock()) return@launch
+            _aniState.value = AniState(true, _aniState.value.lastAt)
+            try {
+                val res = AniList.userList(user)
+                if (res.error != null) {
+                    if (manual) _message.value = res.error
+                    return@launch
+                }
+                val now = System.currentTimeMillis()
+                var updated = 0
+                var added = 0
+                for (e in res.entries) {
+                    val old = dao.findByAnilistId(e.anilistId)
+                        ?: e.allTitles().firstNotNullOfOrNull { t ->
+                            titleKeyOf(t).takeIf { it.isNotEmpty() }?.let { dao.findByKey(it) }
+                        }
+                    if (old != null) {
+                        val m = ListImport.progress(old, e, now) ?: continue
+                        if (m.lastChapter > old.lastChapter) {
+                            logActivity(ActivityKind.CHAPTER, chaptersBetween(old.lastChapter, m.lastChapter), now)
+                        }
+                        dao.update(m)
+                        updated++
+                    } else if (Prefs.anilistAddNew(c)) {
+                        if (dao.insert(ListImport.create(e)) > 0) added++
+                    }
+                }
+                Prefs.setAnilistLastAt(c, now)
+                _aniState.value = AniState(false, now)
+                if (manual && updated + added == 0) _message.value = "Ya estás al día con AniList"
+                else if (updated + added > 0) _message.value = "AniList: $added nuevos, $updated actualizados"
+            } finally {
+                _aniState.value = AniState(false, Prefs.anilistLastAt(c))
+                aniMutex.unlock()
+            }
         }
     }
 

@@ -38,6 +38,7 @@ private fun formatTime(millis: Long): String =
 @Composable
 fun SyncScreen(vm: MainViewModel) {
     val info by vm.sync.collectAsState()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
 
     // Por si se cambió algo mientras la pantalla estaba cerrada (por ejemplo, una copia hecha al salir de la app).
     LaunchedEffect(Unit) { vm.refreshSync() }
@@ -150,23 +151,61 @@ fun SyncScreen(vm: MainViewModel) {
         // ---------------- AniList
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                var user by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+                val ani = vm.aniState.collectAsState().value
+                var user by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.manhwatracker.app.data.Prefs.anilistUser(ctx) ?: "") }
+                var auto by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.manhwatracker.app.data.Prefs.anilistAuto(ctx)) }
+                var addNew by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.manhwatracker.app.data.Prefs.anilistAddNew(ctx)) }
                 var busy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-                Text("Importar desde AniList", style = MaterialTheme.typography.titleMedium)
+
+                Text("Progreso en tiempo real con AniList", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Escribe tu usuario de AniList (tu lista debe ser pública). Se agregan los que no tienes; " +
-                        "los que ya tienes solo se completan, sin bajar tu capítulo ni cambiar tu estado o nota. " +
-                        "Si usas MyAnimeList, AniList puede importar tu lista desde su web y luego la traes aquí.",
+                    "Komikku puede subir tu progreso a AniList cada vez que terminas un capítulo. " +
+                        "Esta app lo lee al abrirla o al volver a ella, y así tus capítulos se actualizan sin copias.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    "1. En Komikku: Más › Ajustes › Seguimiento › AniList, e inicia sesión.\n" +
+                        "2. En cada manhwa de Komikku, toca el ícono de seguimiento y vincúlalo con AniList.\n" +
+                        "3. Escribe aquí tu usuario de AniList (tu lista debe ser pública).",
                     style = MaterialTheme.typography.bodySmall
                 )
                 androidx.compose.material3.OutlinedTextField(
                     value = user, onValueChange = { user = it }, singleLine = true,
                     label = { Text("Usuario de AniList") }, modifier = Modifier.fillMaxWidth()
                 )
-                Button(enabled = !busy && user.isNotBlank(), onClick = {
-                    busy = true
-                    vm.importAniList(user) { busy = false }
-                }) { Text(if (busy) "Importando…" else "Importar") }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Actualizar solo al abrir la app", modifier = Modifier.weight(1f))
+                    androidx.compose.material3.Switch(checked = auto, onCheckedChange = {
+                        auto = it
+                        com.manhwatracker.app.data.Prefs.setAnilistAuto(ctx, it)
+                    })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Agregar también los que no tengo", modifier = Modifier.weight(1f))
+                    androidx.compose.material3.Switch(checked = addNew, onCheckedChange = {
+                        addNew = it
+                        com.manhwatracker.app.data.Prefs.setAnilistAddNew(ctx, it)
+                    })
+                }
+                Text(
+                    if (ani.lastAt > 0) "Última vez: " + java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(ani.lastAt))
+                    else "Todavía no se ha actualizado.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(enabled = !ani.syncing && user.isNotBlank(), onClick = {
+                        com.manhwatracker.app.data.Prefs.setAnilistUser(ctx, user.trim().removePrefix("@"))
+                        vm.syncAniList(manual = true)
+                    }) { Text(if (ani.syncing) "Actualizando…" else "Actualizar ahora") }
+                    androidx.compose.material3.OutlinedButton(enabled = !busy && user.isNotBlank(), onClick = {
+                        busy = true
+                        vm.importAniList(user) { busy = false }
+                    }) { Text(if (busy) "Importando…" else "Importar toda mi lista") }
+                }
+                Text(
+                    "Nunca baja tu capítulo ni cambia tu nota. Si usas MyAnimeList, AniList puede importar tu lista desde su web.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 

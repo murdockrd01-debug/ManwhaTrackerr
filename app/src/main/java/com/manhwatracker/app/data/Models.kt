@@ -31,6 +31,9 @@ interface ManhwaDao {
     @Query("SELECT * FROM manhwa WHERE id = :id LIMIT 1")
     suspend fun findById(id: Long): Manhwa?
 
+    @Query("SELECT * FROM manhwa WHERE anilistId = :id AND anilistId > 0 LIMIT 1")
+    suspend fun findByAnilistId(id: Long): Manhwa?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(m: Manhwa): Long
 

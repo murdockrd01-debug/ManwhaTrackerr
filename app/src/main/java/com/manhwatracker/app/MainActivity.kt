@@ -107,7 +107,10 @@ class MainActivity : ComponentActivity() {
      */
     override fun onStart() {
         super.onStart()
-        ViewModelProvider(this)[MainViewModel::class.java].autoSync()
+        ViewModelProvider(this)[MainViewModel::class.java].also {
+            it.autoSync()
+            it.syncAniList()
+        }
     }
 
     /** Al salir de la app se guarda la copia automática (si hay carpeta elegida y ya toca). */

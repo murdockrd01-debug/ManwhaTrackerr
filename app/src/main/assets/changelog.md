@@ -1,3 +1,6 @@
+## 4.3
+- Progreso casi en tiempo real: Komikku sube tu avance a AniList y la app lo trae al abrirla, sin copias. Configúralo en Más › Sincronización.
+
 ## 4.2
 - Registro de errores en Ajustes: si la app se cierra sola, el detalle queda guardado y lo compartes con un toque.
 - La copia automática ya no se reescribe si no cambió nada desde la última.

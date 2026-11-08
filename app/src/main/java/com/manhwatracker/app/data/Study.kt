@@ -134,6 +134,24 @@ object Prefs {
         p(c).edit().putString("backup_hash", h).apply()
     }
 
+    // ---- Progreso con AniList (Komikku lo sube solo cuando terminas un capítulo)
+    fun anilistUser(c: Context): String? = p(c).getString("anilist_user", null)?.takeIf { it.isNotBlank() }
+    fun setAnilistUser(c: Context, v: String?) {
+        p(c).edit().putString("anilist_user", v).apply()
+    }
+    fun anilistAuto(c: Context): Boolean = p(c).getBoolean("anilist_auto", true)
+    fun setAnilistAuto(c: Context, on: Boolean) {
+        p(c).edit().putBoolean("anilist_auto", on).apply()
+    }
+    fun anilistAddNew(c: Context): Boolean = p(c).getBoolean("anilist_add_new", false)
+    fun setAnilistAddNew(c: Context, on: Boolean) {
+        p(c).edit().putBoolean("anilist_add_new", on).apply()
+    }
+    fun anilistLastAt(c: Context): Long = p(c).getLong("anilist_last_at", 0L)
+    fun setAnilistLastAt(c: Context, at: Long) {
+        p(c).edit().putLong("anilist_last_at", at).apply()
+    }
+
     fun language(c: Context): String = p(c).getString("language", "auto") ?: "auto"
     fun setLanguage(c: Context, v: String) {
         p(c).edit().putString("language", v).apply()

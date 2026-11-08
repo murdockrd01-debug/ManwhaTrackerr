@@ -11,8 +11,12 @@ object ListImport {
         val cover: String?,
         val genres: List<String>,
         val anilistId: Long,
-        val country: String? = null
-    )
+        val country: String? = null,
+        /** Otros nombres de la obra (inglés, romaji, sinónimos) para encontrarla aunque tu app la llame distinto. */
+        val alts: List<String> = emptyList()
+    ) {
+        fun allTitles(): List<String> = (listOf(title) + alts).filter { it.isNotBlank() }.distinct()
+    }
 
     /** Estados de AniList → los de la app. */
     fun mapStatus(s: String): String = when (s.uppercase()) {
@@ -42,4 +46,25 @@ object ListImport {
         genres = old.genres ?: e.genres.takeIf { it.isNotEmpty() }?.joinToString(","),
         anilistId = if (old.anilistId > 0) old.anilistId else e.anilistId
     )
+
+    /**
+     * Pone al día tu progreso con lo que dice AniList: solo sube el capítulo (nunca lo baja)
+     * y no toca tu nota. Devuelve null si no hay nada que cambiar.
+     */
+    fun progress(old: Manhwa, e: Entry, now: Long): Manhwa? {
+        val up = e.progress > old.lastChapter
+        var status = old.status
+        if (up && status == Status.PLAN) status = Status.READING
+        if (up && mapStatus(e.status) == Status.COMPLETED) status = Status.COMPLETED
+        val m = old.copy(
+            lastChapter = if (up) e.progress else old.lastChapter,
+            updatedAt = if (up) now else old.updatedAt,
+            status = status,
+            totalChapters = if (old.totalChapters > 0) old.totalChapters else e.total,
+            coverUrl = old.coverUrl ?: e.cover,
+            genres = old.genres ?: e.genres.takeIf { it.isNotEmpty() }?.joinToString(","),
+            anilistId = if (old.anilistId > 0) old.anilistId else e.anilistId
+        )
+        return if (m == old) null else m
+    }
 }
