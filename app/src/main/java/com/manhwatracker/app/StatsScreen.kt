@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -75,6 +77,37 @@ fun StatsScreen(vm: MainViewModel) {
                 StatTile("Manhwas", library.size.toString(), Modifier.weight(1f))
                 StatTile("Terminados", library.count { it.status == com.manhwatracker.app.data.Status.COMPLETED }.toString(), Modifier.weight(1f))
                 StatTile("Capítulos leídos", library.sumOf { Math.floor(it.lastChapter).toInt() }.toString(), Modifier.weight(1f))
+            }
+        }
+
+        // ---------------- Calendario de actividad
+        val perDay = remember(activity) {
+            Stats.perDayTotals(activity.filter { it.kind == ActivityKind.CHAPTER || it.kind == ActivityKind.REVIEW }.map { it.day to it.amount })
+        }
+        val activeDays = remember(perDay) { perDay.keys.toList() }
+        val actStreak = remember(activeDays, today) { Stats.streak(activeDays, today) }
+        val monthStart = remember(today) { today - (java.time.LocalDate.ofEpochDay(today).dayOfMonth - 1) }
+        val activeThisMonth = activeDays.count { it in monthStart..today }
+        val chaptersThisMonth = remember(activity, today) {
+            activity.filter { it.kind == ActivityKind.CHAPTER && it.day in monthStart..today }.sumOf { it.amount }.coerceAtLeast(0)
+        }
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Tu actividad", style = MaterialTheme.typography.titleSmall)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    MiniStat("$activeThisMonth", "Días activos este mes")
+                    MiniStat("$chaptersThisMonth", "Capítulos este mes")
+                    MiniStat("${actStreak.current}", "Racha actual")
+                }
+                if (activeDays.isEmpty()) {
+                    Text(
+                        "Todavía no hay actividad. Cada día que leas o repases se pintará aquí.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else {
+                    Heatmap(Stats.heatmap(perDay, today, 15))
+                    Text("Cada cuadro es un día; cada columna, una semana (lunes arriba, domingo abajo). Más color = más actividad.", style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
 
@@ -294,6 +327,42 @@ private fun BarChart(data: List<Stats.Bucket>) {
                         .background(color, RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                 )
                 Text(b.label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniStat(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(96.dp)) {
+        Text(value, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+        Text(label, style = MaterialTheme.typography.labelSmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+}
+
+/** Calendario de actividad: una columna por semana, una fila por día de la semana. */
+@Composable
+private fun Heatmap(weeks: List<List<Int>>) {
+    val base = MaterialTheme.colorScheme.primary
+    val empty = MaterialTheme.colorScheme.surfaceVariant
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        weeks.forEach { col ->
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                col.forEach { level ->
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .background(
+                                when (level) {
+                                    -1 -> androidx.compose.ui.graphics.Color.Transparent
+                                    0 -> empty
+                                    else -> base.copy(alpha = 0.25f + 0.25f * (level - 1))
+                                },
+                                RoundedCornerShape(3.dp)
+                            )
+                    )
+                }
             }
         }
     }

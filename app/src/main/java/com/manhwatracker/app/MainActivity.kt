@@ -9,6 +9,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.ViewModelProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -193,6 +196,7 @@ private fun sortItems(list: List<Manhwa>, mode: String): List<Manhwa> = when (mo
     else -> list // RECENT: la base de datos ya los entrega del más reciente al más viejo
 }
 
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
     val context = LocalContext.current
@@ -243,16 +247,22 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 4.dp)
+                .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 2.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(brandBrush())
-                .padding(vertical = 8.dp),
+                .padding(vertical = 4.dp, horizontal = 4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            HeroStat("${all.count { it.status == Status.READING }}", "Leyendo")
-            HeroStat("${all.count { it.status == Status.COMPLETED }}", "Terminados")
-            HeroStat("${all.count { it.status == Status.PLAN }}", "Pendientes")
-            HeroStat("${all.size}", "Total")
+            HeroStat("${all.count { it.status == Status.READING }}", "Leyendo", filter == Status.READING) {
+                filter = if (filter == Status.READING) null else Status.READING
+            }
+            HeroStat("${all.count { it.status == Status.COMPLETED }}", "Terminados", filter == Status.COMPLETED) {
+                filter = if (filter == Status.COMPLETED) null else Status.COMPLETED
+            }
+            HeroStat("${all.count { it.status == Status.PLAN }}", "Pendientes", filter == Status.PLAN) {
+                filter = if (filter == Status.PLAN) null else Status.PLAN
+            }
+            HeroStat("${all.size}", "Total", filter == null) { filter = null }
         }
         // Barra compacta: lupa, estados y menú de orden en una sola línea.
         if (searching) {
@@ -282,6 +292,12 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
                 IconButton(onClick = { searching = true }) {
                     Icon(Icons.Filled.Search, contentDescription = tr("Buscar"))
                 }
+                FilterChip(
+                    selected = listFilter != null || genreFilter != null,
+                    onClick = { showFilters = true },
+                    label = { Text("Filtros" + if (listFilter != null || genreFilter != null) " •" else "") }
+                )
+                Spacer(Modifier.width(8.dp))
                 Row(
                     Modifier.weight(1f).horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -299,11 +315,6 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
                             label = { Text(Status.label(s)) }
                         )
                     }
-                    FilterChip(
-                        selected = showFilters || listFilter != null || genreFilter != null,
-                        onClick = { showFilters = !showFilters },
-                        label = { Text("Listas y géneros" + if (listFilter != null || genreFilter != null) " •" else "") }
-                    )
                 }
                 Box {
                     IconButton(onClick = { sortMenu = true }) {
@@ -334,51 +345,22 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
             }
         }
 
-        if (showFilters) {
-        // Listas personalizadas
-        Row(
-            Modifier
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Listas:", style = MaterialTheme.typography.labelLarge)
-            lists.forEach { l ->
-                FilterChip(
-                    selected = listFilter == l.id,
-                    onClick = { listFilter = if (listFilter == l.id) null else l.id },
-                    label = { Text(l.name) }
+        if (activeList != null || genreFilter != null) {
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (activeList != null) InputChip(
+                    selected = true, onClick = { listFilter = null },
+                    label = { Text("Lista: ${activeList.name}") },
+                    trailingIcon = { Icon(Icons.Filled.Clear, contentDescription = tr("Quitar filtro"), modifier = Modifier.size(16.dp)) }
+                )
+                if (genreFilter != null) InputChip(
+                    selected = true, onClick = { genreFilter = null },
+                    label = { Text("Género: ${Genres.label(genreFilter!!)}") },
+                    trailingIcon = { Icon(Icons.Filled.Clear, contentDescription = tr("Quitar filtro"), modifier = Modifier.size(16.dp)) }
                 )
             }
-            AssistChip(onClick = { newList = true }, label = { Text("＋ Nueva") })
-        }
-        if (activeList != null) {
-            Row(Modifier.padding(horizontal = 12.dp)) {
-                TextButton(onClick = { renaming = true }) { Text("Renombrar “${activeList.name}”") }
-                TextButton(onClick = { deleting = true }) { Text("Eliminar lista") }
-            }
-        }
-
-        // Géneros (vienen de AniList)
-        if (genreCounts.isNotEmpty()) {
-            Row(
-                Modifier
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Géneros:", style = MaterialTheme.typography.labelLarge)
-                genreCounts.forEach { (g, n) ->
-                    FilterChip(
-                        selected = genreFilter == g,
-                        onClick = { genreFilter = if (genreFilter == g) null else g },
-                        label = { Text("${Genres.label(g)} ($n)") }
-                    )
-                }
-            }
-        }
         }
 
         if (shown.isEmpty()) {
@@ -426,6 +408,49 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
                         onPlusOne = { vm.increment(m) },
                         onCoverMissing = { vm.coverFallback(m) }
                     )
+                }
+            }
+        }
+    }
+
+    if (showFilters) {
+        ModalBottomSheet(onDismissRequest = { showFilters = false }) {
+            Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Listas", style = MaterialTheme.typography.titleMedium)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    lists.forEach { l ->
+                        FilterChip(
+                            selected = listFilter == l.id,
+                            onClick = { listFilter = if (listFilter == l.id) null else l.id },
+                            label = { Text(l.name) }
+                        )
+                    }
+                    AssistChip(onClick = { newList = true }, label = { Text("＋ Nueva") })
+                }
+                if (activeList != null) {
+                    Row {
+                        TextButton(onClick = { renaming = true }) { Text("Renombrar “${activeList.name}”") }
+                        TextButton(onClick = { deleting = true }) { Text("Eliminar lista") }
+                    }
+                }
+                if (genreCounts.isNotEmpty()) {
+                    Text("Géneros", style = MaterialTheme.typography.titleMedium)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        genreCounts.forEach { (g, n) ->
+                            FilterChip(
+                                selected = genreFilter == g,
+                                onClick = { genreFilter = if (genreFilter == g) null else g },
+                                label = { Text("${Genres.label(g)} ($n)") }
+                            )
+                        }
+                    }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { listFilter = null; genreFilter = null }) { Text("Quitar filtros") }
+                    TextButton(onClick = { showFilters = false }) { Text("Listo") }
                 }
             }
         }
@@ -483,8 +508,15 @@ fun NameDialog(title: String, initial: String, confirm: String, onDismiss: () ->
 }
 
 @Composable
-private fun HeroStat(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun HeroStat(value: String, label: String, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(if (selected) Color.White.copy(alpha = 0.22f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Text(label, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.85f))
     }

@@ -31,4 +31,19 @@ class StatsTest {
         val r = Stats.wordsPerManhwa(w)
         assertEquals(2, r[0].value); assertEquals(2, r.size)
     }
+    @Test fun heatmapShape() {
+        val today = java.time.LocalDate.of(2026, 11, 10).toEpochDay() // martes
+        val h = Stats.heatmap(mapOf(today to 5, today - 1 to 1, today - 2 to -3), today, 15)
+        assertEquals(15, h.size); assertTrue(h.all { it.size == 7 })
+        val last = h.last()
+        assertEquals(4, last[1]); assertEquals(1, last[0]); assertEquals(-1, last[2]); assertEquals(-1, last[6])
+        assertEquals(0, h[13][3])
+    }
+    @Test fun heatmapNegativeIsZero() {
+        val today = java.time.LocalDate.of(2026, 11, 10).toEpochDay()
+        assertEquals(0, Stats.heatmap(mapOf(today to -2), today, 2).last()[1])
+    }
+    @Test fun perDay() {
+        assertEquals(mapOf(1L to 5), Stats.perDayTotals(listOf(1L to 2, 1L to 3, 2L to -1)))
+    }
 }

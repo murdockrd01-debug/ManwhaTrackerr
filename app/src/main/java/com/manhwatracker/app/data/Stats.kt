@@ -92,4 +92,33 @@ object Stats {
             .map { (_, titles) -> Bucket(titles.first(), titles.size) }
             .sortedWith(compareByDescending<Bucket> { it.value }.thenBy { it.label.lowercase() })
             .take(limit)
+
+    /**
+     * Calendario de actividad: [weeks] columnas (de la semana más vieja a la actual), cada una con 7 filas (lunes a domingo).
+     * Cada celda vale 0 (sin actividad), 1 a 4 (más o menos actividad según el día más fuerte) o -1 (día que todavía no llega).
+     * [perDay] es el total de actividad de cada día (número de día → cantidad). Lo negativo cuenta como 0.
+     */
+    fun heatmap(perDay: Map<Long, Int>, today: Long, weeks: Int = 15): List<List<Int>> {
+        val firstWeek = weekStart(today) - 7L * (weeks - 1)
+        val max = maxOf(1, perDay.filterKeys { it >= firstWeek && it <= today }.values.maxOrNull() ?: 0)
+        return (0 until weeks).map { w ->
+            (0 until 7).map { d ->
+                val day = firstWeek + 7L * w + d
+                when {
+                    day > today -> -1
+                    else -> {
+                        val v = perDay[day] ?: 0
+                        if (v <= 0) 0 else Math.ceil(v * 4.0 / max).toInt().coerceIn(1, 4)
+                    }
+                }
+            }
+        }
+    }
+
+    /** Suma la actividad positiva de varias fuentes (pares día-cantidad) en un solo total por día. */
+    fun perDayTotals(entries: Collection<Pair<Long, Int>>): Map<Long, Int> {
+        val out = HashMap<Long, Int>()
+        for ((d, a) in entries) if (a > 0) out[d] = (out[d] ?: 0) + a
+        return out
+    }
 }

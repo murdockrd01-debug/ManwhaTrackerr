@@ -1,3 +1,7 @@
+## 4.4
+- Biblioteca: los números de arriba ahora filtran al tocarlos, y listas y géneros están en un botón "Filtros" siempre visible.
+- Estadísticas: nuevo calendario de actividad con días activos, capítulos del mes y racha de lectura.
+
 ## 4.3
 - Progreso casi en tiempo real: Komikku sube tu avance a AniList y la app lo trae al abrirla, sin copias. Configúralo en Más › Sincronización.
 
