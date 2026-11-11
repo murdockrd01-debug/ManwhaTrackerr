@@ -1,0 +1,1 @@
+Commit de prueba: acceso de escritura verificado el 2026-11-11.
