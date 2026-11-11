@@ -30,7 +30,7 @@ class ReaderProgressTest {
         assertEquals("Solo Leveling", ReaderProgress.match(all, "solo-leveling!")!!.title)
         assertNull(ReaderProgress.match(all, "Otra cosa"))
         // nombre recortado por Komikku: empieza igual que un solo título
-        assertEquals("Solo Leveling", ReaderProgress.match(listOf(m("Solo Leveling Ragnarok")), "Solo Leveling Rag")!!.title)
+        assertEquals("Solo Leveling Ragnarok", ReaderProgress.match(listOf(m("Solo Leveling Ragnarok")), "Solo Leveling Rag")!!.title)
         // ambiguo: dos títulos empiezan igual -> no adivina
         assertNull(ReaderProgress.match(all, "The Beginning After"))
     }
