@@ -324,6 +324,7 @@ fun App(vm: MainViewModel = viewModel()) {
                     onLook = { section = SECTION_LOOK },
                     onIcons = { section = SECTION_ICONS },
                     onDiscover = { section = SECTION_DISCOVER },
+                    onReader = { appCtx.startActivity(android.content.Intent(appCtx, ReaderActivity::class.java)) },
                     onSettings = { section = SECTION_SETTINGS },
                     onImport = { picker.launch(arrayOf("*/*")) },
                     onExport = { exportPicker.launch("manhwa-tracker-${LocalDate.now()}.json") },

@@ -157,6 +157,13 @@
             android:taskAffinity=""
             android:theme="@style/Theme.Transparent" />
 
+        <!-- Lector integrado de capítulos descargados (carpeta o .cbz) -->
+        <activity
+            android:name=".ReaderActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:theme="@style/Theme.ManhwaTracker" />
+
         <!-- Recibe lo que escribes en la barra rápida de notificaciones -->
         <receiver
             android:name=".QuickAddReceiver"
