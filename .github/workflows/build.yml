@@ -62,6 +62,7 @@ jobs:
 
       # Publica el APK como release: siempre queda uno con enlace fijo a la última versión.
       - name: Publicar release
+        if: github.ref == 'refs/heads/main'
         run: |
           VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
           cp app/build/outputs/apk/release/app-release.apk ManhwaTracker.apk
