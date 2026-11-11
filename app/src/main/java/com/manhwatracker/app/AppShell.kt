@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -241,6 +242,13 @@ fun App(vm: MainViewModel = viewModel()) {
                         onClick = { section = SECTION_MANHWA },
                         icon = { Icon(Icons.Filled.Home, contentDescription = null) },
                         label = { Text("Manhwas") }
+                    )
+                    // Acceso directo al lector integrado (antes solo estaba dentro de Más).
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = { appCtx.startActivity(android.content.Intent(appCtx, ReaderActivity::class.java)) },
+                        icon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+                        label = { Text("Leer") }
                     )
                     if (Features.study) {
                         NavigationBarItem(

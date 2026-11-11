@@ -1,3 +1,6 @@
+## 4.9
+- Nuevo botón "Leer" en la barra de abajo: abre el lector directo, sin pasar por Más.
+
 ## 4.8
 - Continuar leyendo: en la ficha de cada manhwa, el botón ahora abre el lector de la app directo en el capítulo que sigue (o en el que dejaste a medias). Komikku queda como botón aparte para descargar capítulos nuevos.
 - El lector recuerda la carpeta de descargas de Komikku que elegiste.

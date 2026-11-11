@@ -388,6 +388,7 @@ object TrData {
         "Guardar en vocabulario" to "Save to vocabulary",
         // Accessibility
         "Agregar" to "Add",
+        "Leer" to "Read",
         // Continuar leyendo
         "▶  Continuar leyendo" to "▶  Continue reading",
         "Elige primero la carpeta de descargas de Komikku" to "First choose Komikku's downloads folder",
