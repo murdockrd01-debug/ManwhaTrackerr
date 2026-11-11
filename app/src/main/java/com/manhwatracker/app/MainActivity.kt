@@ -854,13 +854,23 @@ fun DetailScreen(
                     )
                 }
                 Button(
-                    onClick = {
-                        if (!ReaderLink.open(context, item.title)) vm.showMessage("No encontré ninguna app lectora instalada en este teléfono")
-                    },
+                    onClick = { context.startActivity(ReaderActivity.continueIntent(context, item.title, chapterNow)) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text("▶  Continuar en " + (ReaderLink.target(context)?.name ?: "mi lector"), fontWeight = FontWeight.SemiBold)
+                    Text("▶  Continuar leyendo", fontWeight = FontWeight.SemiBold)
+                }
+                // Komikku sigue siendo el lugar para descargar los capítulos nuevos.
+                ReaderLink.target(context)?.let { r ->
+                    OutlinedButton(
+                        onClick = {
+                            if (!ReaderLink.open(context, item.title)) vm.showMessage("No encontré ninguna app lectora instalada en este teléfono")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Abrir en " + r.name)
+                    }
                 }
             }
         }

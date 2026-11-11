@@ -55,6 +55,27 @@ object ReaderSource {
             .sortedWith(Comparator { a, b -> ReaderLogic.compareNatural(a.name, b.name) })
             .map { DocumentsContract.buildDocumentUriUsingTree(tree, it.docId) }
 
+    /** La carpeta de un manhwa: ruta de carpetas (desde la raíz) y su contenido. */
+    class Found(val path: List<String>, val kids: List<Node>)
+
+    /**
+     * Busca la carpeta de un manhwa dentro de las descargas (la raíz puede ser las descargas, una fuente o el propio manhwa).
+     * Mira hasta dos niveles: fuente/manhwa. null si no la encuentra.
+     */
+    fun findManhwaDir(ctx: Context, tree: Uri, rootId: String, title: String): Found? {
+        val top = list(ctx, tree, rootId)
+        if (ReaderProgress.folderIsManhwa(title, ReaderLogic.nameFromDocId(rootId))) return Found(listOf(rootId), top)
+        val dirs = top.filter { it.isDir }
+        dirs.firstOrNull { ReaderProgress.folderIsManhwa(title, it.name) }?.let {
+            return Found(listOf(rootId, it.docId), list(ctx, tree, it.docId))
+        }
+        for (src in dirs) {
+            val m = list(ctx, tree, src.docId).firstOrNull { it.isDir && ReaderProgress.folderIsManhwa(title, it.name) } ?: continue
+            return Found(listOf(rootId, src.docId, m.docId), list(ctx, tree, m.docId))
+        }
+        return null
+    }
+
     /** Abre un elemento: un .cbz, una carpeta con imágenes, o una carpeta que a su vez tiene capítulos. */
     fun open(ctx: Context, tree: Uri, n: Node): Opened {
         if (n.isArchive) {

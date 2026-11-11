@@ -34,4 +34,35 @@ class ReaderProgressTest {
         // ambiguo: dos títulos empiezan igual -> no adivina
         assertNull(ReaderProgress.match(all, "The Beginning After"))
     }
+
+    @Test fun folderIsManhwa() {
+        assertTrue(ReaderProgress.folderIsManhwa("Solo Leveling", "Solo Leveling"))
+        assertTrue(ReaderProgress.folderIsManhwa("Solo Leveling", "solo-leveling!"))
+        assertFalse(ReaderProgress.folderIsManhwa("Solo Leveling", "Tower of God"))
+        // Komikku recorta nombres largos: se acepta si el nombre de carpeta es largo y el título empieza igual.
+        assertTrue(ReaderProgress.folderIsManhwa("The Beginning After The End: Side Story", "The Beginning After The End"))
+        assertFalse(ReaderProgress.folderIsManhwa("Solo Leveling", "Solo"))
+    }
+
+    @Test fun pickChapterNextAfterLastRead() {
+        val names = listOf("Chapter 1", "Chapter 2", "Chapter 3", "Chapter 4")
+        val none = listOf(false, false, false, false)
+        assertEquals(2, ReaderProgress.pickChapter(names, none, 2.0))
+        assertEquals(0, ReaderProgress.pickChapter(names, none, 0.0))
+        assertNull(ReaderProgress.pickChapter(names, none, 4.0))
+        assertNull(ReaderProgress.pickChapter(emptyList(), emptyList(), 0.0))
+    }
+
+    @Test fun pickChapterPrefersUnfinished() {
+        val names = listOf("Chapter 5", "Chapter 6", "Chapter 7")
+        // El 6 quedó a medias: se retoma aunque el 7 también esté descargado.
+        assertEquals(1, ReaderProgress.pickChapter(names, listOf(false, true, false), 5.0))
+        // Un capítulo a medias que ya quedó atrás (progreso mayor) no cuenta.
+        assertEquals(2, ReaderProgress.pickChapter(names, listOf(true, false, false), 6.0))
+    }
+
+    @Test fun pickChapterSkipsUnnumbered() {
+        val names = listOf("Prólogo", "Chapter 1", "Chapter 2")
+        assertEquals(1, ReaderProgress.pickChapter(names, listOf(false, false, false), 0.0))
+    }
 }

@@ -44,6 +44,28 @@ object ReaderProgress {
         return starts.singleOrNull()
     }
 
+    /** ¿La carpeta [folder] es del manhwa [title]? Mismo criterio que [match]: título igual, o nombre de carpeta recortado. */
+    fun folderIsManhwa(title: String, folder: String): Boolean {
+        val t = titleKeyOf(title)
+        val f = titleKeyOf(folder)
+        if (t == f) return true
+        return f.length >= 12 && t.startsWith(f)
+    }
+
+    /**
+     * Qué capítulo abrir en "Continuar leyendo". [names] van en orden de lectura y [partial] dice cuáles dejaste a medias.
+     * Primero el último a medias que todavía no cuenta como leído; si no hay, el primero con número mayor a [lastRead].
+     * Devuelve su posición, o null si no hay nada nuevo descargado.
+     */
+    fun pickChapter(names: List<String>, partial: List<Boolean>, lastRead: Double): Int? {
+        val mid = names.indices.lastOrNull { i ->
+            partial.getOrElse(i) { false } && (chapterNumber(names[i])?.let { it > lastRead } ?: true)
+        }
+        if (mid != null) return mid
+        val next = names.indexOfFirst { n -> chapterNumber(n)?.let { it > lastRead } == true }
+        return if (next >= 0) next else null
+    }
+
     class Saved(val title: String, val chapter: Double)
 
     /** Guarda el avance en la base de datos. Devuelve lo guardado, o null si no hay manhwa, número o avance. */

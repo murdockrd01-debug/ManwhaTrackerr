@@ -1,3 +1,7 @@
+## 4.8
+- Continuar leyendo: en la ficha de cada manhwa, el botón ahora abre el lector de la app directo en el capítulo que sigue (o en el que dejaste a medias). Komikku queda como botón aparte para descargar capítulos nuevos.
+- El lector recuerda la carpeta de descargas de Komikku que elegiste.
+
 ## 4.7
 - El lector ahora suma tu avance: al terminar un capítulo descargado de Komikku, el capítulo leído del manhwa sube solo en tu biblioteca (y cuenta en el calendario de actividad).
 

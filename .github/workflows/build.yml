@@ -70,6 +70,19 @@ jobs:
           if [ ! -s notes.md ]; then
             echo "APK de Manhwa Tracker versión $VERSION. Se instala encima de la anterior." > notes.md
           fi
+          if [ "$GITHUB_REF_NAME" != "main" ]; then
+            # Rama de prueba: pre-lanzamiento con etiqueta propia. No es "latest", así que no avisa de actualización a nadie.
+            TAG="prueba-$GITHUB_REF_NAME"
+            { echo "PRUEBA de la rama $GITHUB_REF_NAME (versión $VERSION). No es la versión oficial."; echo; cat notes.md; } > notes2.md
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              gh release upload "$TAG" ManhwaTracker.apk --clobber
+              gh release edit "$TAG" --notes-file notes2.md --prerelease --latest=false
+            else
+              gh release create "$TAG" ManhwaTracker.apk --title "Prueba: $GITHUB_REF_NAME" \
+                --notes-file notes2.md --target "$GITHUB_SHA" --prerelease --latest=false
+            fi
+            exit 0
+          fi
           if gh release view "v$VERSION" >/dev/null 2>&1; then
             gh release upload "v$VERSION" ManhwaTracker.apk --clobber
             gh release edit "v$VERSION" --notes-file notes.md

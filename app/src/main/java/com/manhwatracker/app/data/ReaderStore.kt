@@ -12,6 +12,16 @@ object ReaderStore {
         p(c).edit().putString("last", ReaderLogic.encodePlace(place)).apply()
     }
 
+    /** Carpeta de descargas de Komikku elegida por el usuario (para "Continuar leyendo"); null si no hay. */
+    fun downloads(c: Context): String? = p(c).getString("downloads", null)
+
+    fun setDownloads(c: Context, uri: String?) {
+        p(c).edit().putString("downloads", uri).apply()
+    }
+
+    /** Capítulo empezado y no terminado. */
+    fun inProgress(c: Context, key: String): Boolean = position(c, key) > 0 && !done(c, key)
+
     fun position(c: Context, key: String): Int = p(c).getInt("pos:$key", 0)
 
     fun setPosition(c: Context, key: String, page: Int) {

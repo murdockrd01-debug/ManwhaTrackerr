@@ -1,6 +1,7 @@
 package com.manhwatracker.app
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -86,14 +87,25 @@ import kotlinx.coroutines.withContext
 
 /** Lector integrado: lee capítulos desde una carpeta o un archivo .cbz/.zip del teléfono. */
 class ReaderActivity : ComponentActivity() {
+    companion object {
+        private const val X_TITLE = "manhwa_title"
+        private const val X_CHAPTER = "manhwa_chapter"
+
+        /** Abre el lector directo en el capítulo que toca de ese manhwa (desde su ficha en la biblioteca). */
+        fun continueIntent(ctx: Context, title: String, lastChapter: Double): Intent =
+            Intent(ctx, ReaderActivity::class.java).putExtra(X_TITLE, title).putExtra(X_CHAPTER, lastChapter)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ThemeState.load(this)
         Features.load(this)
         Tr.lang = Prefs.language(this)
+        val startTitle = intent?.getStringExtra(X_TITLE)
+        val startChapter = intent?.getDoubleExtra(X_CHAPTER, 0.0) ?: 0.0
         setContent {
             ManhwaTheme {
-                Surface(Modifier.fillMaxSize()) { ReaderRoot(onExit = { finish() }) }
+                Surface(Modifier.fillMaxSize()) { ReaderRoot(startTitle, startChapter, onExit = { finish() }) }
             }
         }
     }
@@ -114,7 +126,7 @@ private class Book(
 )
 
 @Composable
-private fun ReaderRoot(onExit: () -> Unit) {
+private fun ReaderRoot(startTitle: String?, startChapter: Double, onExit: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var tree by remember { mutableStateOf<Uri?>(null) }
@@ -123,6 +135,8 @@ private fun ReaderRoot(onExit: () -> Unit) {
     var book by remember { mutableStateOf<Book?>(null) }
     var busy by remember { mutableStateOf(false) }
     var last by remember { mutableStateOf(ReaderStore.last(ctx)) }
+    /** true si llegaste desde la ficha de un manhwa: "atrás" vuelve directo a la biblioteca. */
+    var direct by remember { mutableStateOf(false) }
 
     fun toast(s: String) = Toast.makeText(ctx, tr(s), Toast.LENGTH_SHORT).show()
 
@@ -245,6 +259,51 @@ private fun ReaderRoot(onExit: () -> Unit) {
         }
     }
 
+    /** Desde la ficha de un manhwa: busca su carpeta en las descargas y abre el capítulo que toca. */
+    fun continueManhwa(title: String, lastRead: Double) {
+        val saved = ReaderStore.downloads(ctx)
+        if (saved == null) {
+            toast("Elige primero la carpeta de descargas de Komikku")
+            return
+        }
+        val t = Uri.parse(saved)
+        val root = try { DocumentsContract.getTreeDocumentId(t) } catch (e: Exception) { null }
+        if (root == null) {
+            toast("No se pudo abrir la carpeta")
+            return
+        }
+        scope.launch {
+            busy = true
+            try {
+                val found = withContext(Dispatchers.IO) {
+                    try { ReaderSource.findManhwaDir(ctx, t, root, title) } catch (e: Exception) { null }
+                }
+                if (found == null) {
+                    toast("No encontré «$title» en tu carpeta de descargas")
+                    return@launch
+                }
+                val chapters = ReaderSource.chapterNodes(found.kids)
+                if (chapters.isEmpty()) {
+                    toast("Esa carpeta no tiene capítulos")
+                    return@launch
+                }
+                tree = t
+                stack = found.path
+                nodes = chapters
+                direct = true
+                val partial = chapters.map { ReaderStore.inProgress(ctx, "$t|${it.docId}") }
+                val i = ReaderProgress.pickChapter(chapters.map { it.name }, partial, lastRead)
+                if (i == null) {
+                    toast("Ya leíste todo lo descargado de «$title». Descarga el siguiente en Komikku.")
+                    return@launch
+                }
+                openNode(t, found.path.last(), chapters, chapters[i])
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     fun goUp() {
         val t = tree ?: return
         if (stack.size > 1) browse(t, stack.dropLast(1))
@@ -267,6 +326,9 @@ private fun ReaderRoot(onExit: () -> Unit) {
                 ctx.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             } catch (_: Exception) {
             }
+            // La carpeta que eliges se recuerda: "Continuar leyendo" la usa para encontrar el capítulo de cada manhwa.
+            ReaderStore.setDownloads(ctx, uri.toString())
+            direct = false
             browse(uri, listOf(DocumentsContract.getTreeDocumentId(uri)))
         }
     }
@@ -280,10 +342,14 @@ private fun ReaderRoot(onExit: () -> Unit) {
         }
     }
 
+    LaunchedEffect(Unit) {
+        if (startTitle != null) continueManhwa(startTitle, startChapter)
+    }
+
     BackHandler {
         when {
             book != null -> closeBook()
-            tree != null -> goUp()
+            tree != null -> if (direct) onExit() else goUp()
             else -> onExit()
         }
     }
@@ -313,7 +379,7 @@ private fun ReaderRoot(onExit: () -> Unit) {
                 title = ReaderLogic.nameFromDocId(stack.lastOrNull() ?: ""),
                 nodes = nodes,
                 tree = t,
-                onBack = { goUp() },
+                onBack = { if (direct) onExit() else goUp() },
                 onOpen = { n -> openNode(t, stack.last(), nodes, n) }
             )
         }
@@ -348,6 +414,11 @@ private fun ReaderHome(
             Button(onClick = onResume, modifier = Modifier.fillMaxWidth()) { Text("Continuar: ${last.name}", maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         OutlinedButton(onClick = onFolder, modifier = Modifier.fillMaxWidth()) { Text("Elegir carpeta") }
+        Text(
+            "La carpeta que elijas se recuerda para «Continuar leyendo» en la ficha de cada manhwa.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         OutlinedButton(onClick = onFile, modifier = Modifier.fillMaxWidth()) { Text("Abrir archivo .cbz o .zip") }
     }
 }

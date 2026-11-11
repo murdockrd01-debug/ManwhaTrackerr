@@ -5,6 +5,8 @@ object TrData {
     val patterns: List<Pair<String, String>> = listOf(
         "AniList: {} nuevos, {} actualizados" to "AniList: {} new, {} updated",
         "Abrir en {}" to "Open in {}",
+        "No encontré «{}» en tu carpeta de descargas" to "I couldn't find «{}» in your downloads folder",
+        "Ya leíste todo lo descargado de «{}». Descarga el siguiente en Komikku." to "You've read everything downloaded for «{}». Download the next one in Komikku.",
         "Descargando… {}%" to "Downloading… {}%",
         "{}% · faltan {} capítulos" to "{}% · {} chapters left",
         "{}% · falta 1 capítulo" to "{}% · 1 chapter left",
@@ -385,6 +387,11 @@ object TrData {
         // Notifications / toasts
         "Guardar en vocabulario" to "Save to vocabulary",
         // Accessibility
-        "Agregar" to "Add"
+        "Agregar" to "Add",
+        // Continuar leyendo
+        "▶  Continuar leyendo" to "▶  Continue reading",
+        "Elige primero la carpeta de descargas de Komikku" to "First choose Komikku's downloads folder",
+        "Esa carpeta no tiene capítulos" to "That folder has no chapters",
+        "La carpeta que elijas se recuerda para «Continuar leyendo» en la ficha de cada manhwa." to "The folder you choose is remembered for \"Continue reading\" on each manhwa's page."
     )
 }
