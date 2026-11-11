@@ -1,3 +1,6 @@
+## 4.6
+- Nuevo lector integrado (Más › Lector): lee capítulos descargados desde una carpeta o un archivo .cbz/.zip, con zoom, barra de progreso, capítulo siguiente/anterior y "Continuar" donde lo dejaste.
+
 ## 4.5
 - Ajustes rediseñados: una lista corta (General, Captura rápida, Actualizaciones, Ayuda y errores) y cada una abre su propia página. Todas las opciones siguen ahí.
 - Más: filas más compactas en grupos (Datos, Personalizar, App) y las copias manuales juntas en una sola fila.
