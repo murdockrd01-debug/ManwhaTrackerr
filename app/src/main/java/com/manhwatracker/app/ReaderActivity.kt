@@ -75,6 +75,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import coil.compose.AsyncImage
 import com.manhwatracker.app.data.Prefs
 import com.manhwatracker.app.data.ReaderLogic
+import com.manhwatracker.app.data.ReaderProgress
 import com.manhwatracker.app.data.ReaderSource
 import com.manhwatracker.app.data.ReaderStore
 import kotlin.math.abs
@@ -107,7 +108,9 @@ private class Book(
     val tree: Uri?,
     val dirId: String,
     val siblings: List<ReaderSource.Node>,
-    val index: Int
+    val index: Int,
+    /** Nombre de la carpeta del manhwa (para sumar el avance en la biblioteca); null si no se sabe. */
+    val manga: String?
 )
 
 @Composable
@@ -137,7 +140,9 @@ private fun ReaderRoot(onExit: () -> Unit) {
         }
         val place = ReaderLogic.Place(t?.toString() ?: "", dirId, item, name)
         ReaderStore.setLast(ctx, place)
-        book = Book(name, pages, ratios, "${place.tree}|$item", t, dirId, sibs, idx)
+        // Solo se sabe de qué manhwa es si el capítulo está dentro de la carpeta del manhwa (no si abriste el capítulo suelto).
+        val manga = if (t != null && dirId != item) ReaderLogic.nameFromDocId(dirId) else null
+        book = Book(name, pages, ratios, "${place.tree}|$item", t, dirId, sibs, idx, manga)
     }
 
     /** Abre un capítulo (o entra a la carpeta si en vez de páginas tiene más capítulos). */
@@ -407,7 +412,23 @@ private fun ReaderScreen(
     }
     LaunchedEffect(listState) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }.collect { i ->
-            if (i >= total - 1) ReaderStore.setDone(ctx, book.key, true)
+            if (i >= total - 1 && !ReaderStore.done(ctx, book.key)) {
+                ReaderStore.setDone(ctx, book.key, true)
+                val manga = book.manga
+                if (manga != null) {
+                    val app = ctx.applicationContext
+                    // Fuera de la pantalla: si cierras el lector enseguida, igual se guarda.
+                    kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                        val saved = try { ReaderProgress.record(app, manga, book.title) } catch (e: Exception) { null }
+                        if (saved != null) {
+                            val n = saved.chapter.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() }
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                Toast.makeText(app, tr("Cap. $n guardado en") + " " + saved.title, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

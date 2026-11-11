@@ -1,3 +1,6 @@
+## 4.7
+- El lector ahora suma tu avance: al terminar un capítulo descargado de Komikku, el capítulo leído del manhwa sube solo en tu biblioteca (y cuenta en el calendario de actividad).
+
 ## 4.6
 - Nuevo lector integrado (Más › Lector): lee capítulos descargados desde una carpeta o un archivo .cbz/.zip, con zoom, barra de progreso, capítulo siguiente/anterior y "Continuar" donde lo dejaste.
 
