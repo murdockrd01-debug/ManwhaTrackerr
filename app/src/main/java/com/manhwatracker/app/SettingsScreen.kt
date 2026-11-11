@@ -2,6 +2,9 @@ package com.manhwatracker.app
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,60 +57,78 @@ private fun SwitchRow(title: String, text: String, checked: Boolean, onChange: (
     }
 }
 
-/** Ajustes ordenados: modo, actualizaciones, guía y versión. */
 @Composable
-fun SettingsScreen() {
-    val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var autoCheck by remember { mutableStateOf(Prefs.updateCheck(ctx)) }
-    var status by remember { mutableStateOf<String?>(null) }
-    var checking by remember { mutableStateOf(false) }
-    var found by remember { mutableStateOf(false) }
-    var notes by remember { mutableStateOf<String?>(null) }
-    var showCurrent by remember { mutableStateOf(false) }
-    var progress by remember { mutableStateOf<Float?>(null) }
-    var apk by remember { mutableStateOf<java.io.File?>(null) }
-
-    fun runCheck() {
-        checking = true
-        status = null
-        scope.launch {
-            val f = UpdateCheck.latest(ctx)
-            checking = false
-            found = f != null
-            notes = f?.notes
-            status = if (f != null) "Hay una versión nueva: ${f.tag}" else "Tienes la última versión (o no hay internet)."
-        }
-    }
-
-    fun installNow() {
-        val f = apk ?: return
-        status = when (UpdateCheck.install(ctx, f)) {
-            UpdateCheck.InstallResult.STARTED -> null
-            UpdateCheck.InstallResult.NEEDS_PERMISSION ->
-                "Permite a Manhwa Tracker instalar apps, vuelve aquí y toca Instalar."
-            UpdateCheck.InstallResult.FAILED -> "No se pudo abrir el instalador."
-        }
-    }
-
-    // Al abrir Ajustes se busca solo, para que el botón de descargar ya esté listo.
-    androidx.compose.runtime.LaunchedEffect(Unit) { if (Prefs.updateCheck(ctx)) runCheck() }
-
+private fun SettingsPage(title: String, content: @Composable () -> Unit) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("General", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        SettingCard {
-            SwitchRow(
-                "Estudio de inglés",
-                if (Features.study) "Activo: palabras, repaso y racha." else "Apagado: solo tracker.",
-                Features.study
-            ) { Features.setStudy(ctx, it) }
-        }
+        Text(title, style = MaterialTheme.typography.headlineSmall)
+        content()
+    }
+}
 
-        Text("Idioma", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+@Composable
+private fun NavRow(icon: String, title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(icon, fontSize = 22.sp)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Text("›", fontSize = 24.sp, color = MaterialTheme.colorScheme.outline)
+    }
+}
+
+/** Ajustes: una lista corta; cada fila abre su propia página. */
+@Composable
+fun SettingsScreen() {
+    val ctx = LocalContext.current
+    var page by rememberSaveable { mutableStateOf<String?>(null) }
+    androidx.activity.compose.BackHandler(enabled = page != null) { page = null }
+    when (page) {
+        "general" -> SettingsPage("General") { GeneralPage() }
+        "capture" -> SettingsPage("Captura rápida") { CapturePage() }
+        "updates" -> UpdatesPage()
+        "help" -> SettingsPage("Ayuda y errores") { HelpPage() }
+        else -> Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SettingCard {
+                SwitchRow(
+                    "Estudio de inglés",
+                    if (Features.study) "Activo: palabras, repaso y racha." else "Apagado: solo tracker.",
+                    Features.study
+                ) { Features.setStudy(ctx, it) }
+            }
+            Card(Modifier.fillMaxWidth(), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                Column {
+                    NavRow("🌐", "General", if (Features.study) "Idioma, app para leer y orden del repaso" else "Idioma y app para leer") { page = "general" }
+                    androidx.compose.material3.HorizontalDivider()
+                    if (Features.study) {
+                        NavRow("⚡", "Captura rápida", if (CaptureService.isEnabled(ctx)) "Activada" else "Sin activar") { page = "capture" }
+                        androidx.compose.material3.HorizontalDivider()
+                    }
+                    NavRow("⬆️", "Actualizaciones", "Versión ${UpdateCheck.installedVersion(ctx)}") { page = "updates" }
+                    androidx.compose.material3.HorizontalDivider()
+                    NavRow("🛟", "Ayuda y errores", "Guía de inicio y registro de errores") { page = "help" }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GeneralPage() {
+    val ctx = LocalContext.current
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SettingCard {
+            Text("Idioma", style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("auto" to "Auto", "es" to "Español", "en" to "English").forEach { (id, label) ->
                     androidx.compose.material3.FilterChip(
@@ -120,8 +141,8 @@ fun SettingsScreen() {
             Text("Auto sigue el idioma del teléfono.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
+
         if (Features.study) {
-            Text("Repaso", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             SettingCard {
                 var byUse by remember { mutableStateOf(Prefs.reviewByUse(ctx)) }
                 Text("Orden del repaso", style = MaterialTheme.typography.titleMedium)
@@ -142,8 +163,37 @@ fun SettingsScreen() {
             }
         }
 
+        SettingCard {
+            val readers = remember { ReaderLink.installed(ctx) }
+            var chosen by remember { mutableStateOf(Prefs.reader(ctx)) }
+            Text("App para leer", style = MaterialTheme.typography.titleMedium)
+            if (readers.isEmpty()) {
+                Text("No encontré Komikku, Mihon ni Mangayomi instalados.", style = MaterialTheme.typography.bodySmall)
+            } else {
+                Text("Es la app que se abre con el botón de cada manhwa.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.FilterChip(
+                        selected = chosen == null, onClick = { chosen = null; Prefs.setReader(ctx, null) },
+                        label = { Text("Automático") }
+                    )
+                    readers.forEach { r ->
+                        androidx.compose.material3.FilterChip(
+                            selected = chosen == r.pkg, onClick = { chosen = r.pkg; Prefs.setReader(ctx, r.pkg) },
+                            label = { Text(r.name) }
+                        )
+                    }
+                }
+            }
+        }
+
+    }
+}
+
+@Composable
+private fun CapturePage() {
+    val ctx = LocalContext.current
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (Features.study) {
-            Text("Captura rápida de texto", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             SettingCard {
                 var on by remember { mutableStateOf(CaptureService.isEnabled(ctx)) }
                 val owner = androidx.compose.ui.platform.LocalLifecycleOwner.current
@@ -206,30 +256,48 @@ fun SettingsScreen() {
             }
         }
 
-        Text("App para leer", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        SettingCard {
-            val readers = remember { ReaderLink.installed(ctx) }
-            var chosen by remember { mutableStateOf(Prefs.reader(ctx)) }
-            if (readers.isEmpty()) {
-                Text("No encontré Komikku, Mihon ni Mangayomi instalados.", style = MaterialTheme.typography.bodySmall)
-            } else {
-                Text("Es la app que se abre con el botón de cada manhwa.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    androidx.compose.material3.FilterChip(
-                        selected = chosen == null, onClick = { chosen = null; Prefs.setReader(ctx, null) },
-                        label = { Text("Automático") }
-                    )
-                    readers.forEach { r ->
-                        androidx.compose.material3.FilterChip(
-                            selected = chosen == r.pkg, onClick = { chosen = r.pkg; Prefs.setReader(ctx, r.pkg) },
-                            label = { Text(r.name) }
-                        )
-                    }
-                }
-            }
-        }
+    }
+}
 
-        Text("Actualizaciones", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+@Composable
+private fun UpdatesPage() {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var autoCheck by remember { mutableStateOf(Prefs.updateCheck(ctx)) }
+    var status by remember { mutableStateOf<String?>(null) }
+    var checking by remember { mutableStateOf(false) }
+    var found by remember { mutableStateOf(false) }
+    var notes by remember { mutableStateOf<String?>(null) }
+    var showCurrent by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf<Float?>(null) }
+    var apk by remember { mutableStateOf<java.io.File?>(null) }
+
+    fun runCheck() {
+        checking = true
+        status = null
+        scope.launch {
+            val f = UpdateCheck.latest(ctx)
+            checking = false
+            found = f != null
+            notes = f?.notes
+            status = if (f != null) "Hay una versión nueva: ${f.tag}" else "Tienes la última versión (o no hay internet)."
+        }
+    }
+
+    fun installNow() {
+        val f = apk ?: return
+        status = when (UpdateCheck.install(ctx, f)) {
+            UpdateCheck.InstallResult.STARTED -> null
+            UpdateCheck.InstallResult.NEEDS_PERMISSION ->
+                "Permite a Manhwa Tracker instalar apps, vuelve aquí y toca Instalar."
+            UpdateCheck.InstallResult.FAILED -> "No se pudo abrir el instalador."
+        }
+    }
+
+    // Al abrir Ajustes se busca solo, para que el botón de descargar ya esté listo.
+    androidx.compose.runtime.LaunchedEffect(Unit) { if (Prefs.updateCheck(ctx)) runCheck() }
+
+    SettingsPage("Actualizaciones") {
         SettingCard {
             SwitchRow("Avisarme de versiones nuevas", "Al abrir la app, busca en GitHub si hay una más reciente.", autoCheck) {
                 autoCheck = it
@@ -272,7 +340,28 @@ fun SettingsScreen() {
             status?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
 
-        Text("Registro de errores", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    }
+    if (showCurrent) {
+        val cur = UpdateCheck.installedNotes(ctx)
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showCurrent = false },
+            title = { Text("Novedades de la versión " + UpdateCheck.installedVersion(ctx)) },
+            text = { Text(cur ?: "Esta versión no tiene novedades anotadas.") },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { showCurrent = false }) { Text("Entendido") } }
+        )
+    }
+}
+
+
+@Composable
+private fun HelpPage() {
+    val ctx = LocalContext.current
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SettingCard {
+            Text("Guía de inicio", style = MaterialTheme.typography.titleMedium)
+            Text("Un repaso rápido de cómo usar la app.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedButton(onClick = { Features.showIntro = true }) { Text("Ver la guía") }
+        }
         SettingCard {
             var errors by remember { mutableStateOf(com.manhwatracker.app.data.CrashLog.count(ctx)) }
             Text(
@@ -299,21 +388,6 @@ fun SettingsScreen() {
             }
         }
 
-        Text("Ayuda", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        SettingCard {
-            Text("Guía de inicio", style = MaterialTheme.typography.titleMedium)
-            Text("Un repaso rápido de cómo usar la app.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            OutlinedButton(onClick = { Features.showIntro = true }) { Text("Ver la guía") }
-        }
-    }
-    if (showCurrent) {
-        val cur = UpdateCheck.installedNotes(ctx)
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { showCurrent = false },
-            title = { Text("Novedades de la versión " + UpdateCheck.installedVersion(ctx)) },
-            text = { Text(cur ?: "Esta versión no tiene novedades anotadas.") },
-            confirmButton = { androidx.compose.material3.TextButton(onClick = { showCurrent = false }) { Text("Entendido") } }
-        )
     }
 }
 

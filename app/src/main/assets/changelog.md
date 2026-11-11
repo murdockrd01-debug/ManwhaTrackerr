@@ -1,3 +1,7 @@
+## 4.5
+- Ajustes rediseñados: una lista corta (General, Captura rápida, Actualizaciones, Ayuda y errores) y cada una abre su propia página. Todas las opciones siguen ahí.
+- Más: filas más compactas en grupos (Datos, Personalizar, App) y las copias manuales juntas en una sola fila.
+
 ## 4.4
 - Biblioteca: los números de arriba ahora filtran al tocarlos, y listas y géneros están en un botón "Filtros" siempre visible.
 - Estadísticas: nuevo calendario de actividad con días activos, capítulos del mes y racha de lectura.

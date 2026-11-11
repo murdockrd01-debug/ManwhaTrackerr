@@ -56,61 +56,72 @@ fun MoreScreen(
     onExport: () -> Unit,
     onRestore: () -> Unit
 ) {
+    var manual by remember { mutableStateOf(false) }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Card(
-            Modifier.fillMaxWidth(),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ) {
-            val ctx = LocalContext.current
-            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Estudio de inglés", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        if (Features.study) "Activo: guarda palabras, repásalas y sigue tu racha."
-                        else "Apagado: la app funciona solo como tracker.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(checked = Features.study, onCheckedChange = { Features.setStudy(ctx, it) })
-            }
+        MoreGroup(null) {
+            if (Features.study) MoreRow("💡", "Descubrir", "Recomendaciones y tendencias", onDiscover)
+            MoreRow("⭐", "Calificaciones", "Tu ranking, favoritos y promedio", onRatings)
         }
-        MoreRow("⚙️", "Ajustes", "Estudio, actualizaciones, guía y versión", onSettings)
-        if (Features.study) MoreRow("💡", "Descubrir", "Recomendaciones según lo que lees y tendencias", onDiscover)
-        MoreRow("⭐", "Calificaciones", "Tu ranking, favoritos y promedio", onRatings)
-        MoreRow("🎨", "Apariencia", "Colores, modo claro u oscuro", onLook)
-        MoreRow("🖼️", "Icono de la app", "Elige entre 6 diseños", onIcons)
-        MoreRow("🔄", "Sincronización y copias", "Importar de Komikku solo y guardar tus datos", onSync)
+        MoreGroup("Datos") {
+            MoreRow("🔄", "Sincronización y copias", "Importar de Komikku y AniList, guardar tus datos", onSync)
+            MoreRow("📦", "Copias manuales", "Importar, exportar o restaurar un archivo") { manual = true }
+        }
+        MoreGroup("Personalizar") {
+            MoreRow("🎨", "Apariencia", "Colores, modo claro u oscuro", onLook)
+            MoreRow("🖼️", "Icono de la app", "Elige entre 6 diseños", onIcons)
+        }
+        MoreGroup("App") {
+            MoreRow("⚙️", "Ajustes", "Estudio de inglés, idioma, actualizaciones, ayuda", onSettings)
+        }
+    }
+    if (manual) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { manual = false },
+            title = { Text("Copias manuales") },
+            text = {
+                Column {
+                    MoreRow("📥", "Importar copia de Komikku", "Elige un archivo .tachibk") { manual = false; onImport() }
+                    MoreRow("📤", "Exportar mi copia", "Guarda manhwas, palabras y notas") { manual = false; onExport() }
+                    MoreRow("♻️", "Restaurar mi copia", "Recupera un archivo .json") { manual = false; onRestore() }
+                }
+            },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { manual = false }) { Text("Cerrar") } }
+        )
+    }
+}
 
-        Spacer(Modifier.height(6.dp))
-        Text("Copias manuales", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        MoreRow("📥", "Importar copia de Komikku", "Elige un archivo .tachibk", onImport)
-        MoreRow("📤", "Exportar mi copia", "Guarda tus manhwas, palabras y notas en un archivo", onExport)
-        MoreRow("♻️", "Restaurar mi copia", "Recupera un archivo .json que exportaste", onRestore)
+/** Un grupo de filas dentro de una sola tarjeta, con un título pequeño opcional. */
+@Composable
+private fun MoreGroup(label: String?, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (label != null) {
+            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp))
+        }
+        Card(Modifier.fillMaxWidth(), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+            Column(content = content)
+        }
     }
 }
 
 @Composable
 private fun MoreRow(icon: String, title: String, subtitle: String, onClick: () -> Unit) {
-    Card(
-        Modifier.fillMaxWidth().clickable(onClick = onClick),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(brandBrush()),
-                contentAlignment = Alignment.Center
-            ) { Text(icon, fontSize = 20.sp) }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Text("›", fontSize = 24.sp, color = MaterialTheme.colorScheme.outline)
+        Box(
+            Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(brandBrush()),
+            contentAlignment = Alignment.Center
+        ) { Text(icon, fontSize = 18.sp) }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        Text("›", fontSize = 24.sp, color = MaterialTheme.colorScheme.outline)
     }
 }
 
