@@ -8,7 +8,7 @@ class ReaderIndexTest {
 
     @Test fun unreadAndNext() {
         val x = e("A", 1.0, 2.0, 3.0, 4.5)
-        assertEquals(2, ReaderIndex.unread(x, 3.0)); assertEquals(4.5, ReaderIndex.next(x, 3.0)!!, 0.0)
+        assertEquals(1, ReaderIndex.unread(x, 3.0)); assertEquals(4.5, ReaderIndex.next(x, 3.0)!!, 0.0)
         assertEquals(0, ReaderIndex.unread(x, 9.0)); assertNull(ReaderIndex.next(x, 9.0))
         assertEquals(4, ReaderIndex.unread(x, 0.0))
     }

@@ -30,10 +30,12 @@ object ReaderIndex {
     private const val FLD = "\u001F"
     private const val SUB = "\u001D"
 
+    private val control = Regex("[\u001D-\u001F]")
+
     fun encode(list: List<Entry>): String = list.joinToString(REC) { e ->
         listOf(
-            e.name.replace(Regex("[\u001D-\u001F]"), " "),
-            e.path.joinToString(SUB),
+            e.name.replace(control, " "),
+            e.path.joinToString(SUB) { it.replace(control, " ") },
             e.chapters.joinToString(",") { ReaderProgress.fmt(it) },
             e.total.toString()
         ).joinToString(FLD)
