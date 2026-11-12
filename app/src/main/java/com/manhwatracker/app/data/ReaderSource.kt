@@ -66,13 +66,19 @@ object ReaderSource {
         val top = list(ctx, tree, rootId)
         if (ReaderProgress.folderIsManhwa(title, ReaderLogic.nameFromDocId(rootId))) return Found(listOf(rootId), top)
         val dirs = top.filter { it.isDir }
-        dirs.firstOrNull { ReaderProgress.folderIsManhwa(title, it.name) }?.let {
+        // Gana el nombre exacto sobre uno recortado (así "Título: Side Story" no abre la carpeta de "Título").
+        dirs.maxByOrNull { ReaderProgress.folderScore(title, it.name) }?.takeIf { ReaderProgress.folderScore(title, it.name) > 0 }?.let {
             return Found(listOf(rootId, it.docId), list(ctx, tree, it.docId))
         }
+        var best: Found? = null
+        var bestScore = 0
         for (src in dirs) {
-            val m = list(ctx, tree, src.docId).firstOrNull { it.isDir && ReaderProgress.folderIsManhwa(title, it.name) } ?: continue
-            return Found(listOf(rootId, src.docId, m.docId), list(ctx, tree, m.docId))
+            val m = list(ctx, tree, src.docId).filter { it.isDir }.maxByOrNull { ReaderProgress.folderScore(title, it.name) } ?: continue
+            val sc = ReaderProgress.folderScore(title, m.name)
+            if (sc > bestScore) { bestScore = sc; best = Found(listOf(rootId, src.docId, m.docId), list(ctx, tree, m.docId)) }
+            if (sc == 2) break
         }
+        if (best != null) return best
         return null
     }
 

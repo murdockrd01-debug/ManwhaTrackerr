@@ -65,4 +65,10 @@ class ReaderProgressTest {
         val names = listOf("Prólogo", "Chapter 1", "Chapter 2")
         assertEquals(1, ReaderProgress.pickChapter(names, listOf(false, false, false), 0.0))
     }
+
+    @Test fun folderScorePrefersExact() {
+        assertEquals(2, ReaderProgress.folderScore("Solo Leveling", "solo-leveling"))
+        assertEquals(1, ReaderProgress.folderScore("The Beginning After The End: Side Story", "The Beginning After The End"))
+        assertEquals(0, ReaderProgress.folderScore("Solo Leveling", "Tower of God"))
+    }
 }

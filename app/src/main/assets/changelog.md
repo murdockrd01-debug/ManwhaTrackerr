@@ -1,3 +1,6 @@
+## 5.0
+- "Continuar leyendo" elige mejor la carpeta del manhwa: si hay dos con nombres parecidos, prefiere la que se llama igual.
+
 ## 4.9
 - Nuevo botón "Leer" en la barra de abajo: abre el lector directo, sin pasar por Más.
 

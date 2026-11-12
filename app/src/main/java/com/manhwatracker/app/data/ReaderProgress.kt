@@ -44,13 +44,16 @@ object ReaderProgress {
         return starts.singleOrNull()
     }
 
-    /** ¿La carpeta [folder] es del manhwa [title]? Mismo criterio que [match]: título igual, o nombre de carpeta recortado. */
-    fun folderIsManhwa(title: String, folder: String): Boolean {
+    /** Qué tan bien encaja la carpeta [folder] con el manhwa [title]: 2 = mismo nombre, 1 = nombre recortado por Komikku, 0 = no es. */
+    fun folderScore(title: String, folder: String): Int {
         val t = titleKeyOf(title)
         val f = titleKeyOf(folder)
-        if (t == f) return true
-        return f.length >= 12 && t.startsWith(f)
+        if (t == f) return 2
+        return if (f.length >= 12 && t.startsWith(f)) 1 else 0
     }
+
+    /** ¿La carpeta [folder] es del manhwa [title]? Mismo criterio que [match]: título igual, o nombre de carpeta recortado. */
+    fun folderIsManhwa(title: String, folder: String): Boolean = folderScore(title, folder) > 0
 
     /**
      * Qué capítulo abrir en "Continuar leyendo". [names] van en orden de lectura y [partial] dice cuáles dejaste a medias.
