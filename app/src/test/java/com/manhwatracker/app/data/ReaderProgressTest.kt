@@ -71,4 +71,27 @@ class ReaderProgressTest {
         assertEquals(1, ReaderProgress.folderScore("The Beginning After The End: Side Story", "The Beginning After The End"))
         assertEquals(0, ReaderProgress.folderScore("Solo Leveling", "Tower of God"))
     }
+
+    @Test fun fmtAndKeyword() {
+        assertEquals("45", ReaderProgress.fmt(45.0)); assertEquals("12.5", ReaderProgress.fmt(12.5))
+        assertTrue(ReaderProgress.hasChapterKeyword("Chapter 3")); assertFalse(ReaderProgress.hasChapterKeyword("Solo Leveling"))
+    }
+    @Test fun looksLikeChapters() {
+        assertTrue(ReaderProgress.looksLikeChapters(listOf("Chapter 1", "Chapter 2"), listOf(false, false)))
+        assertTrue(ReaderProgress.looksLikeChapters(listOf("1", "2"), listOf(true, true)))
+        assertFalse(ReaderProgress.looksLikeChapters(listOf("Solo Leveling", "Tower of God"), listOf(false, false)))
+        assertFalse(ReaderProgress.looksLikeChapters(emptyList(), emptyList()))
+    }
+    @Test fun statesFollowLibrary() {
+        val names = listOf("Chapter 1", "Chapter 2", "Chapter 3", "Chapter 4")
+        val none = listOf(false, false, false, false)
+        val st = ReaderProgress.states(names, none, none, 2.0)
+        assertEquals(listOf(ReaderProgress.ChapterState.READ, ReaderProgress.ChapterState.READ, ReaderProgress.ChapterState.NEXT, ReaderProgress.ChapterState.NEW), st)
+        // el lector marcó el 4 como terminado aunque la biblioteca diga 2
+        assertEquals(ReaderProgress.ChapterState.READ, ReaderProgress.states(names, listOf(false, false, false, true), none, 2.0)[3])
+        // uno a medias
+        assertEquals(ReaderProgress.ChapterState.PARTIAL, ReaderProgress.states(names, none, listOf(false, false, true, false), 2.0)[2])
+        // sin biblioteca (-1): nada leído, el primero es el siguiente
+        assertEquals(ReaderProgress.ChapterState.NEXT, ReaderProgress.states(names, none, none, -1.0)[0])
+    }
 }

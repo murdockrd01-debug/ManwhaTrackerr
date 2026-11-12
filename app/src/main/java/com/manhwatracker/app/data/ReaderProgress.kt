@@ -69,20 +69,69 @@ object ReaderProgress {
         return if (next >= 0) next else null
     }
 
-    class Saved(val title: String, val chapter: Double)
+    /** Número de capítulo tal como se muestra: 45 o 12.5. */
+    fun fmt(n: Double): String = if (n % 1.0 == 0.0) n.toInt().toString() else n.toString()
 
-    /** Guarda el avance en la base de datos. Devuelve lo guardado, o null si no hay manhwa, número o avance. */
-    suspend fun record(ctx: Context, folder: String, chapterName: String, now: Long = System.currentTimeMillis()): Saved? {
+    /** ¿El nombre trae una palabra de capítulo ("Chapter 3", "Cap. 3", "Ep 3")? */
+    fun hasChapterKeyword(name: String): Boolean = keyword.containsMatchIn(name)
+
+    /** ¿Estos elementos parecen capítulos (y no carpetas de manhwas o de fuentes)? */
+    fun looksLikeChapters(names: List<String>, archive: List<Boolean>): Boolean {
+        if (names.isEmpty()) return false
+        if (archive.any { it }) return true
+        return names.count { hasChapterKeyword(it) } * 2 >= names.size
+    }
+
+    enum class ChapterState { READ, PARTIAL, NEXT, NEW }
+
+    /**
+     * Estado de cada capítulo de la lista según tu biblioteca ([lastRead] = capítulo leído, -1 si no se conoce)
+     * y según lo que el lector sabe: leído (por la biblioteca o por el lector), a medias, el que sigue, o sin leer.
+     */
+    fun states(names: List<String>, done: List<Boolean>, partial: List<Boolean>, lastRead: Double): List<ChapterState> {
+        val next = pickChapter(names, partial, lastRead)
+        return names.indices.map { i ->
+            val read = done.getOrElse(i) { false } || (chapterNumber(names[i])?.let { it <= lastRead } ?: false)
+            when {
+                read -> ChapterState.READ
+                partial.getOrElse(i) { false } -> ChapterState.PARTIAL
+                i == next -> ChapterState.NEXT
+                else -> ChapterState.NEW
+            }
+        }
+    }
+
+    /** Lo que se guardó al terminar un capítulo; [before] permite deshacerlo. */
+    class Saved(val id: Long, val title: String, val chapter: Double, val before: Manhwa)
+
+    /**
+     * Guarda el avance en la base de datos. Devuelve lo guardado, o null si no hay manhwa, número o avance.
+     * Si se llegó desde la ficha de un manhwa, [preferTitle] fija a cuál sumar (sin adivinar por el nombre de la carpeta).
+     */
+    suspend fun record(
+        ctx: Context, folder: String, chapterName: String,
+        now: Long = System.currentTimeMillis(), preferTitle: String? = null
+    ): Saved? {
         val number = chapterNumber(chapterName) ?: return null
         val db = AppDatabase.get(ctx)
         val dao = db.dao()
-        val old = match(dao.all(), folder) ?: return null
+        val all = dao.all()
+        val old = preferTitle?.let { t -> all.firstOrNull { it.titleKey == titleKeyOf(t) } } ?: match(all, folder) ?: return null
         val updated = raise(old, number, now) ?: return null
         dao.update(updated)
         val n = maxOf(0, Math.floor(updated.lastChapter).toInt() - Math.floor(old.lastChapter).toInt())
         db.activity().bump(Stats.dayOf(now), ActivityKind.CHAPTER, n)
-        val shown = if (number % 1.0 == 0.0) number.toInt().toString() else number.toString()
-        Prefs.setLast(ctx, updated.title, shown)
-        return Saved(updated.title, number)
+        Prefs.setLast(ctx, updated.title, fmt(number))
+        return Saved(old.id, updated.title, number, old)
+    }
+
+    /** Deshace [record]: devuelve el manhwa a como estaba, salvo que ya lo hayas cambiado a mano después. */
+    suspend fun undo(ctx: Context, saved: Saved) {
+        val db = AppDatabase.get(ctx)
+        val cur = db.dao().findById(saved.id) ?: return
+        if (cur.lastChapter != saved.chapter) return
+        db.dao().update(cur.copy(lastChapter = saved.before.lastChapter, updatedAt = saved.before.updatedAt, status = saved.before.status))
+        val n = maxOf(0, Math.floor(saved.chapter).toInt() - Math.floor(saved.before.lastChapter).toInt())
+        db.activity().bump(Stats.dayOf(System.currentTimeMillis()), ActivityKind.CHAPTER, -n)
     }
 }

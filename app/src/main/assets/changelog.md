@@ -1,3 +1,9 @@
+## 5.1
+- La ventana "Leer" ahora es un panel conectado a tu biblioteca: "Continuar donde te quedaste", los manhwas con capítulos descargados por leer (con portada, tu avance y cuántos te faltan) y los que ya estás al día.
+- La app recorre tu carpeta de descargas de Komikku y sabe qué capítulos tienes sin leer. El botón de actualizar vuelve a recorrerla.
+- La lista de capítulos marca lo leído según tu biblioteca (aunque lo hayas leído en Komikku), el que sigue y el que dejaste a medias. Si el manhwa no está en tu biblioteca, puedes agregarlo desde ahí.
+- Un capítulo cuenta como leído al llegar al final, y en "Fin del capítulo" puedes deshacerlo.
+
 ## 5.0
 - "Continuar leyendo" elige mejor la carpeta del manhwa: si hay dos con nombres parecidos, prefiere la que se llama igual.
 

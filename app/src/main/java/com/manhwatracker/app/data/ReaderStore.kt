@@ -33,4 +33,11 @@ object ReaderStore {
     fun setDone(c: Context, key: String, value: Boolean) {
         p(c).edit().putBoolean("done:$key", value).apply()
     }
+
+    /** Índice de descargas guardado (ver [ReaderIndex]) y cuándo se hizo. */
+    fun index(c: Context): List<ReaderIndex.Entry> = ReaderIndex.decode(p(c).getString("index", null))
+    fun indexAt(c: Context): Long = p(c).getLong("index_at", 0L)
+    fun setIndex(c: Context, encoded: String, at: Long) {
+        p(c).edit().putString("index", encoded).putLong("index_at", at).apply()
+    }
 }

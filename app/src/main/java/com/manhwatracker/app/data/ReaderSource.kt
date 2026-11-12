@@ -82,6 +82,30 @@ object ReaderSource {
         return null
     }
 
+    /**
+     * Recorre las descargas (hasta dos niveles: fuente/manhwa) y anota los capítulos de cada manhwa.
+     * Si la carpeta elegida ya es la de un manhwa, devuelve solo esa. Bloqueante: llamar desde un hilo de fondo.
+     */
+    fun scanDownloads(ctx: Context, tree: Uri, rootId: String): List<ReaderIndex.Entry> {
+        val out = ArrayList<ReaderIndex.Entry>()
+        fun entryOf(name: String, path: List<String>, kids: List<Node>): ReaderIndex.Entry? {
+            val ch = chapterNodes(kids)
+            if (ch.isEmpty() || !ReaderProgress.looksLikeChapters(ch.map { it.name }, ch.map { it.isArchive })) return null
+            return ReaderIndex.Entry(name, path, ch.mapNotNull { ReaderProgress.chapterNumber(it.name) }, ch.size)
+        }
+        val top = list(ctx, tree, rootId)
+        entryOf(ReaderLogic.nameFromDocId(rootId), listOf(rootId), top)?.let { return listOf(it) }
+        for (d in top.filter { it.isDir }) {
+            val kids = list(ctx, tree, d.docId)
+            val asManhwa = entryOf(d.name, listOf(rootId, d.docId), kids)
+            if (asManhwa != null) { out.add(asManhwa); continue }
+            for (m in kids.filter { it.isDir }) {
+                entryOf(m.name, listOf(rootId, d.docId, m.docId), list(ctx, tree, m.docId))?.let { out.add(it) }
+            }
+        }
+        return out
+    }
+
     /** Abre un elemento: un .cbz, una carpeta con imágenes, o una carpeta que a su vez tiene capítulos. */
     fun open(ctx: Context, tree: Uri, n: Node): Opened {
         if (n.isArchive) {
