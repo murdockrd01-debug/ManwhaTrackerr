@@ -1,3 +1,6 @@
+## 5.2.1
+- Barra de abajo: los nombres de las secciones ya no se parten en dos líneas.
+
 ## 5.2
 - Lectura continua: al llegar al final de un capítulo, el siguiente aparece debajo y sigues bajando sin tocar nada. La barra de arriba y la de página cambian al capítulo que estás leyendo.
 - Cada capítulo se marca como leído (y se suma a tu biblioteca) al pasar por su final, con la opción de deshacer en la separación entre capítulos.

@@ -45,6 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.LocalDate
 import com.manhwatracker.app.data.UpdateCheck
@@ -241,27 +242,27 @@ fun App(vm: MainViewModel = viewModel()) {
                         selected = section == SECTION_MANHWA,
                         onClick = { section = SECTION_MANHWA },
                         icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-                        label = { Text("Manhwas") }
+                        label = { NavLabel("Manhwas") }
                     )
                     // Acceso directo al lector integrado (antes solo estaba dentro de Más).
                     NavigationBarItem(
                         selected = false,
                         onClick = { appCtx.startActivity(android.content.Intent(appCtx, ReaderActivity::class.java)) },
                         icon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
-                        label = { Text("Leer") }
+                        label = { NavLabel("Leer") }
                     )
                     if (Features.study) {
                         NavigationBarItem(
                             selected = section == SECTION_STUDY,
                             onClick = { section = SECTION_STUDY },
                             icon = { Icon(Icons.Filled.Edit, contentDescription = null) },
-                            label = { Text("Estudio") }
+                            label = { NavLabel("Estudio") }
                         )
                         NavigationBarItem(
                             selected = false,
                             onClick = { openReview() },
                             icon = { Icon(Icons.Filled.Refresh, contentDescription = null) },
-                            label = { Text("Repaso") }
+                            label = { NavLabel("Repaso") }
                         )
                     }
                     if (!Features.study) {
@@ -269,20 +270,20 @@ fun App(vm: MainViewModel = viewModel()) {
                             selected = section == SECTION_DISCOVER,
                             onClick = { section = SECTION_DISCOVER },
                             icon = { Icon(Icons.Filled.Favorite, contentDescription = null) },
-                            label = { Text("Descubrir") }
+                            label = { NavLabel("Descubrir") }
                         )
                     }
                     NavigationBarItem(
                         selected = section == SECTION_STATS,
                         onClick = { section = SECTION_STATS },
                         icon = { Icon(Icons.Filled.DateRange, contentDescription = null) },
-                        label = { Text("Progreso") }
+                        label = { NavLabel("Progreso") }
                     )
                     NavigationBarItem(
                         selected = section == SECTION_MORE || subScreen,
                         onClick = { section = SECTION_MORE },
                         icon = { Icon(Icons.Filled.Menu, contentDescription = null) },
-                        label = { Text("Más") }
+                        label = { NavLabel("Más") }
                     )
                 }
             }
@@ -364,4 +365,10 @@ fun App(vm: MainViewModel = viewModel()) {
             }
         )
     }
+}
+
+/** Etiqueta de la barra de abajo: siempre en una sola línea (con 6 secciones, partir la palabra se veía mal). */
+@Composable
+private fun NavLabel(text: String) {
+    Text(text, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, fontSize = 11.sp)
 }
