@@ -1,3 +1,7 @@
+## 5.2
+- Lectura continua: al llegar al final de un capítulo, el siguiente aparece debajo y sigues bajando sin tocar nada. La barra de arriba y la de página cambian al capítulo que estás leyendo.
+- Cada capítulo se marca como leído (y se suma a tu biblioteca) al pasar por su final, con la opción de deshacer en la separación entre capítulos.
+
 ## 5.1
 - La ventana "Leer" ahora es un panel conectado a tu biblioteca: "Continuar donde te quedaste", los manhwas con capítulos descargados por leer (con portada, tu avance y cuántos te faltan) y los que ya estás al día.
 - La app recorre tu carpeta de descargas de Komikku y sabe qué capítulos tienes sin leer. El botón de actualizar vuelve a recorrerla.

@@ -101,4 +101,29 @@ object ReaderLogic {
         if (parts.size != 4) return null
         return Place(parts[0], parts[1], parts[2], parts[3])
     }
+
+    // ---------- Lectura continua: varios capítulos en una sola lista ----------
+    // Cada capítulo ocupa sus páginas + 1 celda final ("cierre"). [counts] = páginas de cada capítulo cargado.
+
+    /** Posición en la lista de la página [page] del capítulo [seg]; con page == counts[seg] es su celda de cierre. */
+    fun flatIndex(counts: List<Int>, seg: Int, page: Int): Int = counts.take(seg).sumOf { it + 1 } + page
+
+    /** Inversa de [flatIndex]: (capítulo, página). Si la página es igual al número de páginas, es el cierre. */
+    fun locate(counts: List<Int>, flat: Int): Pair<Int, Int> {
+        var rest = flat.coerceAtLeast(0)
+        for ((s, c) in counts.withIndex()) {
+            if (rest <= c) return s to rest
+            rest -= c + 1
+        }
+        val last = counts.lastIndex.coerceAtLeast(0)
+        return last to counts.getOrElse(last) { 0 }
+    }
+
+    /** ¿Conviene cargar ya el capítulo siguiente? Cuando lo último que se ve está a [ahead] celdas o menos del final. */
+    fun shouldLoadNext(counts: List<Int>, lastVisible: Int, ahead: Int = 4): Boolean =
+        counts.isNotEmpty() && lastVisible >= counts.sumOf { it + 1 } - ahead
+
+    /** Capítulos cuyo cierre ya se alcanzó (se vio o se pasó) con la última celda visible [lastVisible]. */
+    fun finished(counts: List<Int>, lastVisible: Int): List<Int> =
+        counts.indices.filter { lastVisible >= flatIndex(counts, it, counts[it]) }
 }

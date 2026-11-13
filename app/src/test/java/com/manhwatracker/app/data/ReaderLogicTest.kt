@@ -76,4 +76,21 @@ class ReaderLogicTest {
         assertEquals("Download", ReaderLogic.nameFromDocId("primary:Download"))
         assertEquals("Carpeta", ReaderLogic.nameFromDocId("primary:"))
     }
+
+    @Test fun continuousIndexing() {
+        val c = listOf(3, 2)
+        assertEquals(0, ReaderLogic.flatIndex(c, 0, 0)); assertEquals(3, ReaderLogic.flatIndex(c, 0, 3))
+        assertEquals(4, ReaderLogic.flatIndex(c, 1, 0)); assertEquals(6, ReaderLogic.flatIndex(c, 1, 2))
+        assertEquals(0 to 2, ReaderLogic.locate(c, 2)); assertEquals(0 to 3, ReaderLogic.locate(c, 3))
+        assertEquals(1 to 0, ReaderLogic.locate(c, 4)); assertEquals(1 to 2, ReaderLogic.locate(c, 6))
+        assertEquals(1 to 2, ReaderLogic.locate(c, 99)); assertEquals(0 to 0, ReaderLogic.locate(c, -5))
+        for (f in 0..6) { val (sg, pg) = ReaderLogic.locate(c, f); assertEquals(f, ReaderLogic.flatIndex(c, sg, pg)) }
+    }
+    @Test fun continuousLoadAndFinish() {
+        val c = listOf(3, 2) // 7 celdas: 0..6
+        assertFalse(ReaderLogic.shouldLoadNext(c, 1)); assertTrue(ReaderLogic.shouldLoadNext(c, 3)); assertTrue(ReaderLogic.shouldLoadNext(c, 6))
+        assertFalse(ReaderLogic.shouldLoadNext(emptyList(), 0))
+        assertEquals(emptyList<Int>(), ReaderLogic.finished(c, 2)); assertEquals(listOf(0), ReaderLogic.finished(c, 3))
+        assertEquals(listOf(0), ReaderLogic.finished(c, 5)); assertEquals(listOf(0, 1), ReaderLogic.finished(c, 6))
+    }
 }

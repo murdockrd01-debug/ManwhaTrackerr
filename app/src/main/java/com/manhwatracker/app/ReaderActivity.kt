@@ -8,6 +8,8 @@ import android.os.Bundle
 import android.provider.DocumentsContract
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -355,9 +357,10 @@ private fun ReaderRoot(startTitle: String?, startChapter: Double, onExit: () -> 
         }
     }
 
-    fun goChapter(b: Book, delta: Int) {
+    /** Abre el capítulo número [i] de la carpeta (para "Anterior" y para cuando ya no hay más cargados). */
+    fun goIndex(b: Book, i: Int) {
         val t = b.tree ?: return
-        val n = b.siblings.getOrNull(b.index + delta) ?: return
+        val n = b.siblings.getOrNull(i) ?: return
         openNode(t, b.dirId, b.siblings, n)
     }
 
@@ -433,8 +436,7 @@ private fun ReaderRoot(startTitle: String?, startChapter: Double, onExit: () -> 
                 ReaderScreen(
                     book = b,
                     onClose = { closeBook() },
-                    onPrev = if (b.tree != null && b.index > 0) ({ goChapter(b, -1) }) else null,
-                    onNext = if (b.tree != null && b.index >= 0 && b.index < b.siblings.size - 1) ({ goChapter(b, 1) }) else null
+                    onOpenIndex = { i -> goIndex(b, i) }
                 )
             }
         } else if (t == null) {
@@ -762,50 +764,103 @@ private fun ReaderBrowse(
     }
 }
 
+/** Un capítulo dentro de la lectura continua. [index] es su posición entre los capítulos de la carpeta (-1 si no hay). */
+private class Seg(
+    val title: String,
+    val pages: List<Any>,
+    val ratios: List<Float>,
+    val key: String,
+    val index: Int,
+    val docId: String
+)
+
+/**
+ * Lector de páginas en lectura continua: al bajar, el capítulo siguiente se carga solo debajo del actual,
+ * sin pulsar nada. Cada capítulo cuenta como leído (y se suma a tu biblioteca) al llegar a su final.
+ */
 @Composable
 private fun ReaderScreen(
     book: Book,
     onClose: () -> Unit,
-    onPrev: (() -> Unit)?,
-    onNext: (() -> Unit)?
+    onOpenIndex: (Int) -> Unit
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val total = book.pages.size
-    val start = if (ReaderStore.done(ctx, book.key)) 0 else ReaderLogic.clampPage(ReaderStore.position(ctx, book.key), total)
+    val firstTotal = book.pages.size
+    val start = if (ReaderStore.done(ctx, book.key)) 0 else ReaderLogic.clampPage(ReaderStore.position(ctx, book.key), firstTotal)
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = start)
+    val segs = remember {
+        mutableStateListOf(Seg(book.title, book.pages, book.ratios, book.key, book.index, book.siblings.getOrNull(book.index)?.docId ?: ""))
+    }
+    val counts = segs.map { it.pages.size }
     var bars by remember { mutableStateOf(true) }
     var zoom by remember { mutableStateOf(1f) }
     var pan by remember { mutableStateOf(0f) }
-    var current by remember { mutableStateOf(start) }
+    var loadingNext by remember { mutableStateOf(false) }
+    var noMore by remember { mutableStateOf(false) }
+    val saved = remember { mutableStateMapOf<String, ReaderProgress.Saved>() }
+    val undone = remember { mutableStateMapOf<String, Boolean>() }
 
-    // Guarda por dónde vas y marca el capítulo como terminado al llegar a la última página.
+    // Dónde estás ahora: capítulo y página dentro de ese capítulo.
+    val loc = ReaderLogic.locate(counts, listState.firstVisibleItemIndex)
+    val curSeg = loc.first.coerceIn(0, segs.size - 1)
+    val cur = segs[curSeg]
+    val total = cur.pages.size
+    val current = ReaderLogic.clampPage(loc.second, total)
+
+    // Guarda por dónde vas en el capítulo que estás leyendo y recuerda cuál es (para "Continuar").
     LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex }.collect { i ->
-            val p = ReaderLogic.clampPage(i, total)
-            current = p
-            ReaderStore.setPosition(ctx, book.key, p)
+        snapshotFlow { ReaderLogic.locate(segs.map { it.pages.size }, listState.firstVisibleItemIndex) }.collect { (s, p) ->
+            val seg = segs.getOrNull(s) ?: return@collect
+            ReaderStore.setPosition(ctx, seg.key, ReaderLogic.clampPage(p, seg.pages.size))
+            val t = book.tree
+            if (t != null && seg.docId.isNotEmpty()) ReaderStore.setLast(ctx, ReaderLogic.Place(t.toString(), book.dirId, seg.docId, seg.title))
         }
     }
-    var savedInfo by remember { mutableStateOf<ReaderProgress.Saved?>(null) }
-    var undone by remember { mutableStateOf(false) }
+
+    // Un capítulo cuenta como leído al llegar a su final (aunque lo cruces rápido), y se suma a tu biblioteca.
     LaunchedEffect(listState) {
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }.collect { i ->
-            // Cuenta como leído al llegar al final (la tarjeta "Fin del capítulo"), no con solo ver la última página.
-            if (i >= total && !ReaderStore.done(ctx, book.key)) {
-                ReaderStore.setDone(ctx, book.key, true)
-                val manga = book.manga
-                if (manga != null) {
-                    val app = ctx.applicationContext
-                    // Fuera de la pantalla: si cierras el lector enseguida, igual se guarda.
-                    kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
-                        val saved = try { ReaderProgress.record(app, manga, book.title, preferTitle = book.linkTitle) } catch (e: Exception) { null }
-                        if (saved != null) withContext(Dispatchers.Main) { savedInfo = saved }
-                    }
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }.collect { last ->
+            val c = segs.map { it.pages.size }
+            for (si in ReaderLogic.finished(c, last)) {
+                val seg = segs.getOrNull(si) ?: continue
+                if (ReaderStore.done(ctx, seg.key)) continue
+                ReaderStore.setDone(ctx, seg.key, true)
+                val manga = book.manga ?: continue
+                val app = ctx.applicationContext
+                // Fuera de la pantalla: si cierras el lector enseguida, igual se guarda.
+                kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                    val sv = try { ReaderProgress.record(app, manga, seg.title, preferTitle = book.linkTitle) } catch (e: Exception) { null }
+                    if (sv != null) withContext(Dispatchers.Main) { saved[seg.key] = sv }
                 }
             }
         }
     }
+
+    // Lectura continua: al acercarte al final, carga el capítulo siguiente y lo pone debajo.
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }.collect { last ->
+            val t = book.tree ?: return@collect
+            val tail = segs.last()
+            if (loadingNext || noMore || tail.index < 0) return@collect
+            if (!ReaderLogic.shouldLoadNext(segs.map { it.pages.size }, last)) return@collect
+            val node = book.siblings.getOrNull(tail.index + 1)
+            if (node == null) { noMore = true; return@collect }
+            loadingNext = true
+            try {
+                val res = withContext(Dispatchers.IO) {
+                    try { ReaderSource.open(ctx, t, node) } catch (e: Exception) { ReaderSource.Opened.Empty }
+                }
+                if (res is ReaderSource.Opened.Pages) {
+                    val ratios = withContext(Dispatchers.IO) { res.pages.map { ReaderSource.ratio(ctx, it) ?: ReaderLogic.FALLBACK_RATIO } }
+                    segs.add(Seg(node.name, res.pages, ratios, "$t|${node.docId}", tail.index + 1, node.docId))
+                } else noMore = true
+            } finally {
+                loadingNext = false
+            }
+        }
+    }
+
     // Pantalla completa mientras lees; al salir se devuelven las barras del sistema.
     DisposableEffect(Unit) {
         val window = (ctx as Activity).window
@@ -821,6 +876,9 @@ private fun ReaderScreen(
         c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         if (bars) c.show(WindowInsetsCompat.Type.systemBars()) else c.hide(WindowInsetsCompat.Type.systemBars())
     }
+
+    val hasPrev = book.tree != null && cur.index > 0
+    val hasNext = curSeg < segs.size - 1 || (book.tree != null && cur.index >= 0 && cur.index < book.siblings.size - 1)
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -857,38 +915,53 @@ private fun ReaderScreen(
                     }
                     .pointerInput(Unit) { detectTapGestures { bars = !bars } }
             ) {
-                itemsIndexed(book.pages) { i, page ->
-                    AsyncImage(
-                        model = page,
-                        contentDescription = null,
-                        contentScale = ContentScale.FillWidth,
-                        modifier = Modifier
-                            .graphicsLayer { translationX = pan }
-                            .requiredWidth(wDp * zoom)
-                            .background(Color(0xFF1A1A1A))
-                            .aspectRatio(book.ratios.getOrElse(i) { ReaderLogic.FALLBACK_RATIO })
-                    )
-                }
-                item {
-                    Column(
-                        Modifier.fillMaxWidth().navigationBarsPadding().padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text("Fin del capítulo", color = Color.White)
-                        savedInfo?.let { sv ->
-                            Text(
-                                if (undone) "Avance deshecho" else "✓ Guardado en tu biblioteca: «${sv.title}» · cap. ${ReaderProgress.fmt(sv.chapter)}",
-                                color = Color(0xFFB0B0B0), fontSize = 13.sp
-                            )
-                            if (!undone) TextButton(onClick = {
-                                undone = true
-                                val app = ctx.applicationContext
-                                kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch { try { ReaderProgress.undo(app, sv) } catch (_: Exception) { } }
-                            }) { Text("Deshacer") }
+                segs.forEachIndexed { si, seg ->
+                    itemsIndexed(seg.pages, key = { i, _ -> "${seg.key}#$i" }) { i, page ->
+                        AsyncImage(
+                            model = page,
+                            contentDescription = null,
+                            contentScale = ContentScale.FillWidth,
+                            modifier = Modifier
+                                .graphicsLayer { translationX = pan }
+                                .requiredWidth(wDp * zoom)
+                                .background(Color(0xFF1A1A1A))
+                                .aspectRatio(seg.ratios.getOrElse(i) { ReaderLogic.FALLBACK_RATIO })
+                        )
+                    }
+                    item(key = "${seg.key}#end") {
+                        val next = segs.getOrNull(si + 1)
+                        val sv = saved[seg.key]
+                        val isUndone = undone[seg.key] == true
+                        Column(
+                            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 28.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text("Fin de «${seg.title}»", color = Color(0xFFB0B0B0), fontSize = 13.sp)
+                            if (sv != null) {
+                                Text(
+                                    if (isUndone) "Avance deshecho" else "✓ Guardado en tu biblioteca: «${sv.title}» · cap. ${ReaderProgress.fmt(sv.chapter)}",
+                                    color = Color(0xFFB0B0B0), fontSize = 13.sp
+                                )
+                                if (!isUndone) TextButton(onClick = {
+                                    undone[seg.key] = true
+                                    val app = ctx.applicationContext
+                                    kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch { try { ReaderProgress.undo(app, sv) } catch (_: Exception) { } }
+                                }) { Text("Deshacer") }
+                            }
+                            if (next != null) {
+                                Text("Sigue: ${next.title}", color = Color.White, fontWeight = FontWeight.SemiBold)
+                            } else if (loadingNext && si == segs.size - 1) {
+                                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                                Text("Cargando el siguiente capítulo…", color = Color.White)
+                            } else {
+                                val more = book.tree != null && seg.index >= 0 && seg.index < book.siblings.size - 1
+                                if (more) Button(onClick = { onOpenIndex(seg.index + 1) }) { Text("Siguiente capítulo") }
+                                else Text("No hay más capítulos descargados", color = Color(0xFFB0B0B0))
+                                OutlinedButton(onClick = onClose) { Text("Cerrar") }
+                                Spacer(Modifier.navigationBarsPadding())
+                            }
                         }
-                        if (onNext != null) Button(onClick = onNext) { Text("Siguiente capítulo") }
-                        OutlinedButton(onClick = onClose) { Text("Cerrar") }
                     }
                 }
             }
@@ -900,7 +973,7 @@ private fun ReaderScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(onClick = onClose) { Text("‹ Atrás", color = Color.White) }
-                Text(book.title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(cur.title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             }
         }
 
@@ -912,9 +985,8 @@ private fun ReaderScreen(
                         Slider(
                             value = current.toFloat(),
                             onValueChange = { v ->
-                                val t = v.roundToInt()
-                                current = t
-                                scope.launch { listState.scrollToItem(t) }
+                                val t = v.roundToInt().coerceIn(0, total - 1)
+                                scope.launch { listState.scrollToItem(ReaderLogic.flatIndex(segs.map { it.pages.size }, curSeg, t)) }
                             },
                             valueRange = 0f..(total - 1).toFloat(),
                             modifier = Modifier.weight(1f).padding(start = 8.dp)
@@ -922,12 +994,18 @@ private fun ReaderScreen(
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { onPrev?.invoke() }, enabled = onPrev != null) {
-                        Text("‹ Anterior", color = if (onPrev != null) Color.White else Color.Gray)
+                    TextButton(onClick = { onOpenIndex(cur.index - 1) }, enabled = hasPrev) {
+                        Text("‹ Anterior", color = if (hasPrev) Color.White else Color.Gray)
                     }
                     Text("${ReaderLogic.percent(current, total)}%", color = Color.White)
-                    TextButton(onClick = { onNext?.invoke() }, enabled = onNext != null) {
-                        Text("Siguiente ›", color = if (onNext != null) Color.White else Color.Gray)
+                    TextButton(
+                        onClick = {
+                            if (curSeg < segs.size - 1) scope.launch { listState.scrollToItem(ReaderLogic.flatIndex(segs.map { it.pages.size }, curSeg + 1, 0)) }
+                            else onOpenIndex(cur.index + 1)
+                        },
+                        enabled = hasNext
+                    ) {
+                        Text("Siguiente ›", color = if (hasNext) Color.White else Color.Gray)
                     }
                 }
             }
