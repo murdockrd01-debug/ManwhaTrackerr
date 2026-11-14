@@ -52,6 +52,12 @@ android {
         checkReleaseBuilds = false
         abortOnError = false
     }
+    // Varias librerías traen los mismos archivos de información (META-INF); se descartan los repetidos.
+    packaging {
+        resources {
+            excludes += setOf("META-INF/versions/**", "META-INF/INDEX.LIST", "META-INF/DEPENDENCIES", "META-INF/LICENSE*", "META-INF/NOTICE*", "META-INF/*.kotlin_module", "META-INF/AL2.0", "META-INF/LGPL2.1")
+        }
+    }
     buildFeatures {
         compose = true
         buildConfig = true
