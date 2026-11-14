@@ -347,6 +347,8 @@ object TrData {
         "Todavía no elegiste carpeta." to "You haven't picked a folder yet.", "Elegir carpeta de Komikku" to "Pick Komikku folder",
         "Quitar" to "Remove", "Todavía no se importó ninguna copia." to "No backup has been imported yet.",
         "Actualizar ahora" to "Update now",
+        "Copiar diagnóstico" to "Copy diagnostics", "Diagnóstico copiado" to "Diagnostics copied",
+        "Este repositorio usa un formato nuevo (index.pb) que la app todavía no sabe leer. Copia el diagnóstico y envíaselo a Claude." to "This repository uses a new format (index.pb) the app can't read yet. Copy the diagnostics and send them to Claude.",
         "Fuentes" to "Sources", "Repositorios y extensiones" to "Repositories and extensions",
         "Repositorios y extensiones de Komikku/Mihon" to "Komikku/Mihon repositories and extensions",
         "Repositorios" to "Repositories", "Agregar repositorio" to "Add repository", "Instalar" to "Install",

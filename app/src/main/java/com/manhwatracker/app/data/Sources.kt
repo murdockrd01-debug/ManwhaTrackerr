@@ -39,7 +39,7 @@ object Sources {
         if (q != null) u = runCatching { URLDecoder.decode(q.groupValues[1], "UTF-8") }.getOrDefault(q.groupValues[1]).trim()
         if (!u.startsWith("http://", true) && !u.startsWith("https://", true)) return null
         u = u.substringBefore('#').substringBefore('?')
-        for (tail in listOf("/index.min.json", "/index.json")) if (u.endsWith(tail, true)) u = u.dropLast(tail.length)
+        for (tail in listOf("/index.min.json", "/index.json", "/index.pb", "/repo.json")) if (u.endsWith(tail, true)) u = u.dropLast(tail.length)
         u = u.trimEnd('/')
         u = githubToRaw(u) ?: u
         val host = u.substringAfter("://").substringBefore('/')

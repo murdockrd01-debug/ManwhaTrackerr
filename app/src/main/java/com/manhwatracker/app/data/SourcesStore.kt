@@ -49,23 +49,49 @@ object SourcesStore {
             setRequestProperty("User-Agent", "ManhwaTracker")
         }
 
-    class FetchResult(val list: List<RepoExt>?, val error: String?)
+    class FetchResult(val list: List<RepoExt>?, val error: String?, val diagnostic: String? = null)
 
-    /** Baja el índice de [base], comprueba que sea válido y lo guarda. No guarda nada si falla. */
+    private fun getBytes(url: String): Pair<Int, ByteArray?> = try {
+        val conn = open(url, 20_000)
+        val code = conn.responseCode
+        val body = if (code == 200) conn.inputStream.use { it.readBytes() } else null
+        conn.disconnect()
+        code to body
+    } catch (e: Exception) { -1 to null }
+
+    private fun gunzipIfNeeded(b: ByteArray): ByteArray =
+        if (b.size > 2 && b[0] == 0x1f.toByte() && b[1] == 0x8b.toByte()) java.util.zip.GZIPInputStream(b.inputStream()).use { it.readBytes() } else b
+
+    /**
+     * Baja el índice de [base] y lo guarda (siempre en nuestro formato). Prueba el formato viejo (index.min.json),
+     * luego index.json del formato nuevo. Si solo hay index.pb, devuelve un diagnóstico para poder leerlo.
+     */
     suspend fun refresh(c: Context, base: String): FetchResult = withContext(Dispatchers.IO) {
         try {
-            val conn = open(Sources.indexUrl(base), 20_000)
-            if (conn.responseCode != 200) {
-                val code = conn.responseCode
-                conn.disconnect()
-                return@withContext FetchResult(null, if (code == 404) "No encontré un repositorio en esa dirección (error 404). Revisa que termine en index.min.json o sea la carpeta que lo contiene." else "El servidor respondió con el error $code.")
+            val (code1, body1) = getBytes(Sources.indexUrl(base))
+            if (code1 == -1) return@withContext FetchResult(null, "No pude conectar. Revisa tu internet y la dirección.")
+            val v1 = body1?.let { runCatching { Sources.parseIndex(String(it)) }.getOrNull() }
+            if (v1 != null && !SourcesV2.isStub(v1)) {
+                cacheFile(c, base).writeText(SourcesV2.encode(v1))
+                return@withContext FetchResult(v1, null)
             }
-            val text = conn.inputStream.bufferedReader().use { it.readText() }
-            conn.disconnect()
-            val list = try { Sources.parseIndex(text) } catch (e: Exception) { return@withContext FetchResult(null, "Esa dirección no es un repositorio de extensiones válido.") }
-            if (list.isEmpty()) return@withContext FetchResult(null, "El repositorio está vacío.")
-            cacheFile(c, base).writeText(text)
-            FetchResult(list, null)
+            val (_, body2) = getBytes("$base/index.json")
+            val v2 = body2?.let { runCatching { SourcesV2.parseIndexJson(String(gunzipIfNeeded(it))) }.getOrNull() }
+            if (v2 != null && !SourcesV2.isStub(v2)) {
+                cacheFile(c, base).writeText(SourcesV2.encode(v2))
+                return@withContext FetchResult(v2, null)
+            }
+            val (code3, body3) = getBytes("$base/index.pb")
+            if (body3 != null) {
+                val dump = try { SourcesV2.wireDump(gunzipIfNeeded(body3)) } catch (e: Exception) { "(no pude abrir index.pb: ${e.javaClass.simpleName}, ${body3.size} bytes)" }
+                return@withContext FetchResult(
+                    null,
+                    "Este repositorio usa un formato nuevo (index.pb) que la app todavía no sabe leer. Copia el diagnóstico y envíaselo a Claude.",
+                    "index.pb de $base (${body3.size} bytes)\n$dump"
+                )
+            }
+            if (body1 != null || code1 == 200) return@withContext FetchResult(null, "Esa dirección no es un repositorio de extensiones válido.")
+            FetchResult(null, if (code1 == 404 && code3 == 404) "No encontré un repositorio en esa dirección (error 404). Revisa que termine en index.min.json o sea la carpeta que lo contiene." else "El servidor respondió con el error $code1.")
         } catch (e: Exception) {
             FetchResult(null, "No pude conectar. Revisa tu internet y la dirección.")
         }

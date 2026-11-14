@@ -1,3 +1,6 @@
+## 5.3.2
+- Fuentes: entiende el índice nuevo `index.json` y detecta cuando un repositorio solo trae avisos de "Outdated app". Si el repositorio solo ofrece `index.pb`, aparece un botón "Copiar diagnóstico" para poder enseñarle ese formato a la app.
+
 ## 5.3.1
 - Fuentes: ahora acepta la dirección de la página de GitHub del repositorio (por ejemplo github.com/keiyoushi/extensions) y la convierte sola a la dirección correcta.
 

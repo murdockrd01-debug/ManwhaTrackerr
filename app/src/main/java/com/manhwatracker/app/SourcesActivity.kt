@@ -295,6 +295,7 @@ private fun AddRepoDialog(onDismiss: () -> Unit, onAdded: () -> Unit) {
     var text by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var diag by remember { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         title = { Text("Agregar repositorio") },
@@ -305,10 +306,17 @@ private fun AddRepoDialog(onDismiss: () -> Unit, onAdded: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 OutlinedTextField(
-                    value = text, onValueChange = { text = it; error = null }, singleLine = false, maxLines = 3,
+                    value = text, onValueChange = { text = it; error = null; diag = null }, singleLine = false, maxLines = 3,
                     label = { Text("Dirección") }, isError = error != null, modifier = Modifier.fillMaxWidth()
                 )
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                diag?.let { d ->
+                    OutlinedButton(onClick = {
+                        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("diagnostico", d))
+                        Toast.makeText(ctx, tr("Diagnóstico copiado"), Toast.LENGTH_SHORT).show()
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Copiar diagnóstico") }
+                }
                 if (busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
         },
@@ -320,7 +328,7 @@ private fun AddRepoDialog(onDismiss: () -> Unit, onAdded: () -> Unit) {
                     busy = true
                     val r = SourcesStore.refresh(ctx, base)
                     busy = false
-                    if (r.list == null) error = r.error
+                    if (r.list == null) { error = r.error; diag = r.diagnostic }
                     else { SourcesStore.add(ctx, base); onAdded() }
                 }
             }) { Text("Agregar") }
