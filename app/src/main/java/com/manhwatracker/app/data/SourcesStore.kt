@@ -58,7 +58,7 @@ object SourcesStore {
             if (conn.responseCode != 200) {
                 val code = conn.responseCode
                 conn.disconnect()
-                return@withContext FetchResult(null, if (code == 404) "No encontré un repositorio en esa dirección (error 404)." else "El servidor respondió con el error $code.")
+                return@withContext FetchResult(null, if (code == 404) "No encontré un repositorio en esa dirección (error 404). Revisa que termine en index.min.json o sea la carpeta que lo contiene." else "El servidor respondió con el error $code.")
             }
             val text = conn.inputStream.bufferedReader().use { it.readText() }
             conn.disconnect()

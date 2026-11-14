@@ -1,3 +1,6 @@
+## 5.3.1
+- Fuentes: ahora acepta la dirección de la página de GitHub del repositorio (por ejemplo github.com/keiyoushi/extensions) y la convierte sola a la dirección correcta.
+
 ## 5.3
 - Nueva sección "Fuentes" (Más › Fuentes): agrega los repositorios de extensiones de Komikku/Mihon con su dirección, mira la lista con búsqueda e idiomas, e instala, actualiza o quita extensiones. Es la primera fase: las extensiones se instalan igual que en Komikku, y todavía no se usan para leer dentro de la app.
 - La app no trae ningún repositorio; tú pones el que quieras.

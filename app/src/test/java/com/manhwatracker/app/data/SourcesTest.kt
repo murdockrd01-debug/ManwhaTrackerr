@@ -20,6 +20,15 @@ class SourcesTest {
         assertThrows(Exception::class.java) { Sources.parseIndex("no es json") }
         assertThrows(Exception::class.java) { Sources.parseIndex("{\"a\":1}") }
     }
+    @Test fun githubPage() {
+        val raw = "https://raw.githubusercontent.com/keiyoushi/extensions/repo"
+        assertEquals(raw, Sources.normalizeRepoUrl("https://github.com/keiyoushi/extensions"))
+        assertEquals(raw, Sources.normalizeRepoUrl("https://github.com/keiyoushi/extensions/"))
+        assertEquals(raw, Sources.normalizeRepoUrl("https://github.com/keiyoushi/extensions.git"))
+        assertEquals(raw, Sources.normalizeRepoUrl("https://github.com/keiyoushi/extensions/tree/repo"))
+        assertEquals("https://raw.githubusercontent.com/a/b/main", Sources.normalizeRepoUrl("https://github.com/a/b/tree/main"))
+    }
+
     @Test fun normalize() {
         val base = "https://raw.githubusercontent.com/keiyoushi/extensions/repo"
         assertEquals(base, Sources.normalizeRepoUrl(base))

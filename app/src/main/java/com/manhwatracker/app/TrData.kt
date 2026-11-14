@@ -357,7 +357,7 @@ object TrData {
         "Eso no parece una dirección web válida." to "That doesn't look like a valid web address.",
         "No pude bajar la extensión" to "I couldn't download the extension",
         "Permite instalar apps desde esta app y vuelve a intentarlo" to "Allow installing apps from this app and try again",
-        "No encontré un repositorio en esa dirección (error 404)." to "I didn't find a repository at that address (error 404).",
+        "No encontré un repositorio en esa dirección (error 404). Revisa que termine en index.min.json o sea la carpeta que lo contiene." to "I didn't find a repository at that address (error 404). Check that it ends in index.min.json or is the folder that contains it.",
         "Esa dirección no es un repositorio de extensiones válido." to "That address isn't a valid extension repository.",
         "El repositorio está vacío." to "The repository is empty.",
         "No pude conectar. Revisa tu internet y la dirección." to "I couldn't connect. Check your internet and the address.",

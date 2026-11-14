@@ -41,8 +41,19 @@ object Sources {
         u = u.substringBefore('#').substringBefore('?')
         for (tail in listOf("/index.min.json", "/index.json")) if (u.endsWith(tail, true)) u = u.dropLast(tail.length)
         u = u.trimEnd('/')
+        u = githubToRaw(u) ?: u
         val host = u.substringAfter("://").substringBefore('/')
         return if (host.contains('.') && host.length > 3) u else null
+    }
+
+    /**
+     * Una página de GitHub (github.com/usuario/repo) no es el repositorio: los archivos están en raw.githubusercontent.com,
+     * normalmente en la rama "repo". Si la dirección trae /tree/<rama>, se usa esa rama.
+     */
+    internal fun githubToRaw(u: String): String? {
+        val m = Regex("^https?://(?:www\\.)?github\\.com/([^/]+)/([^/]+?)(?:\\.git)?(?:/tree/([^/]+))?(?:/.*)?$", RegexOption.IGNORE_CASE).find(u) ?: return null
+        val branch = m.groupValues[3].ifEmpty { "repo" }
+        return "https://raw.githubusercontent.com/${m.groupValues[1]}/${m.groupValues[2]}/$branch"
     }
 
     fun indexUrl(base: String) = "$base/index.min.json"
