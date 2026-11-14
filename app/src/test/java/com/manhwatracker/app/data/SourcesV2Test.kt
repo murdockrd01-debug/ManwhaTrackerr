@@ -38,4 +38,28 @@ class SourcesV2Test {
         assertTrue(d, d.contains("f1 str=\"hi\""))
         assertTrue(d, d.contains("f2 varint=5"))
     }
+
+    private fun len(num: Int, body: ByteArray): ByteArray = byteArrayOf(((num shl 3) or 2).toByte()) + varint(body.size.toLong()) + body
+    private fun vi(num: Int, v: Long): ByteArray = byteArrayOf((num shl 3).toByte()) + varint(v)
+    private fun varint(v0: Long): ByteArray { var v = v0; val o = ArrayList<Byte>(); while (true) { val b = (v and 0x7f).toInt(); v = v ushr 7; if (v == 0L) { o.add(b.toByte()); break } else o.add((b or 0x80).toByte()) }; return o.toByteArray() }
+    private fun s(num: Int, t: String) = len(num, t.toByteArray())
+
+    @Test fun pb() {
+        val src = len(8, vi(1, 6289731484943315811L) + s(2, "AHottie") + s(3, "all") + s(4, "https://ahottie.top"))
+        val ext = s(1, "AHottie") + s(2, "eu.kanade.tachiyomi.extension.all.ahottie") +
+            len(3, s(1, "https://github.com/k/e/releases/download/b0/tachiyomi-all.ahottie-v1.6.5.apk") + s(2, "https://cdn/x.png") + s(501, "https://x/y.jar")) +
+            s(4, "1.6") + vi(5, 106005) + s(6, "1.6.5") + vi(7, 3) + src
+        val ext2 = s(1, "Foo") + s(2, "eu.kanade.tachiyomi.extension.es.foo") + len(3, s(1, "https://h/foo.apk")) + vi(5, 106001) + s(6, "1.6.1")
+        val root = s(1, "Keiyoushi") + s(3, "abc") + len(4, s(1, "https://k")) + len(101, len(1, ext) + len(1, ext2))
+        val l = SourcesV2.parseIndexPb(root)
+        assertEquals(2, l.size)
+        assertEquals("eu.kanade.tachiyomi.extension.all.ahottie", l[0].pkg)
+        assertEquals("tachiyomi-all.ahottie-v1.6.5.apk", l[0].apk)
+        assertEquals(106005L, l[0].code); assertEquals("1.6.5", l[0].version); assertEquals(3, l[0].nsfw)
+        assertEquals("all", l[0].lang); assertEquals("https://cdn/x.png", Sources.iconUrl("b", l[0]))
+        assertEquals("https://github.com/k/e/releases/download/b0/tachiyomi-all.ahottie-v1.6.5.apk", Sources.apkUrl("b", l[0]))
+        assertEquals(6289731484943315811L, l[0].sources[0].id); assertEquals("https://ahottie.top", l[0].sources[0].baseUrl)
+        assertEquals("es", l[1].lang); assertEquals(0, l[1].nsfw)
+        assertEquals("b/icon/eu.kanade.tachiyomi.extension.es.foo.png", Sources.iconUrl("b", l[1]))
+    }
 }

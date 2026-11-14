@@ -20,7 +20,10 @@ class RepoExt(
     val code: Long = 0,
     val version: String = "",
     val nsfw: Int = 0,
-    val sources: List<RepoSource> = emptyList()
+    val sources: List<RepoSource> = emptyList(),
+    /** Solo índice v2: direcciones completas del APK y del ícono (el v1 las arma con la dirección base). */
+    val apkUrl: String = "",
+    val iconUrl: String = ""
 )
 
 /** Lógica pura de los repositorios de extensiones (se prueba sin el teléfono). */
@@ -57,8 +60,8 @@ object Sources {
     }
 
     fun indexUrl(base: String) = "$base/index.min.json"
-    fun apkUrl(base: String, e: RepoExt) = "$base/apk/${e.apk}"
-    fun iconUrl(base: String, e: RepoExt) = "$base/icon/${e.pkg}.png"
+    fun apkUrl(base: String, e: RepoExt) = e.apkUrl.ifBlank { "$base/apk/${e.apk}" }
+    fun iconUrl(base: String, e: RepoExt) = e.iconUrl.ifBlank { "$base/icon/${e.pkg}.png" }
 
     /** Nombre corto para mostrar: "keiyoushi/extensions" para GitHub, o el dominio. */
     fun repoName(base: String): String {

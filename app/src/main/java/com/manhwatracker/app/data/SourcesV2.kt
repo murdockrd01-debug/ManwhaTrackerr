@@ -56,6 +56,80 @@ object SourcesV2 {
         }
     }
 
+    // ---- index.pb (índice v2, esquema deducido del diagnóstico real de keiyoushi) ----
+    // raíz: f1 nombre, f2 sigla, f3 huella, f4 {f1 web, f2 discord}, f101 { f1* = extensión }
+    // extensión: f1 nombre, f2 pkg, f3 {f1 apk(url), f2 ícono(url), f501 jar(url)}, f4 lib, f5 versionCode,
+    //            f6 versión, f7 marca (¿+18?), f8* fuente { f1 id, f2 nombre, f3 idioma, f4 baseUrl }
+
+    private class Field(val num: Int, val wire: Int, val value: Long, val start: Int, val end: Int)
+
+    private fun fields(b: ByteArray, from: Int, to: Int): List<Field> {
+        val r = Reader(b, from, to)
+        val out = ArrayList<Field>()
+        while (r.more()) {
+            val tag = r.varint()
+            val num = (tag ushr 3).toInt()
+            when (val w = (tag and 7).toInt()) {
+                0 -> out.add(Field(num, w, r.varint(), 0, 0))
+                1 -> { out.add(Field(num, w, 0, r.p, r.p + 8)); r.p += 8 }
+                5 -> { out.add(Field(num, w, 0, r.p, r.p + 4)); r.p += 4 }
+                2 -> {
+                    val l = r.varint().toInt()
+                    if (l < 0 || r.p + l > to) throw IllegalStateException("longitud")
+                    out.add(Field(num, w, 0, r.p, r.p + l)); r.p += l
+                }
+                else -> throw IllegalStateException("tipo")
+            }
+        }
+        return out
+    }
+
+    /** Idioma según el paquete: eu.kanade.tachiyomi.extension.<idioma>.<nombre>; si no, el de la primera fuente. */
+    internal fun langOf(pkg: String, sources: List<RepoSource>): String {
+        val seg = pkg.substringAfter(".extension.", "").substringBefore('.')
+        return if (seg.isNotEmpty() && seg.length <= 8) seg else sources.firstOrNull()?.lang ?: ""
+    }
+
+    fun parseIndexPb(raw: ByteArray): List<RepoExt> {
+        val bytes = if (raw.size > 2 && raw[0] == 0x1f.toByte() && raw[1] == 0x8b.toByte())
+            java.util.zip.GZIPInputStream(raw.inputStream()).use { it.readBytes() } else raw
+        fun str(f: Field) = String(bytes, f.start, f.end - f.start, Charsets.UTF_8)
+        val list = ArrayList<RepoExt>()
+        for (top in fields(bytes, 0, bytes.size)) {
+            if (top.num != 101 || top.wire != 2) continue
+            for (e in fields(bytes, top.start, top.end)) {
+                if (e.num != 1 || e.wire != 2) continue
+                var name = ""; var pkg = ""; var apkUrl = ""; var icon = ""; var version = ""
+                var code = 0L; var flag = 0L
+                val sources = ArrayList<RepoSource>()
+                for (f in fields(bytes, e.start, e.end)) when {
+                    f.num == 1 && f.wire == 2 -> name = str(f)
+                    f.num == 2 && f.wire == 2 -> pkg = str(f)
+                    f.num == 3 && f.wire == 2 -> for (u in fields(bytes, f.start, f.end)) {
+                        if (u.wire != 2) continue
+                        if (u.num == 1) apkUrl = str(u) else if (u.num == 2) icon = str(u)
+                    }
+                    f.num == 5 && f.wire == 0 -> code = f.value
+                    f.num == 6 && f.wire == 2 -> version = str(f)
+                    f.num == 7 && f.wire == 0 -> flag = f.value
+                    f.num == 8 && f.wire == 2 -> {
+                        var id = 0L; var sn = ""; var lang = ""; var url = ""
+                        for (s in fields(bytes, f.start, f.end)) when {
+                            s.num == 1 && s.wire == 0 -> id = s.value
+                            s.num == 2 && s.wire == 2 -> sn = str(s)
+                            s.num == 3 && s.wire == 2 -> lang = str(s)
+                            s.num == 4 && s.wire == 2 -> url = str(s)
+                        }
+                        sources.add(RepoSource(sn, lang, id, url))
+                    }
+                }
+                if (pkg.isBlank() || apkUrl.isBlank()) continue
+                list.add(RepoExt(name.ifBlank { pkg }, pkg, apkUrl.substringBefore('?').substringAfterLast('/'), langOf(pkg, sources), code, version, flag.toInt(), sources, apkUrl, icon))
+            }
+        }
+        return list
+    }
+
     // ---- Diagnóstico de protobuf sin esquema ----
 
     private class Reader(val b: ByteArray, var p: Int, val end: Int) {

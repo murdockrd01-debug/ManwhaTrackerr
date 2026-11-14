@@ -242,7 +242,13 @@ private fun SourcesScreen(onExit: () -> Unit) {
                     Switch(checked = showNsfw, onCheckedChange = { showNsfw = it; SourcesStore.setShowNsfw(ctx, it) })
                 }
             }
-            item { Text("${shown.size} extensiones", style = MaterialTheme.typography.titleMedium) }
+            item {
+                val hidden = if (showNsfw) 0 else Sources.filter(all, query, lang, true).size - shown.size
+                Text(
+                    "${shown.size} extensiones" + (if (hidden > 0) " ($hidden ocultas por ser +18)" else ""),
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
             items(shown, key = { it.pkg }) { e ->
                 ExtRow(
                     e = e,

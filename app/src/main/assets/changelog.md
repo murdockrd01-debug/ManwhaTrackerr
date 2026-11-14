@@ -1,3 +1,6 @@
+## 5.3.4
+- Fuentes: ya lee el índice nuevo (`index.pb`) de keiyoushi: aparece la lista completa de extensiones con su ícono, y se instalan con la versión 1.6.
+
 ## 5.3.3
 - Fuentes: detecta mejor las listas falsas de "Outdated app", descarta las que quedaron guardadas, y al actualizar un repositorio con formato nuevo copia el diagnóstico solo.
 

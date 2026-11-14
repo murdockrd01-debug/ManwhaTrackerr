@@ -88,6 +88,11 @@ object SourcesStore {
             }
             val (code3, body3) = getBytes("$base/index.pb")
             if (body3 != null) {
+                val v3 = runCatching { SourcesV2.parseIndexPb(body3) }.getOrNull()
+                if (v3 != null && !SourcesV2.isStub(v3)) {
+                    cacheFile(c, base).writeText(SourcesV2.encode(v3))
+                    return@withContext FetchResult(v3, null)
+                }
                 val dump = try { SourcesV2.wireDump(gunzipIfNeeded(body3)) } catch (e: Exception) { "(no pude abrir index.pb: ${e.javaClass.simpleName}, ${body3.size} bytes)" }
                 return@withContext FetchResult(
                     null,
