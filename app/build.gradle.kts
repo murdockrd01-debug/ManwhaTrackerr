@@ -14,8 +14,8 @@ android {
         applicationId = "com.manhwatracker.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 50
-        versionName = "5.3.4"
+        versionCode = 51
+        versionName = "5.3.5"
     }
 
     // Clave fija: así cada APK nuevo se instala encima del anterior sin desinstalar.

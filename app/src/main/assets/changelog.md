@@ -1,3 +1,6 @@
+## 5.3.5
+- Mantenimiento interno: herramientas de compilación actualizadas (preparación para leer con extensiones). Sin cambios visibles.
+
 ## 5.3.4
 - Fuentes: ya lee el índice nuevo (`index.pb`) de keiyoushi: aparece la lista completa de extensiones con su ícono, y se instalan con la versión 1.6.
 
