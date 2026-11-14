@@ -1,3 +1,6 @@
+## 5.3.3
+- Fuentes: detecta mejor las listas falsas de "Outdated app", descarta las que quedaron guardadas, y al actualizar un repositorio con formato nuevo copia el diagnóstico solo.
+
 ## 5.3.2
 - Fuentes: entiende el índice nuevo `index.json` y detecta cuando un repositorio solo trae avisos de "Outdated app". Si el repositorio solo ofrece `index.pb`, aparece un botón "Copiar diagnóstico" para poder enseñarle ese formato a la app.
 

@@ -132,7 +132,17 @@ private fun SourcesScreen(onExit: () -> Unit) {
         scope.launch {
             refreshing = true
             var failed = 0
-            for (r in repos) if (SourcesStore.refresh(ctx, r).list == null) failed++
+            for (r in repos) {
+                val res = SourcesStore.refresh(ctx, r)
+                if (res.list == null) {
+                    failed++
+                    res.diagnostic?.let { d ->
+                        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("diagnostico", d))
+                        Toast.makeText(ctx, tr("Diagnóstico copiado"), Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
             reload()
             refreshing = false
             if (failed > 0) Toast.makeText(ctx, tr("No pude actualizar $failed repositorio(s)"), Toast.LENGTH_SHORT).show()

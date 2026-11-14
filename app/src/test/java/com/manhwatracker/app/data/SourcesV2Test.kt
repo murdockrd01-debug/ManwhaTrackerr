@@ -9,6 +9,8 @@ class SourcesV2Test {
     @Test fun stub() {
         assertTrue(SourcesV2.isStub(emptyList()))
         assertTrue(SourcesV2.isStub(listOf(RepoExt(name = "Outdated App", pkg = "x.y", apk = "a.apk"))))
+        assertTrue(SourcesV2.isStub(listOf(RepoExt(name = "Tachiyomi: Foo", pkg = "x.a", apk = "a.apk", sources = listOf(RepoSource("Outdated app"))), RepoExt(name = "B", pkg = "x.b", apk = "b.apk"))))
+        assertFalse(SourcesV2.isStub((1..30).map { RepoExt(name = "E$it", pkg = "x.$it", apk = "e$it.apk") }))
         assertFalse(SourcesV2.isStub(listOf(RepoExt(name = "Tachiyomi: Foo", pkg = "x.y", apk = "a.apk"))))
     }
 

@@ -17,9 +17,16 @@ object SourcesV2 {
 
     fun encode(list: List<RepoExt>): String = out.encodeToString(ListSerializer(RepoExt.serializer()), list)
 
-    /** Un índice que solo trae avisos de "app desactualizada" (keiyoushi lo deja así en index.min.json). */
+    private fun RepoExt.looksOutdated(): Boolean =
+        name.contains("outdated", true) || pkg.contains("outdated", true) || apk.contains("outdated", true) ||
+            sources.any { it.name.contains("outdated", true) }
+
+    /**
+     * Un índice que solo trae avisos de "app desactualizada" (keiyoushi lo deja así en index.min.json y quizá en index.json):
+     * vacío, todo avisos, o una lista diminuta con algún aviso. Un repositorio real trae decenas de extensiones.
+     */
     fun isStub(list: List<RepoExt>): Boolean =
-        list.isEmpty() || list.all { it.name.contains("outdated", true) || it.pkg.contains("outdated", true) }
+        list.isEmpty() || list.all { it.looksOutdated() } || (list.size < 20 && list.any { it.looksOutdated() })
 
     private fun JsonObject.str(vararg keys: String): String? =
         keys.firstNotNullOfOrNull { (this[it] as? JsonPrimitive)?.contentOrNull?.takeIf { s -> s.isNotEmpty() } }

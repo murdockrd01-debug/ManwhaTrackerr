@@ -37,7 +37,12 @@ object SourcesStore {
         File(File(c.filesDir, "sources").apply { mkdirs() }, sha(url) + ".json")
 
     /** El índice guardado de un repositorio (vacío si todavía no se ha bajado). */
-    fun cached(c: Context, url: String): List<RepoExt> = runCatching { Sources.parseIndex(cacheFile(c, url).readText()) }.getOrDefault(emptyList())
+    fun cached(c: Context, url: String): List<RepoExt> {
+        val l = runCatching { Sources.parseIndex(cacheFile(c, url).readText()) }.getOrDefault(emptyList())
+        // Un índice guardado que solo tenía avisos "Outdated app" (de versiones anteriores) no sirve: se descarta.
+        if (l.isNotEmpty() && SourcesV2.isStub(l)) { cacheFile(c, url).delete(); return emptyList() }
+        return l
+    }
 
     fun fetchedAt(c: Context, url: String): Long = cacheFile(c, url).takeIf { it.exists() }?.lastModified() ?: 0L
 
