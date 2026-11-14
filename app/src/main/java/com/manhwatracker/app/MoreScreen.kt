@@ -58,6 +58,7 @@ fun MoreScreen(
     onRestore: () -> Unit
 ) {
     var manual by remember { mutableStateOf(false) }
+    val moreCtx = LocalContext.current
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -65,6 +66,7 @@ fun MoreScreen(
         MoreGroup(null) {
             if (Features.study) MoreRow("💡", "Descubrir", "Recomendaciones y tendencias", onDiscover)
             MoreRow("📖", "Lector", "Lee capítulos descargados (carpeta o .cbz)", onReader)
+            MoreRow("🧩", "Fuentes", "Repositorios y extensiones de Komikku/Mihon") { SourcesActivity.open(moreCtx) }
             MoreRow("⭐", "Calificaciones", "Tu ranking, favoritos y promedio", onRatings)
         }
         MoreGroup("Datos") {

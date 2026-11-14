@@ -14,8 +14,8 @@ android {
         applicationId = "com.manhwatracker.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 45
-        versionName = "5.2.2"
+        versionCode = 46
+        versionName = "5.3"
     }
 
     // Clave fija: así cada APK nuevo se instala encima del anterior sin desinstalar.
@@ -70,6 +70,8 @@ dependencies {
 
     // Leer el backup de Komikku/Mihon (.tachibk = gzip + protobuf)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.7.1")
+    // Leer los repositorios de extensiones (índice en JSON)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
 
     // Leer texto de imágenes (en el teléfono, sin internet)
     implementation("com.google.mlkit:text-recognition:16.0.1")

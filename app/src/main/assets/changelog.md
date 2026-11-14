@@ -1,3 +1,7 @@
+## 5.3
+- Nueva sección "Fuentes" (Más › Fuentes): agrega los repositorios de extensiones de Komikku/Mihon con su dirección, mira la lista con búsqueda e idiomas, e instala, actualiza o quita extensiones. Es la primera fase: las extensiones se instalan igual que en Komikku, y todavía no se usan para leer dentro de la app.
+- La app no trae ningún repositorio; tú pones el que quieras.
+
 ## 5.2.2
 - Arreglo: ahora puedes volver al capítulo anterior. Antes, al cargar el siguiente capítulo (.cbz) se borraba el anterior y ya no se podía regresar.
 - La lectura continua también funciona hacia arriba: al subir hasta el principio de un capítulo, aparece el anterior encima. "‹ Anterior" lleva al inicio del capítulo anterior.
