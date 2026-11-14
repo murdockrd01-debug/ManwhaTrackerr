@@ -39,8 +39,8 @@ class SourcesV2Test {
         assertTrue(d, d.contains("f2 varint=5"))
     }
 
-    private fun len(num: Int, body: ByteArray): ByteArray = byteArrayOf(((num shl 3) or 2).toByte()) + varint(body.size.toLong()) + body
-    private fun vi(num: Int, v: Long): ByteArray = byteArrayOf((num shl 3).toByte()) + varint(v)
+    private fun len(num: Int, body: ByteArray): ByteArray = varint(((num shl 3) or 2).toLong()) + varint(body.size.toLong()) + body
+    private fun vi(num: Int, v: Long): ByteArray = varint((num shl 3).toLong()) + varint(v)
     private fun varint(v0: Long): ByteArray { var v = v0; val o = ArrayList<Byte>(); while (true) { val b = (v and 0x7f).toInt(); v = v ushr 7; if (v == 0L) { o.add(b.toByte()); break } else o.add((b or 0x80).toByte()) }; return o.toByteArray() }
     private fun s(num: Int, t: String) = len(num, t.toByteArray())
 
