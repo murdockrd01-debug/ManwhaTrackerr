@@ -47,6 +47,11 @@ android {
         jvmTarget = "17"
         freeCompilerArgs += "-Xcontext-parameters"
     }
+    // El análisis "lint" de AGP 8.5 trae un Kotlin viejo y no puede leer las librerías nuevas; no es necesario para compilar.
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
     buildFeatures {
         compose = true
         buildConfig = true
