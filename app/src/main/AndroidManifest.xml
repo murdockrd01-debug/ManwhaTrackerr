@@ -161,6 +161,11 @@
 
         <!-- Lector integrado de capítulos descargados (carpeta o .cbz) -->
         <activity
+            android:name=".ExtensionTestActivity"
+            android:exported="false"
+            android:label="Probar extensión"
+            android:theme="@style/Theme.ManhwaTracker" />
+        <activity
             android:name=".SourcesActivity"
             android:exported="false"
             android:label="Fuentes"

@@ -1,3 +1,6 @@
+## 5.4.0
+- Primera prueba del motor de extensiones (experimental): en Más › Fuentes, las extensiones instaladas tienen un botón "Probar" que las carga dentro de la app y muestra los manhwas populares de su primera fuente. Si falla, muestra el error para copiarlo. Todavía no se puede leer ni buscar.
+
 ## 5.3.5
 - Mantenimiento interno: herramientas de compilación actualizadas (preparación para leer con extensiones). Sin cambios visibles.
 

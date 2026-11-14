@@ -256,7 +256,8 @@ private fun SourcesScreen(onExit: () -> Unit) {
                     state = Sources.state(e, installed[e.pkg]),
                     progress = progress[e.pkg],
                     onInstall = { install(e) },
-                    onUninstall = { uninstall(e) }
+                    onUninstall = { uninstall(e) },
+                    onTest = { ExtensionTestActivity.open(ctx, e.pkg) }
                 )
             }
         }
@@ -269,7 +270,7 @@ private fun SourcesScreen(onExit: () -> Unit) {
 }
 
 @Composable
-private fun ExtRow(e: RepoExt, iconUrl: String?, state: Sources.State, progress: Float?, onInstall: () -> Unit, onUninstall: () -> Unit) {
+private fun ExtRow(e: RepoExt, iconUrl: String?, state: Sources.State, progress: Float?, onInstall: () -> Unit, onUninstall: () -> Unit, onTest: () -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
@@ -298,7 +299,10 @@ private fun ExtRow(e: RepoExt, iconUrl: String?, state: Sources.State, progress:
                 progress != null -> Unit
                 state == Sources.State.NOT_INSTALLED -> FilledTonalButton(onClick = onInstall) { Text("Instalar") }
                 state == Sources.State.UPDATE -> FilledTonalButton(onClick = onInstall) { Text("Actualizar") }
-                else -> TextButton(onClick = onUninstall) { Text("Quitar") }
+                else -> Column(horizontalAlignment = Alignment.End) {
+                    FilledTonalButton(onClick = onTest) { Text("Probar") }
+                    TextButton(onClick = onUninstall) { Text("Quitar") }
+                }
             }
         }
     }

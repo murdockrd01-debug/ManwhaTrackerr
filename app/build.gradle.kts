@@ -14,8 +14,8 @@ android {
         applicationId = "com.manhwatracker.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 51
-        versionName = "5.3.5"
+        versionCode = 52
+        versionName = "5.4.0"
     }
 
     // Clave fija: así cada APK nuevo se instala encima del anterior sin desinstalar.
@@ -48,6 +48,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -69,9 +70,20 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
 
     // Leer el backup de Komikku/Mihon (.tachibk = gzip + protobuf)
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.7.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.9.0")
     // Leer los repositorios de extensiones (índice en JSON)
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+
+    // Motor de extensiones (lo que Komikku/Mihon les prestan a las extensiones)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("com.squareup.okhttp3:okhttp:5.3.0")
+    implementation("com.squareup.okhttp3:okhttp-brotli:5.3.0")
+    implementation("com.squareup.okhttp3:okhttp-zstd:5.3.0")
+    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:5.3.0")
+    implementation("org.jsoup:jsoup:1.21.1")
+    implementation("uy.kohesive.injekt:injekt-core:1.16.1")
+    implementation("io.reactivex:rxjava:1.3.8")
+    implementation("androidx.preference:preference-ktx:1.2.1")
 
     // Leer texto de imágenes (en el teléfono, sin internet)
     implementation("com.google.mlkit:text-recognition:16.0.1")
