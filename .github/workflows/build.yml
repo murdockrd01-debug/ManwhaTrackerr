@@ -47,7 +47,7 @@ jobs:
           gradle testDebugUnitTest --no-daemon > test.log 2>&1
           code=$?
           if [ $code -ne 0 ]; then
-            grep -E -A4 "^e: |FAILED" test.log | grep -v "^--" | head -30 | while read -r l; do echo "::error::${l:0:400}"; done
+            grep -E -A6 "^e: |FAILED|What went wrong" test.log | grep -v "^--" | head -30 | while read -r l; do echo "::error::${l:0:400}"; done
           fi
           exit $code
 
