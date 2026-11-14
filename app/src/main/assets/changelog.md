@@ -1,3 +1,7 @@
+## 5.2.2
+- Arreglo: ahora puedes volver al capítulo anterior. Antes, al cargar el siguiente capítulo (.cbz) se borraba el anterior y ya no se podía regresar.
+- La lectura continua también funciona hacia arriba: al subir hasta el principio de un capítulo, aparece el anterior encima. "‹ Anterior" lleva al inicio del capítulo anterior.
+
 ## 5.2.1
 - Barra de abajo: los nombres de las secciones ya no se parten en dos líneas.
 

@@ -126,4 +126,14 @@ object ReaderLogic {
     /** Capítulos cuyo cierre ya se alcanzó (se vio o se pasó) con la última celda visible [lastVisible]. */
     fun finished(counts: List<Int>, lastVisible: Int): List<Int> =
         counts.indices.filter { lastVisible >= flatIndex(counts, it, counts[it]) }
+
+    /**
+     * Qué capítulos extraídos borrar de la caché: se conserva el que se está abriendo ([keepId]) y los
+     * [keep] - 1 más recientes; el resto se borra. [items] = (nombre de carpeta, última vez que se usó).
+     */
+    fun toEvict(items: List<Pair<String, Long>>, keepId: String, keep: Int = 6): List<String> =
+        items.filter { it.first != keepId }
+            .sortedByDescending { it.second }
+            .drop((keep - 1).coerceAtLeast(0))
+            .map { it.first }
 }

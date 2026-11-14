@@ -137,7 +137,7 @@ object ReaderSource {
 
     /**
      * Copia el .cbz a la caché y saca sus imágenes en orden (00000.jpg, 00001.jpg…).
-     * Si ya se había extraído, reutiliza lo que hay. Solo guarda un capítulo a la vez para no llenar el teléfono.
+     * Si ya se había extraído, reutiliza lo que hay. Guarda los últimos 6 capítulos para no llenar el teléfono.
      */
     private fun extract(ctx: Context, uri: Uri, key: String): List<File> {
         val root = File(ctx.cacheDir, "reader")
@@ -145,8 +145,12 @@ object ReaderSource {
         val id = sha(key)
         val dir = File(root, id)
         val ok = File(dir, ".ok")
+        // Se conservan los últimos capítulos extraídos: en lectura continua el anterior sigue en pantalla.
+        root.listFiles()?.filter { it.isDirectory }?.map { it.name to it.lastModified() }
+            ?.let { ReaderLogic.toEvict(it, id, 6) }?.forEach { File(root, it).deleteRecursively() }
+        if (ok.exists()) dir.setLastModified(System.currentTimeMillis())
         if (!ok.exists()) {
-            root.listFiles()?.forEach { it.deleteRecursively() }
+            dir.deleteRecursively()
             dir.mkdirs()
             val tmp = File(root, "$id.tmp")
             val input = ctx.contentResolver.openInputStream(uri) ?: return emptyList()

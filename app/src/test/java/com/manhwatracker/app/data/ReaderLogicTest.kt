@@ -93,4 +93,12 @@ class ReaderLogicTest {
         assertEquals(emptyList<Int>(), ReaderLogic.finished(c, 2)); assertEquals(listOf(0), ReaderLogic.finished(c, 3))
         assertEquals(listOf(0), ReaderLogic.finished(c, 5)); assertEquals(listOf(0, 1), ReaderLogic.finished(c, 6))
     }
+
+    @Test fun evictKeepsRecentAndCurrent() {
+        val items = listOf("a" to 1L, "b" to 5L, "c" to 3L, "d" to 9L, "cur" to 0L)
+        assertEquals(emptyList<String>(), ReaderLogic.toEvict(items, "cur", keep = 6))
+        // se conserva "cur" + los 2 más recientes de los demás (d, b); se borran c y a
+        assertEquals(listOf("c", "a"), ReaderLogic.toEvict(items, "cur", keep = 3))
+        assertEquals(listOf("d", "b", "c", "a"), ReaderLogic.toEvict(items, "cur", keep = 1))
+    }
 }

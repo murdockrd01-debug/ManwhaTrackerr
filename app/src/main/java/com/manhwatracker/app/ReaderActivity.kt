@@ -798,6 +798,8 @@ private fun ReaderScreen(
     var pan by remember { mutableStateOf(0f) }
     var loadingNext by remember { mutableStateOf(false) }
     var noMore by remember { mutableStateOf(false) }
+    var loadingPrev by remember { mutableStateOf(false) }
+    var noPrev by remember { mutableStateOf(false) }
     val saved = remember { mutableStateMapOf<String, ReaderProgress.Saved>() }
     val undone = remember { mutableStateMapOf<String, Boolean>() }
 
@@ -822,7 +824,10 @@ private fun ReaderScreen(
     LaunchedEffect(listState) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }.collect { last ->
             val c = segs.map { it.pages.size }
+            // Solo cuentan los capítulos desde el que abriste hacia abajo: los de arriba, cargados solo para poder volver, no.
+            val origin = segs.indexOfFirst { it.key == book.key }.coerceAtLeast(0)
             for (si in ReaderLogic.finished(c, last)) {
+                if (si < origin) continue
                 val seg = segs.getOrNull(si) ?: continue
                 if (ReaderStore.done(ctx, seg.key)) continue
                 ReaderStore.setDone(ctx, seg.key, true)
@@ -837,7 +842,17 @@ private fun ReaderScreen(
         }
     }
 
-    // Lectura continua: al acercarte al final, carga el capítulo siguiente y lo pone debajo.
+    /** Carga las páginas de un capítulo de la carpeta (null si no se pudo abrir). */
+    suspend fun loadSeg(t: Uri, node: ReaderSource.Node, index: Int): Seg? {
+        val res = withContext(Dispatchers.IO) {
+            try { ReaderSource.open(ctx, t, node) } catch (e: Exception) { ReaderSource.Opened.Empty }
+        }
+        if (res !is ReaderSource.Opened.Pages) return null
+        val ratios = withContext(Dispatchers.IO) { res.pages.map { ReaderSource.ratio(ctx, it) ?: ReaderLogic.FALLBACK_RATIO } }
+        return Seg(node.name, res.pages, ratios, "$t|${node.docId}", index, node.docId)
+    }
+
+    // Lectura continua hacia abajo: al acercarte al final, carga el capítulo siguiente y lo pone debajo.
     LaunchedEffect(listState) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }.collect { last ->
             val t = book.tree ?: return@collect
@@ -848,15 +863,29 @@ private fun ReaderScreen(
             if (node == null) { noMore = true; return@collect }
             loadingNext = true
             try {
-                val res = withContext(Dispatchers.IO) {
-                    try { ReaderSource.open(ctx, t, node) } catch (e: Exception) { ReaderSource.Opened.Empty }
-                }
-                if (res is ReaderSource.Opened.Pages) {
-                    val ratios = withContext(Dispatchers.IO) { res.pages.map { ReaderSource.ratio(ctx, it) ?: ReaderLogic.FALLBACK_RATIO } }
-                    segs.add(Seg(node.name, res.pages, ratios, "$t|${node.docId}", tail.index + 1, node.docId))
-                } else noMore = true
+                val seg = loadSeg(t, node, tail.index + 1)
+                if (seg != null) segs.add(seg) else noMore = true
             } finally {
                 loadingNext = false
+            }
+        }
+    }
+
+    // Lectura continua hacia arriba: al subir hasta el principio, carga el capítulo anterior y lo pone encima.
+    // La lista usa claves, así que lo que estás viendo no se mueve cuando se añade arriba.
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex <= 1 && listState.isScrollInProgress }.collect { nearTop ->
+            val t = book.tree ?: return@collect
+            if (!nearTop || loadingPrev || noPrev) return@collect
+            val head = segs.first()
+            val node = if (head.index > 0) book.siblings.getOrNull(head.index - 1) else null
+            if (node == null) { noPrev = true; return@collect }
+            loadingPrev = true
+            try {
+                val seg = loadSeg(t, node, head.index - 1)
+                if (seg != null) segs.add(0, seg) else noPrev = true
+            } finally {
+                loadingPrev = false
             }
         }
     }
@@ -877,7 +906,7 @@ private fun ReaderScreen(
         if (bars) c.show(WindowInsetsCompat.Type.systemBars()) else c.hide(WindowInsetsCompat.Type.systemBars())
     }
 
-    val hasPrev = book.tree != null && cur.index > 0
+    val hasPrev = curSeg > 0 || (book.tree != null && cur.index > 0)
     val hasNext = curSeg < segs.size - 1 || (book.tree != null && cur.index >= 0 && cur.index < book.siblings.size - 1)
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -994,7 +1023,13 @@ private fun ReaderScreen(
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { onOpenIndex(cur.index - 1) }, enabled = hasPrev) {
+                    TextButton(
+                        onClick = {
+                            if (curSeg > 0) scope.launch { listState.scrollToItem(ReaderLogic.flatIndex(segs.map { it.pages.size }, curSeg - 1, 0)) }
+                            else onOpenIndex(cur.index - 1)
+                        },
+                        enabled = hasPrev
+                    ) {
                         Text("‹ Anterior", color = if (hasPrev) Color.White else Color.Gray)
                     }
                     Text("${ReaderLogic.percent(current, total)}%", color = Color.White)
