@@ -52,7 +52,14 @@ jobs:
           exit $code
 
       - name: Compilar
-        run: gradle assembleRelease --no-daemon
+        run: |
+          set +e
+          gradle assembleRelease --no-daemon > build.log 2>&1
+          code=$?
+          if [ $code -ne 0 ]; then
+            grep -E -A6 "^e: |FAILED|What went wrong" build.log | grep -v "^--" | head -40 | while read -r l; do echo "::error::${l:0:400}"; done
+          fi
+          exit $code
 
       - name: Guardar el APK
         uses: actions/upload-artifact@v4
