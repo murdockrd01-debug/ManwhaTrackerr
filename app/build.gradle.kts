@@ -45,6 +45,7 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+        freeCompilerArgs += "-Xcontext-parameters"
     }
     buildFeatures {
         compose = true
@@ -75,6 +76,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 
     // Motor de extensiones (lo que Komikku/Mihon les prestan a las extensiones)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-okio:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.squareup.okhttp3:okhttp:5.3.0")
     implementation("com.squareup.okhttp3:okhttp-brotli:5.3.0")
