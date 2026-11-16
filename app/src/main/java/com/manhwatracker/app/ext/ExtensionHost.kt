@@ -14,6 +14,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.InjektModule
+import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.api.InjektRegistrar
 import uy.kohesive.injekt.api.InjektScope
 import uy.kohesive.injekt.api.InjektionException
