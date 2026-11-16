@@ -1,3 +1,6 @@
+## 5.5.1
+- Explorar: las fuentes que exigen el interceptor de Cloudflare (como las de keiyoushi) ya cargan; si una página pide verificación, la app la resuelve con un WebView interno (hasta 30 segundos).
+
 ## 5.5.0
 - Nuevo "Explorar" (Más › Explorar, y botón en Fuentes): ves las fuentes de tus extensiones instaladas, sus manhwas populares y recientes, buscas, abres la ficha con sus capítulos y los lees en línea. Al llegar a la última página, el capítulo se guarda en tu manhwa si ya lo tienes en tu lista. Experimental: algunas fuentes (Cloudflare, JavaScript) aún no funcionan.
 

@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.network
 
 import android.content.Context
+import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
 import okhttp3.Cache
@@ -11,7 +12,7 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Cliente de red que se les presta a las extensiones (versión simplificada de la de Mihon, Apache 2.0).
- * Todavía sin el desafío de Cloudflare ni DNS seguro.
+ * Con el desafío de Cloudflare (por WebView); todavía sin DNS seguro.
  */
 class NetworkHelper(private val context: Context) {
 
@@ -26,6 +27,7 @@ class NetworkHelper(private val context: Context) {
             .cache(Cache(File(context.cacheDir, "network_cache"), 5L * 1024 * 1024))
             .addInterceptor(UncaughtExceptionInterceptor())
             .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
+            .addInterceptor(CloudflareInterceptor(context, cookieJar, ::defaultUserAgentProvider))
             .build()
     }
 
