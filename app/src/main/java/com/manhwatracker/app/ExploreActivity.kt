@@ -99,8 +99,8 @@ class ExploreActivity : ComponentActivity() {
 
 private sealed class Screen {
     object Home : Screen()
-    class Browse(val src: Source) : Screen()
-    class Detail(val src: Source, val manga: SManga) : Screen()
+    class Browse(val src: Source, val pkg: String) : Screen()
+    class Detail(val src: Source, val pkg: String, val manga: SManga) : Screen()
     class Read(val src: Source, val manga: SManga, val chapters: List<SChapter>, val index: Int) : Screen()
 }
 
@@ -109,17 +109,55 @@ private fun copyText(ctx: Context, text: String) {
     Toast.makeText(ctx, tr("Diagnóstico copiado"), Toast.LENGTH_SHORT).show()
 }
 
+/** Recuerda la última fuente y el último manhwa abiertos, para volver ahí sin empezar de cero. */
+private object ExploreMemory {
+    private fun p(c: Context) = c.getSharedPreferences("explore", Context.MODE_PRIVATE)
+    fun saveSource(c: Context, pkg: String, id: Long) = p(c).edit().putString("pkg", pkg).putLong("src", id).apply()
+    fun saveManga(c: Context, pkg: String, id: Long, m: SManga) =
+        p(c).edit().putString("pkg", pkg).putLong("src", id).putString("url", m.url).putString("title", m.title).putString("thumb", m.thumbnail_url).apply()
+    class Last(val pkg: String, val srcId: Long, val manga: SManga?)
+    fun read(c: Context): Last? {
+        val sp = p(c)
+        val pkg = sp.getString("pkg", null) ?: return null
+        val url = sp.getString("url", null)
+        val manga = if (url != null) SManga.create().apply { this.url = url; title = sp.getString("title", "") ?: ""; thumbnail_url = sp.getString("thumb", null) } else null
+        return Last(pkg, sp.getLong("src", 0L), manga)
+    }
+}
+
 private fun Throwable.report(): String = (generateSequence(this) { it.cause }.last().let { "${it.javaClass.simpleName}: ${it.message}" }) + "\n\n" + stackTraceToString().take(3000)
 
 @Composable
 private fun ExploreRoot(onExit: () -> Unit) {
+    val ctx = LocalContext.current
     var stack by remember { mutableStateOf(listOf<Screen>(Screen.Home)) }
-    fun push(s: Screen) { stack = stack + s }
+    var resume by remember { mutableStateOf<Pair<Screen.Browse, Screen.Detail?>?>(null) }
+    // Al abrir: vuelve a la última fuente (y deja un acceso al último manhwa en el inicio).
+    LaunchedEffect(Unit) {
+        val last = ExploreMemory.read(ctx) ?: return@LaunchedEffect
+        val r = withContext(Dispatchers.IO) { ExtensionHost.load(ctx, last.pkg) }
+        val src = (r as? ExtensionHost.Result.Ok)?.ext?.sources?.firstOrNull { it.id == last.srcId } ?: return@LaunchedEffect
+        val browse = Screen.Browse(src, last.pkg)
+        resume = browse to last.manga?.let { Screen.Detail(src, last.pkg, it) }
+        if (stack.size == 1) stack = listOf(Screen.Home, browse)
+    }
+    fun push(s: Screen) {
+        when (s) {
+            is Screen.Browse -> ExploreMemory.saveSource(ctx, s.pkg, s.src.id)
+            is Screen.Detail -> ExploreMemory.saveManga(ctx, s.pkg, s.src.id, s.manga)
+            else -> {}
+        }
+        stack = stack + s
+    }
     fun pop() { if (stack.size > 1) stack = stack.dropLast(1) else onExit() }
     BackHandler { pop() }
     when (val s = stack.last()) {
-        is Screen.Home -> HomeScreen(onExit = onExit, onOpen = { push(Screen.Browse(it)) })
-        is Screen.Browse -> BrowseScreen(s.src, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, it)) })
+        is Screen.Home -> HomeScreen(
+            onExit = onExit, onOpen = { src, pkg -> push(Screen.Browse(src, pkg)) },
+            continueTitle = resume?.second?.manga?.title,
+            onContinue = { resume?.let { (b, d) -> stack = listOfNotNull(Screen.Home, b, d) } }
+        )
+        is Screen.Browse -> BrowseScreen(s.src, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it)) })
         is Screen.Detail -> DetailScreen(s.src, s.manga, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.manga, list, i)) })
         is Screen.Read -> OnlineReader(s.src, s.manga, s.chapters, s.index, onBack = { pop() })
     }
@@ -130,7 +168,7 @@ private fun ExploreRoot(onExit: () -> Unit) {
 private class Row2(val pkg: String, val result: ExtensionHost.Result)
 
 @Composable
-private fun HomeScreen(onExit: () -> Unit, onOpen: (Source) -> Unit) {
+private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, continueTitle: String?, onContinue: () -> Unit) {
     val ctx = LocalContext.current
     var rows by remember { mutableStateOf<List<Row2>?>(null) }
     var reload by remember { mutableStateOf(0) }
@@ -151,6 +189,20 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source) -> Unit) {
                 }
             }
         }
+        if (!continueTitle.isNullOrBlank()) item {
+            Card(
+                Modifier.fillMaxWidth().clickable(onClick = onContinue),
+                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Continuar donde te quedaste", style = MaterialTheme.typography.labelMedium)
+                        Text(continueTitle, fontWeight = FontWeight.Bold, fontSize = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                    Text("▶", fontSize = 22.sp)
+                }
+            }
+        }
         val list = rows
         if (list == null) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
         else if (list.isEmpty()) item {
@@ -167,7 +219,7 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source) -> Unit) {
                 is ExtensionHost.Result.Ok -> {
                     item(key = row.pkg + "h") { Text(r.ext.name + " · v" + r.ext.versionName, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     items(r.ext.sources, key = { row.pkg + it.id }) { src ->
-                        Card(Modifier.fillMaxWidth().clickable { onOpen(src) }) {
+                        Card(Modifier.fillMaxWidth().clickable { onOpen(src, row.pkg) }) {
                             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
                                     Text(src.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)

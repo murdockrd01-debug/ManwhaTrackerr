@@ -168,6 +168,7 @@
         <activity
             android:name=".ExploreActivity"
             android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
             android:label="Explorar"
             android:theme="@style/Theme.ManhwaTracker" />
         <activity

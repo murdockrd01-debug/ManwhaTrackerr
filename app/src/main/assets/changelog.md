@@ -1,3 +1,6 @@
+## 5.5.3
+- Explorar recuerda dónde estabas: al abrirlo vuelve a la última fuente, y en el inicio aparece "Continuar donde te quedaste" con el último manhwa que abriste. Girar el teléfono ya no reinicia la pantalla.
+
 ## 5.5.2
 - Leer: nueva tarjeta "Explorar fuentes" arriba (con acceso rápido a Fuentes), para leer en línea con tus extensiones sin buscar en Más.
 
