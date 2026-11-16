@@ -1,3 +1,6 @@
+## 5.6.0
+- "Leer" ahora es la lectura en línea: el botón Leer abre directamente tus fuentes (extensiones), con "Continuar donde te quedaste", acceso a Fuentes y a la última fuente que usaste. Leer archivos descargados (Komikku, .cbz) sigue disponible abajo del todo y en Más › Lector.
+
 ## 5.5.3
 - Explorar recuerda dónde estabas: al abrirlo vuelve a la última fuente, y en el inicio aparece "Continuar donde te quedaste" con el último manhwa que abriste. Girar el teléfono ya no reinicia la pantalla.
 

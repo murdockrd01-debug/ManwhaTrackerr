@@ -247,7 +247,7 @@ fun App(vm: MainViewModel = viewModel()) {
                     // Acceso directo al lector integrado (antes solo estaba dentro de Más).
                     NavigationBarItem(
                         selected = false,
-                        onClick = { appCtx.startActivity(android.content.Intent(appCtx, ReaderActivity::class.java)) },
+                        onClick = { ExploreActivity.open(appCtx) },
                         icon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
                         label = { NavLabel("Leer") }
                     )

@@ -184,9 +184,10 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, con
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onExit) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver")) }
                 Column(Modifier.weight(1f)) {
-                    Text("Explorar", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                    Text("Fuentes de tus extensiones instaladas", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Leer", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text("Lee en línea con tus extensiones", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                TextButton(onClick = { SourcesActivity.open(ctx) }) { Text("Fuentes") }
             }
         }
         if (!continueTitle.isNullOrBlank()) item {
@@ -250,6 +251,11 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, con
                         }
                     }
                 }
+            }
+        }
+        item(key = "downloads") {
+            TextButton(onClick = { ctx.startActivity(Intent(ctx, ReaderActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) {
+                Text("Leer archivos descargados (Komikku, .cbz)")
             }
         }
     }
