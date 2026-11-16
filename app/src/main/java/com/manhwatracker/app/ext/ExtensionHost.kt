@@ -42,6 +42,14 @@ object ExtensionHost {
         }
     }
 
+    /** Cliente de red y cargador de imágenes compartidos (con las cookies y cabeceras que esperan las fuentes). */
+    fun network(c: Context): NetworkHelper { init(c); return Injekt.get<NetworkHelper>() }
+
+    @Volatile private var loader: coil.ImageLoader? = null
+    fun imageLoader(c: Context): coil.ImageLoader = loader ?: synchronized(this) {
+        loader ?: coil.ImageLoader.Builder(c.applicationContext).callFactory { network(c).client }.crossfade(true).build().also { loader = it }
+    }
+
     class Loaded(val pkg: String, val name: String, val versionName: String, val sources: List<Source>)
 
     sealed class Result {

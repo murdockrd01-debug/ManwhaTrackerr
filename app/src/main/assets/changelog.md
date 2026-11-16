@@ -1,3 +1,6 @@
+## 5.5.0
+- Nuevo "Explorar" (Más › Explorar, y botón en Fuentes): ves las fuentes de tus extensiones instaladas, sus manhwas populares y recientes, buscas, abres la ficha con sus capítulos y los lees en línea. Al llegar a la última página, el capítulo se guarda en tu manhwa si ya lo tienes en tu lista. Experimental: algunas fuentes (Cloudflare, JavaScript) aún no funcionan.
+
 ## 5.4.0
 - Primera prueba del motor de extensiones (experimental): en Más › Fuentes, las extensiones instaladas tienen un botón "Probar" que las carga dentro de la app y muestra los manhwas populares de su primera fuente. Si falla, muestra el error para copiarlo. Todavía no se puede leer ni buscar.
 

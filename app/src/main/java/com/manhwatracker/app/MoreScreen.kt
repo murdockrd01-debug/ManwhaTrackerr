@@ -66,6 +66,7 @@ fun MoreScreen(
         MoreGroup(null) {
             if (Features.study) MoreRow("💡", "Descubrir", "Recomendaciones y tendencias", onDiscover)
             MoreRow("📖", "Lector", "Lee capítulos descargados (carpeta o .cbz)", onReader)
+            MoreRow("🌐", "Explorar", "Ver y leer manhwas de tus extensiones instaladas") { ExploreActivity.open(moreCtx) }
             MoreRow("🧩", "Fuentes", "Repositorios y extensiones de Komikku/Mihon") { SourcesActivity.open(moreCtx) }
             MoreRow("⭐", "Calificaciones", "Tu ranking, favoritos y promedio", onRatings)
         }

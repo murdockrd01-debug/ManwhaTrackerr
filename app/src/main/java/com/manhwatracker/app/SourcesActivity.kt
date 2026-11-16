@@ -190,6 +190,7 @@ private fun SourcesScreen(onExit: () -> Unit) {
                     Text("Fuentes", fontSize = 26.sp, fontWeight = FontWeight.Bold)
                     Text("Repositorios y extensiones", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                TextButton(onClick = { ExploreActivity.open(ctx) }) { Text("Explorar") }
                 if (refreshing) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                 else if (repos.isNotEmpty()) IconButton(onClick = { refreshAll() }) { Icon(Icons.Filled.Refresh, contentDescription = tr("Actualizar")) }
             }

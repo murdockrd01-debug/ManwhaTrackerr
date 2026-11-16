@@ -166,6 +166,11 @@
             android:label="Probar extensión"
             android:theme="@style/Theme.ManhwaTracker" />
         <activity
+            android:name=".ExploreActivity"
+            android:exported="false"
+            android:label="Explorar"
+            android:theme="@style/Theme.ManhwaTracker" />
+        <activity
             android:name=".SourcesActivity"
             android:exported="false"
             android:label="Fuentes"
