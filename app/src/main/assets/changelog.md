@@ -1,3 +1,6 @@
+## 5.5.2
+- Leer: nueva tarjeta "Explorar fuentes" arriba (con acceso rápido a Fuentes), para leer en línea con tus extensiones sin buscar en Más.
+
 ## 5.5.1
 - Explorar: las fuentes que exigen el interceptor de Cloudflare (como las de keiyoushi) ya cargan; si una página pide verificación, la app la resuelve con un WebView interno (hasta 30 segundos).
 

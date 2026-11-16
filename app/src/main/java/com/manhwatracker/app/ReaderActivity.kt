@@ -561,6 +561,21 @@ private fun ReaderHome(
             }
         }
 
+        item {
+            val hubCtx = androidx.compose.ui.platform.LocalContext.current
+            Card(Modifier.fillMaxWidth().clickable { ExploreActivity.open(hubCtx) }) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("🌐", fontSize = 26.sp)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Explorar fuentes", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Busca y lee en línea con tus extensiones", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = { SourcesActivity.open(hubCtx) }) { Text("Fuentes") }
+                }
+            }
+        }
+
         if (last != null) {
             item {
                 Card(
