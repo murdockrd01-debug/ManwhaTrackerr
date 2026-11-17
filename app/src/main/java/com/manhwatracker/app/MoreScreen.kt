@@ -6,6 +6,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import com.manhwatracker.app.data.CoverStyle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -208,6 +210,52 @@ fun AppearanceScreen() {
                     ThemeState.save(context)
                 }
             )
+        }
+
+        Text("Carátulas", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Tamaño en tu pantalla principal (cuadrícula y lista).",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            CoverStyle.sizes.forEach { (id, label) ->
+                FilterChip(
+                    selected = ThemeState.coverSize == id,
+                    onClick = { ThemeState.coverSize = id; ThemeState.saveCovers(context) },
+                    label = { Text(label) }
+                )
+            }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Difuminar carátulas +18", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Desactivado por defecto. Difumina las carátulas de los manhwas +18 (género Hentai). En la ficha de cada uno puedes marcarlo o quitarle la marca a mano. En Android 11 o menos se ve como mosaico.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = ThemeState.blurAdult,
+                onCheckedChange = { ThemeState.blurAdult = it; ThemeState.saveCovers(context) }
+            )
+        }
+        if (ThemeState.blurAdult) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Incluir también Ecchi", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Difumina además los de género Ecchi (menos explícito).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = ThemeState.blurEcchi,
+                    onCheckedChange = { ThemeState.blurEcchi = it; ThemeState.saveCovers(context) }
+                )
+            }
         }
     }
 }

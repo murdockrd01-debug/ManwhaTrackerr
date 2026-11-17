@@ -67,7 +67,27 @@ object ThemeState {
     var customHue by mutableStateOf(200f)
     var customAccent by mutableStateOf(320f)
 
+    var coverSize by mutableStateOf("M")
+    var blurAdult by mutableStateOf(false)
+    var blurEcchi by mutableStateOf(false)
+    var adultMarks by mutableStateOf<Map<String, Boolean>>(emptyMap())
+
+    fun saveCovers(context: Context) {
+        Prefs.setCoverSize(context, coverSize)
+        Prefs.setBlurAdult(context, blurAdult)
+        Prefs.setBlurEcchi(context, blurEcchi)
+    }
+
+    fun setAdultMark(context: Context, titleKey: String, value: Boolean?) {
+        adultMarks = if (value == null) adultMarks - titleKey else adultMarks + (titleKey to value)
+        Prefs.setAdultMarks(context, adultMarks)
+    }
+
     fun load(context: Context) {
+        coverSize = Prefs.coverSize(context)
+        blurAdult = Prefs.blurAdult(context)
+        blurEcchi = Prefs.blurEcchi(context)
+        adultMarks = Prefs.adultMarks(context)
         palette = Prefs.palette(context)
         mode = Prefs.themeMode(context)
         amoled = Prefs.amoled(context)

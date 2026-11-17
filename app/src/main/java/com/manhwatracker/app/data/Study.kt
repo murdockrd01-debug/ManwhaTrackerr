@@ -45,6 +45,22 @@ object Prefs {
             .putFloat("custom_hue", hue).putFloat("custom_accent", accent).apply()
     }
 
+    // ---- Carátulas
+    fun coverSize(c: Context): String = CoverStyle.normalize(p(c).getString("cover_size", null))
+    fun setCoverSize(c: Context, v: String) { p(c).edit().putString("cover_size", v).apply() }
+    fun blurAdult(c: Context): Boolean = p(c).getBoolean("blur_adult", false)
+    fun setBlurAdult(c: Context, on: Boolean) { p(c).edit().putBoolean("blur_adult", on).apply() }
+    fun blurEcchi(c: Context): Boolean = p(c).getBoolean("blur_ecchi", false)
+    fun setBlurEcchi(c: Context, on: Boolean) { p(c).edit().putBoolean("blur_ecchi", on).apply() }
+    /** Marcas manuales +18: "titleKey" = sí, "!titleKey" = no (aunque el género diga lo contrario). */
+    fun adultMarks(c: Context): Map<String, Boolean> =
+        (p(c).getStringSet("adult_marks", emptySet()) ?: emptySet()).associate {
+            if (it.startsWith("!")) it.substring(1) to false else it to true
+        }
+    fun setAdultMarks(c: Context, m: Map<String, Boolean>) {
+        p(c).edit().putStringSet("adult_marks", m.map { (k, v) -> if (v) k else "!$k" }.toSet()).apply()
+    }
+
     fun sort(c: Context): String = p(c).getString("sort", "RECENT") ?: "RECENT"
     fun setSort(c: Context, value: String) {
         p(c).edit().putString("sort", value).apply()

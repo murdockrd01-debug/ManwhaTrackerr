@@ -81,6 +81,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -96,6 +97,7 @@ import coil.compose.AsyncImage
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.manhwatracker.app.data.AniList
+import com.manhwatracker.app.data.CoverStyle
 import com.manhwatracker.app.data.Genres
 import com.manhwatracker.app.data.Manhwa
 import com.manhwatracker.app.data.Prefs
@@ -376,7 +378,7 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
             }
         } else if (grid) {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 104.dp),
+                columns = GridCells.Adaptive(minSize = CoverStyle.gridMinDp(ThemeState.coverSize).dp),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
                     start = 12.dp, end = 12.dp, top = 4.dp, bottom = 88.dp
@@ -538,7 +540,7 @@ fun ManhwaCard(
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Cover(m, onCoverMissing, Modifier.width(64.dp).height(92.dp))
+            Cover(m, onCoverMissing, Modifier.width(CoverStyle.listWidthDp(ThemeState.coverSize).dp).height(CoverStyle.listHeightDp(ThemeState.coverSize).dp))
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(
@@ -667,8 +669,15 @@ fun ManhwaGridCard(
     }
 }
 
+/** ¿Hay que difuminar la carátula de este manhwa? Solo si el usuario activó el filtro y el manhwa es +18. */
+@Composable
+fun shouldBlur(m: Manhwa): Boolean =
+    ThemeState.blurAdult && CoverStyle.isAdult(m.genres, ThemeState.adultMarks[m.titleKey], ThemeState.blurEcchi)
+
 @Composable
 fun Cover(m: Manhwa, onError: () -> Unit, modifier: Modifier) {
+    val blurred = shouldBlur(m)
+    val strong = blurred && android.os.Build.VERSION.SDK_INT >= 31
     Box(
         modifier
             .clip(RoundedCornerShape(12.dp))
@@ -677,12 +686,39 @@ fun Cover(m: Manhwa, onError: () -> Unit, modifier: Modifier) {
     ) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surfaceVariant) {}
         if (!m.coverUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = m.coverUrl,
-                contentDescription = m.title,
-                contentScale = ContentScale.Crop,
-                onError = { onError() },
-                modifier = Modifier.fillMaxSize()
+            if (blurred && !strong) {
+                // Android 11 o menos: no hay desenfoque nativo; se carga la imagen minúscula y se estira (mosaico).
+                AsyncImage(
+                    model = coil.request.ImageRequest.Builder(LocalContext.current)
+                        .data(m.coverUrl).size(8, 12).build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    filterQuality = androidx.compose.ui.graphics.FilterQuality.Low,
+                    onError = { onError() },
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                AsyncImage(
+                    model = m.coverUrl,
+                    contentDescription = if (blurred) null else m.title,
+                    contentScale = ContentScale.Crop,
+                    onError = { onError() },
+                    modifier = Modifier.fillMaxSize().then(
+                        if (strong) Modifier.blur(28.dp) else Modifier
+                    )
+                )
+            }
+        }
+        if (blurred) {
+            Text(
+                "+18",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(Color(0x99000000))
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
             )
         }
     }
@@ -794,6 +830,11 @@ fun DetailScreen(
                     }
                     TextButton(onClick = { vm.coverFallback(item, force = true) }) {
                         Text("Buscar portada", color = Color.White)
+                    }
+                    val ctxAdult = LocalContext.current
+                    val isAdultNow = CoverStyle.isAdult(item.genres, ThemeState.adultMarks[item.titleKey], ThemeState.blurEcchi)
+                    TextButton(onClick = { ThemeState.setAdultMark(ctxAdult, item.titleKey, !isAdultNow) }) {
+                        Text(if (isAdultNow) "Quitar marca +18" else "Marcar como +18", color = Color.White)
                     }
                 }
             }
