@@ -1,3 +1,6 @@
+## 5.7.0
+- Lo que empiezas a leer en una fuente se agrega solo a tus manhwas (en "Leyendo"), y se guarda el avance al terminar cada capítulo. En la ficha de cada manhwa hay un botón "Agregar a mis manhwas" (queda en "Pendiente") o el aviso "Está en tus manhwas".
+
 ## 5.6.4
 - Continuar leyendo: ya abre el capítulo que sigue aunque la fuente no traiga el número de capítulo (se lee del nombre, como hace Komikku). Si la fuente no numera sus capítulos, lo avisa.
 

@@ -85,6 +85,8 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.manhwatracker.app.data.ChapterPick
+import com.manhwatracker.app.data.LibraryAdd
+import com.manhwatracker.app.data.Status
 import com.manhwatracker.app.data.ReaderProgress
 import com.manhwatracker.app.ext.ExtensionHost
 import com.manhwatracker.app.ext.OnlineStore
@@ -447,6 +449,7 @@ private fun statusLabel(s: Int) = when (s) {
 @Composable
 private fun DetailScreen(src: Source, manga: SManga, startAfter: Double?, onBack: () -> Unit, onRead: (List<SChapter>, Int) -> Unit) {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
     var detail by remember { mutableStateOf(manga) }
     var chapters by remember { mutableStateOf<List<SChapter>?>(null) }
     var failure by remember { mutableStateOf<String?>(null) }
@@ -496,6 +499,25 @@ private fun DetailScreen(src: Source, manga: SManga, startAfter: Double?, onBack
                     Text(statusLabel(detail.status), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     detail.genre?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
+            }
+        }
+        item {
+            val inLib = remember { mutableStateOf<Boolean?>(null) }
+            LaunchedEffect(manga.title) { inLib.value = LibraryAdd.contains(ctx, manga.title) }
+            when (inLib.value) {
+                true -> Text("✓ Está en tus manhwas", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                false -> Button(
+                    onClick = {
+                        scope.launch {
+                            if (LibraryAdd.ensure(ctx, detail.title.ifBlank { manga.title }, detail.thumbnail_url ?: manga.thumbnail_url, Status.PLAN)) {
+                                Toast.makeText(ctx, "Agregado a tus manhwas (Pendiente)", Toast.LENGTH_SHORT).show()
+                            }
+                            inLib.value = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("➕ Agregar a mis manhwas") }
+                null -> {}
             }
         }
         detail.description?.takeIf { it.isNotBlank() }?.let { d -> item { Text(d, style = MaterialTheme.typography.bodyMedium, maxLines = 8, overflow = TextOverflow.Ellipsis) } }
@@ -553,6 +575,12 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
     val listState = rememberLazyListState()
     val zoom = remember { ZoomState() }
     var recorded by remember(index) { mutableStateOf(false) }
+    // Si empiezas a leer algo que no tenías, se agrega a tus manhwas (en "Leyendo").
+    LaunchedEffect(Unit) {
+        if (LibraryAdd.ensure(ctx, linkTitle ?: manga.title, manga.thumbnail_url)) {
+            Toast.makeText(ctx, "Agregado a tus manhwas", Toast.LENGTH_SHORT).show()
+        }
+    }
     val key = src.id.toString() + "|" + manga.url + "|" + chapter.url
 
     LaunchedEffect(index) {
