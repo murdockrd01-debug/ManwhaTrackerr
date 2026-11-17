@@ -23,6 +23,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -512,6 +526,7 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
     var failure by remember(index) { mutableStateOf<String?>(null) }
     val states = remember(index) { mutableStateMapOf<Int, PageState>() }
     val listState = rememberLazyListState()
+    val zoom = remember { ZoomState() }
     var recorded by remember(index) { mutableStateOf(false) }
     val key = src.id.toString() + "|" + manga.url + "|" + chapter.url
 
@@ -551,7 +566,7 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
             }
             list == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             list.isEmpty() -> Text("Este capítulo no tiene páginas", modifier = Modifier.padding(16.dp))
-            else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+            else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize().zoomable(zoom, listState)) {
                 items(list.size, key = { index.toString() + "-" + it }) { i ->
                     val st = states[i]
                     LaunchedEffect(i, index) {
@@ -583,3 +598,58 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
         }
     }
 }
+
+// ---------------- Zoom del lector en línea ----------------
+
+/** Zoom horizontal del lector: las páginas se ensanchan (se ven nítidas) y se desplazan de lado; el scroll vertical sigue siendo el de la lista. */
+class ZoomState {
+    var scale by mutableStateOf(1f)
+    var offX by mutableStateOf(0f)
+    var viewW by mutableStateOf(0f)
+
+    fun clampX(x: Float): Float = x.coerceIn(-(viewW * scale - viewW).coerceAtLeast(0f), 0f)
+
+    fun zoomAt(factor: Float, cx: Float) {
+        val old = scale
+        val ns = (old * factor).coerceIn(1f, 4f)
+        offX = clampX(cx - (cx - offX) * (ns / old))
+        scale = ns
+        if (ns == 1f) offX = 0f
+    }
+}
+
+private fun Modifier.zoomable(z: ZoomState, list: LazyListState): Modifier = this
+    .clipToBounds()
+    .onSizeChanged { z.viewW = it.width.toFloat() }
+    .pointerInput(Unit) {
+        detectTapGestures(onDoubleTap = { p -> if (z.scale > 1.01f) z.zoomAt(1f / z.scale, p.x) else z.zoomAt(2.5f, p.x) })
+    }
+    .pointerInput(Unit) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            do {
+                val ev = awaitPointerEvent(PointerEventPass.Initial)
+                val pressed = ev.changes.count { it.pressed }
+                if (pressed >= 2) {
+                    val zoom = ev.calculateZoom()
+                    val pan = ev.calculatePan()
+                    val c = ev.calculateCentroid(useCurrent = true)
+                    if (zoom != 1f || pan != Offset.Zero) {
+                        val before = z.scale
+                        z.zoomAt(zoom, c.x)
+                        z.offX = z.clampX(z.offX + pan.x)
+                        list.dispatchRawDelta(-pan.y + (z.scale / before - 1f) * c.y)
+                        ev.changes.forEach { if (it.positionChanged()) it.consume() }
+                    }
+                } else if (pressed == 1 && z.scale > 1f) {
+                    // Con una página ampliada, arrastrar de lado la mueve; el vertical lo sigue manejando la lista.
+                    z.offX = z.clampX(z.offX + ev.changes.first().positionChange().x)
+                }
+            } while (ev.changes.any { it.pressed })
+        }
+    }
+    .layout { measurable, constraints ->
+        val w = (constraints.maxWidth * z.scale).toInt().coerceAtLeast(constraints.maxWidth)
+        val p = measurable.measure(constraints.copy(minWidth = w, maxWidth = w))
+        layout(constraints.maxWidth, p.height) { p.place(z.offX.toInt(), 0) }
+    }

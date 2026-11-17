@@ -1,3 +1,6 @@
+## 5.6.2
+- Lector en línea: zoom con dos dedos (hasta 4×), doble toque para acercar o volver, y arrastre de lado cuando la página está ampliada. El desplazamiento hacia abajo sigue igual.
+
 ## 5.6.1
 - "Continuar leyendo" (en cada manhwa de tu lista) ahora abre la lectura en línea de la app, no las descargas de Komikku. Si ya abriste ese manhwa en una fuente, va directo al capítulo siguiente al que llevas; si no, lo busca en la última fuente que usaste y, al elegirlo, la app recuerda el vínculo.
 - Al leer en línea, el avance se guarda en el manhwa vinculado aunque la fuente lo llame distinto.
