@@ -1,3 +1,6 @@
+## 5.7.1
+- Fuentes: el botón "Quitar" de una extensión instalada ya funciona (faltaba el permiso de Android para desinstalar). Si el desinstalador no se pudiera abrir, ahora lo avisa.
+
 ## 5.7.0
 - Lo que empiezas a leer en una fuente se agrega solo a tus manhwas (en "Leyendo"), y se guarda el avance al terminar cada capítulo. En la ficha de cada manhwa hay un botón "Agregar a mis manhwas" (queda en "Pendiente") o el aviso "Está en tus manhwas".
 

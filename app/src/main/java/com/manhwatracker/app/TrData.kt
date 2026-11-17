@@ -349,6 +349,7 @@ object TrData {
         "Actualizar ahora" to "Update now",
         "Copiar diagnóstico" to "Copy diagnostics", "Diagnóstico copiado" to "Diagnostics copied",
         "Este repositorio usa un formato nuevo (index.pb) que la app todavía no sabe leer. Copia el diagnóstico y envíaselo a Claude." to "This repository uses a new format (index.pb) the app can't read yet. Copy the diagnostics and send them to Claude.",
+        "No pude abrir el desinstalador. Quítala desde los ajustes de Android > Apps." to "I couldn't open the uninstaller. Remove it from Android Settings > Apps.",
         "Fuentes" to "Sources", "Repositorios y extensiones" to "Repositories and extensions",
         "Repositorios y extensiones de Komikku/Mihon" to "Komikku/Mihon repositories and extensions",
         "Repositorios" to "Repositories", "Agregar repositorio" to "Add repository", "Instalar" to "Install",

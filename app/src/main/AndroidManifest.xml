@@ -23,6 +23,8 @@
     </queries>
 
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Para poder quitar (desinstalar) las extensiones desde Fuentes -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Para saber qué extensiones (de Komikku/Mihon) hay instaladas y si tienen actualización -->

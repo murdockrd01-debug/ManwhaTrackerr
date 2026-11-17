@@ -170,7 +170,11 @@ private fun SourcesScreen(onExit: () -> Unit) {
     }
 
     fun uninstall(e: RepoExt) {
-        runCatching { ctx.startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:${e.pkg}"))) }
+        try {
+            ctx.startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:${e.pkg}")))
+        } catch (ex: Exception) {
+            Toast.makeText(ctx, tr("No pude abrir el desinstalador. Quítala desde los ajustes de Android > Apps."), Toast.LENGTH_LONG).show()
+        }
     }
 
     val langs = remember(all) { Sources.languages(all) }
