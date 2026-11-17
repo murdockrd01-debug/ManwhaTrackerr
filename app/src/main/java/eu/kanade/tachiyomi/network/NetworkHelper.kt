@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.network
 
 import android.content.Context
 import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
+import eu.kanade.tachiyomi.network.interceptor.NetworkLogInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
 import okhttp3.Cache
@@ -25,6 +26,7 @@ class NetworkHelper(private val context: Context) {
             .readTimeout(30.seconds)
             .callTimeout(2.minutes)
             .cache(Cache(File(context.cacheDir, "network_cache"), 5L * 1024 * 1024))
+            .addInterceptor(NetworkLogInterceptor())
             .addInterceptor(UncaughtExceptionInterceptor())
             .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
             .addInterceptor(CloudflareInterceptor(context, cookieJar, ::defaultUserAgentProvider))

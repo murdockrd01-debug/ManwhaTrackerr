@@ -1,3 +1,6 @@
+## 5.7.2
+- Diagnóstico de fuentes: el error que se copia ahora incluye las últimas peticiones de red (dirección y código de respuesta), para ver qué recibió la fuente.
+
 ## 5.7.1
 - Fuentes: el botón "Quitar" de una extensión instalada ya funciona (faltaba el permiso de Android para desinstalar). Si el desinstalador no se pudiera abrir, ahora lo avisa.
 

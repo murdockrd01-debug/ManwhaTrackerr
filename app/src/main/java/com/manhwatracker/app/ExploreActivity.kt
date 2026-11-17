@@ -173,7 +173,9 @@ private object ExploreMemory {
     }
 }
 
-private fun Throwable.report(): String = (generateSequence(this) { it.cause }.last().let { "${it.javaClass.simpleName}: ${it.message}" }) + "\n\n" + stackTraceToString().take(3000)
+private fun Throwable.report(): String = (generateSequence(this) { it.cause }.last().let { "${it.javaClass.simpleName}: ${it.message}" }) +
+    "\n\nÚltimas peticiones de red:\n" + eu.kanade.tachiyomi.network.interceptor.NetworkLog.dump() +
+    "\n\n" + stackTraceToString().take(2500)
 
 @Composable
 private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> Unit) {
