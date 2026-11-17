@@ -69,6 +69,9 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -121,7 +124,7 @@ private sealed class Screen {
     object Home : Screen()
     class Browse(val src: Source, val pkg: String, val initialQuery: String? = null) : Screen()
     class Detail(val src: Source, val pkg: String, val manga: SManga, val linkTitle: String? = null, val startAfter: Double? = null) : Screen()
-    class Read(val src: Source, val manga: SManga, val chapters: List<SChapter>, val index: Int, val linkTitle: String? = null) : Screen()
+    class Read(val src: Source, val manga: SManga, val chapters: List<SChapter>, val index: Int, val linkTitle: String? = null, val startPos: Pair<Int, Int>? = null) : Screen()
 }
 
 private fun copyText(ctx: Context, text: String) {
@@ -141,6 +144,14 @@ private object ExploreMemory {
         e.putString("map_" + norm(m.title), rec)
         if (!linkTitle.isNullOrBlank()) e.putString("map_" + norm(linkTitle), rec)
         e.apply()
+    }
+    /** Por dónde ibas en un capítulo: página (elemento de la lista) y desplazamiento. */
+    fun savePos(c: Context, title: String, chapterUrl: String, index: Int, offset: Int) =
+        p(c).edit().putString("pos_" + norm(title), listOf(chapterUrl, index.toString(), offset.toString()).joinToString("\u001F")).apply()
+    fun readPos(c: Context, title: String, chapterUrl: String): Pair<Int, Int>? {
+        val f = p(c).getString("pos_" + norm(title), null)?.split("\u001F") ?: return null
+        if (f.size < 3 || f[0] != chapterUrl) return null
+        return (f[1].toIntOrNull() ?: return null) to (f[2].toIntOrNull() ?: 0)
     }
     /** El manhwa de la fuente que ya vinculaste con [title], si lo hay. */
     fun forTitle(c: Context, title: String): Last? {
@@ -205,8 +216,8 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
             onContinue = { resume?.let { (b, d) -> stack = listOfNotNull(Screen.Home, b, d) } }
         )
         is Screen.Browse -> BrowseScreen(s.src, s.initialQuery, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it, s.initialQuery)) })
-        is Screen.Detail -> DetailScreen(s.src, s.manga, s.startAfter, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.manga, list, i, s.linkTitle)) })
-        is Screen.Read -> OnlineReader(s.src, s.manga, s.chapters, s.index, s.linkTitle, onBack = { pop() })
+        is Screen.Detail -> DetailScreen(s.src, s.manga, s.startAfter, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.manga, list, i, s.linkTitle, ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
+        is Screen.Read -> OnlineReader(s.src, s.manga, s.chapters, s.index, s.linkTitle, s.startPos, onBack = { pop() })
     }
 }
 
@@ -338,6 +349,7 @@ private fun BrowseScreen(src: Source, initialQuery: String?, onBack: () -> Unit,
     var loading by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
     var gen by remember { mutableStateOf(0) }
+    var autoDone by remember { mutableStateOf(initialQuery.isNullOrBlank()) }
 
     fun loadMore() {
         if (loading || !hasNext) return
@@ -358,6 +370,13 @@ private fun BrowseScreen(src: Source, initialQuery: String?, onBack: () -> Unit,
                     items.addAll(res.mangas.filter { it.url !in have })
                     page = next
                     hasNext = res.hasNextPage && res.mangas.isNotEmpty()
+                    // Desde "Continuar leyendo": si un resultado se llama igual que tu manhwa, se abre solo.
+                    if (!autoDone && mode == 2) {
+                        autoDone = true
+                        val want = ExploreMemory.norm(initialQuery.orEmpty())
+                        val exact = items.filter { ExploreMemory.norm(it.title) == want }
+                        if (exact.size == 1 || (exact.isNotEmpty() && items.first() === exact.first())) onOpen(exact.first())
+                    }
                 }
             } catch (e: Throwable) {
                 if (my == gen) { failure = e.report(); hasNext = false }
@@ -517,7 +536,7 @@ private sealed class PageState {
 }
 
 @Composable
-private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, startIndex: Int, linkTitle: String?, onBack: () -> Unit) {
+private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, startIndex: Int, linkTitle: String?, startPos: Pair<Int, Int>?, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var index by remember { mutableStateOf(startIndex) }
@@ -534,7 +553,20 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
         try { pages = withContext(Dispatchers.IO) { src.getPageList(chapter).sortedBy { it.index } } }
         catch (e: Throwable) { failure = e.report() }
     }
-    LaunchedEffect(index) { listState.scrollToItem(0) }
+    // Al abrir: vuelve a la página donde ibas (solo en el capítulo con el que se abrió); si no, al inicio.
+    LaunchedEffect(index, pages) {
+        if (pages == null) return@LaunchedEffect
+        val pos = startPos?.takeIf { index == startIndex }
+        if (pos != null) listState.scrollToItem(pos.first.coerceIn(0, pages!!.size), pos.second) else listState.scrollToItem(0)
+    }
+    // Guarda por dónde vas (con una pequeña espera para no escribir en cada pixel).
+    LaunchedEffect(index, pages) {
+        if (pages == null) return@LaunchedEffect
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }.collectLatest { (i, o) ->
+            delay(500)
+            ExploreMemory.savePos(ctx, linkTitle ?: manga.title, chapter.url, i, o)
+        }
+    }
 
     // Al llegar a la última página, el avance se guarda en tus manhwas (si ese manhwa está en tu lista).
     val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1

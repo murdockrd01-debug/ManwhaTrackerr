@@ -1,3 +1,6 @@
+## 5.6.3
+- "Continuar leyendo" te lleva justo donde ibas: al capítulo que sigue al último que terminaste y, si lo dejaste a medias, a la página donde te quedaste. La primera vez, si un resultado de la búsqueda se llama igual que tu manhwa, se abre solo.
+
 ## 5.6.2
 - Lector en línea: zoom con dos dedos (hasta 4×), doble toque para acercar o volver, y arrastre de lado cuando la página está ampliada. El desplazamiento hacia abajo sigue igual.
 
