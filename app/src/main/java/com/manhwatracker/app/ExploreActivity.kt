@@ -84,6 +84,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.manhwatracker.app.data.ChapterPick
 import com.manhwatracker.app.data.ReaderProgress
 import com.manhwatracker.app.ext.ExtensionHost
 import com.manhwatracker.app.ext.OnlineStore
@@ -460,7 +461,10 @@ private fun DetailScreen(src: Source, manga: SManga, startAfter: Double?, onBack
     }
     // Para leer: del más viejo al más nuevo. Las fuentes suelen devolver el más nuevo primero.
     val asc = remember(chapters) {
-        chapters?.let { l -> if (l.size > 1 && l.first().chapter_number > l.last().chapter_number) l.reversed() else if (l.size > 1 && l.first().chapter_number == l.last().chapter_number) l.reversed() else l }
+        chapters?.let { l ->
+            val nums = l.map { ChapterPick.number(it.chapter_number, it.name) }
+            if (ChapterPick.newestFirst(nums)) l.reversed() else l
+        }
     }
     // Desde "Continuar leyendo": salta al primer capítulo después del último que leíste (una sola vez).
     var auto by remember { mutableStateOf(startAfter) }
@@ -468,9 +472,11 @@ private fun DetailScreen(src: Source, manga: SManga, startAfter: Double?, onBack
         val after = auto ?: return@LaunchedEffect
         val list = asc ?: return@LaunchedEffect
         auto = null
-        val i = list.indexOfFirst { it.chapter_number >= 0 && it.chapter_number > after + 0.0001 }
+        val nums = list.map { ChapterPick.number(it.chapter_number, it.name) }
+        val i = ChapterPick.nextAfter(nums, after)
         if (i >= 0) onRead(list, i)
-        else if (list.any { it.chapter_number >= 0 }) Toast.makeText(ctx, "Ya estás al día en esta fuente", Toast.LENGTH_LONG).show()
+        else if (nums.any { it != null }) Toast.makeText(ctx, "Ya estás al día en esta fuente", Toast.LENGTH_LONG).show()
+        else Toast.makeText(ctx, "Esta fuente no numera sus capítulos: elige uno de la lista", Toast.LENGTH_LONG).show()
     }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {

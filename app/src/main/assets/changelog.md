@@ -1,3 +1,6 @@
+## 5.6.4
+- Continuar leyendo: ya abre el capítulo que sigue aunque la fuente no traiga el número de capítulo (se lee del nombre, como hace Komikku). Si la fuente no numera sus capítulos, lo avisa.
+
 ## 5.6.3
 - "Continuar leyendo" te lleva justo donde ibas: al capítulo que sigue al último que terminaste y, si lo dejaste a medias, a la página donde te quedaste. La primera vez, si un resultado de la búsqueda se llama igual que tu manhwa, se abre solo.
 
