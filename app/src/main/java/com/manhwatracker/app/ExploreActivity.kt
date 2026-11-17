@@ -89,19 +89,25 @@ class ExploreActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ThemeState.load(this)
-        setContent { ManhwaTheme { Surface(Modifier.fillMaxSize()) { ExploreRoot { finish() } } } }
+        val title = intent.getStringExtra("title")
+        val chapter = intent.getDoubleExtra("chapter", -1.0)
+        setContent { ManhwaTheme { Surface(Modifier.fillMaxSize()) { ExploreRoot(title, chapter) { finish() } } } }
     }
 
     companion object {
         fun open(ctx: Context) = ctx.startActivity(Intent(ctx, ExploreActivity::class.java))
+
+        /** "Continuar leyendo" de un manhwa de tu lista: abre su ficha en la fuente (o la busca) y salta al capítulo siguiente. */
+        fun continueIntent(ctx: Context, title: String, chapterNow: Double): Intent =
+            Intent(ctx, ExploreActivity::class.java).putExtra("title", title).putExtra("chapter", chapterNow)
     }
 }
 
 private sealed class Screen {
     object Home : Screen()
-    class Browse(val src: Source, val pkg: String) : Screen()
-    class Detail(val src: Source, val pkg: String, val manga: SManga) : Screen()
-    class Read(val src: Source, val manga: SManga, val chapters: List<SChapter>, val index: Int) : Screen()
+    class Browse(val src: Source, val pkg: String, val initialQuery: String? = null) : Screen()
+    class Detail(val src: Source, val pkg: String, val manga: SManga, val linkTitle: String? = null, val startAfter: Double? = null) : Screen()
+    class Read(val src: Source, val manga: SManga, val chapters: List<SChapter>, val index: Int, val linkTitle: String? = null) : Screen()
 }
 
 private fun copyText(ctx: Context, text: String) {
@@ -113,8 +119,22 @@ private fun copyText(ctx: Context, text: String) {
 private object ExploreMemory {
     private fun p(c: Context) = c.getSharedPreferences("explore", Context.MODE_PRIVATE)
     fun saveSource(c: Context, pkg: String, id: Long) = p(c).edit().putString("pkg", pkg).putLong("src", id).apply()
-    fun saveManga(c: Context, pkg: String, id: Long, m: SManga) =
-        p(c).edit().putString("pkg", pkg).putLong("src", id).putString("url", m.url).putString("title", m.title).putString("thumb", m.thumbnail_url).apply()
+    fun norm(t: String) = t.lowercase().filter { it.isLetterOrDigit() }
+    fun saveManga(c: Context, pkg: String, id: Long, m: SManga, linkTitle: String? = null) {
+        val e = p(c).edit().putString("pkg", pkg).putLong("src", id).putString("url", m.url).putString("title", m.title).putString("thumb", m.thumbnail_url)
+        // Recuerda qué manhwa de la fuente corresponde a cada título de tu lista (para "Continuar leyendo").
+        val rec = listOf(pkg, id.toString(), m.url, m.title.replace("\n", " "), m.thumbnail_url.orEmpty()).joinToString("\u001F")
+        e.putString("map_" + norm(m.title), rec)
+        if (!linkTitle.isNullOrBlank()) e.putString("map_" + norm(linkTitle), rec)
+        e.apply()
+    }
+    /** El manhwa de la fuente que ya vinculaste con [title], si lo hay. */
+    fun forTitle(c: Context, title: String): Last? {
+        val f = p(c).getString("map_" + norm(title), null)?.split("\u001F") ?: return null
+        if (f.size < 5) return null
+        val m = SManga.create().apply { url = f[2]; this.title = f[3]; thumbnail_url = f[4].ifEmpty { null } }
+        return Last(f[0], f[1].toLongOrNull() ?: return null, m)
+    }
     class Last(val pkg: String, val srcId: Long, val manga: SManga?)
     fun read(c: Context): Last? {
         val sp = p(c)
@@ -128,12 +148,25 @@ private object ExploreMemory {
 private fun Throwable.report(): String = (generateSequence(this) { it.cause }.last().let { "${it.javaClass.simpleName}: ${it.message}" }) + "\n\n" + stackTraceToString().take(3000)
 
 @Composable
-private fun ExploreRoot(onExit: () -> Unit) {
+private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> Unit) {
     val ctx = LocalContext.current
     var stack by remember { mutableStateOf(listOf<Screen>(Screen.Home)) }
     var resume by remember { mutableStateOf<Pair<Screen.Browse, Screen.Detail?>?>(null) }
     // Al abrir: vuelve a la última fuente (y deja un acceso al último manhwa en el inicio).
     LaunchedEffect(Unit) {
+        // Si vienes de "Continuar leyendo" de un manhwa de tu lista: abre su ficha en la fuente, o lo busca.
+        if (!openTitle.isNullOrBlank()) {
+            val linked = ExploreMemory.forTitle(ctx, openTitle)
+            val known = linked ?: ExploreMemory.read(ctx)
+            val r = known?.let { withContext(Dispatchers.IO) { ExtensionHost.load(ctx, it.pkg) } }
+            val src = (r as? ExtensionHost.Result.Ok)?.ext?.sources?.firstOrNull { it.id == known?.srcId }
+            if (known != null && src != null) {
+                val browse = Screen.Browse(src, known.pkg, if (linked == null) openTitle else null)
+                stack = if (linked?.manga != null) listOf(Screen.Home, browse, Screen.Detail(src, known.pkg, linked.manga, openTitle, openChapter.takeIf { it >= 0 }))
+                else listOf(Screen.Home, browse)
+            }
+            return@LaunchedEffect
+        }
         val last = ExploreMemory.read(ctx) ?: return@LaunchedEffect
         val r = withContext(Dispatchers.IO) { ExtensionHost.load(ctx, last.pkg) }
         val src = (r as? ExtensionHost.Result.Ok)?.ext?.sources?.firstOrNull { it.id == last.srcId } ?: return@LaunchedEffect
@@ -144,7 +177,7 @@ private fun ExploreRoot(onExit: () -> Unit) {
     fun push(s: Screen) {
         when (s) {
             is Screen.Browse -> ExploreMemory.saveSource(ctx, s.pkg, s.src.id)
-            is Screen.Detail -> ExploreMemory.saveManga(ctx, s.pkg, s.src.id, s.manga)
+            is Screen.Detail -> ExploreMemory.saveManga(ctx, s.pkg, s.src.id, s.manga, s.linkTitle)
             else -> {}
         }
         stack = stack + s
@@ -157,9 +190,9 @@ private fun ExploreRoot(onExit: () -> Unit) {
             continueTitle = resume?.second?.manga?.title,
             onContinue = { resume?.let { (b, d) -> stack = listOfNotNull(Screen.Home, b, d) } }
         )
-        is Screen.Browse -> BrowseScreen(s.src, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it)) })
-        is Screen.Detail -> DetailScreen(s.src, s.manga, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.manga, list, i)) })
-        is Screen.Read -> OnlineReader(s.src, s.manga, s.chapters, s.index, onBack = { pop() })
+        is Screen.Browse -> BrowseScreen(s.src, s.initialQuery, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it, s.initialQuery)) })
+        is Screen.Detail -> DetailScreen(s.src, s.manga, s.startAfter, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.manga, list, i, s.linkTitle)) })
+        is Screen.Read -> OnlineReader(s.src, s.manga, s.chapters, s.index, s.linkTitle, onBack = { pop() })
     }
 }
 
@@ -279,13 +312,13 @@ private fun cover(src: Source, url: String?): ImageRequest {
 }
 
 @Composable
-private fun BrowseScreen(src: Source, onBack: () -> Unit, onOpen: (SManga) -> Unit) {
+private fun BrowseScreen(src: Source, initialQuery: String?, onBack: () -> Unit, onOpen: (SManga) -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val items = remember { mutableStateListOf<SManga>() }
-    var mode by remember { mutableStateOf(0) }           // 0 populares, 1 recientes, 2 búsqueda
-    var query by remember { mutableStateOf("") }
-    var applied by remember { mutableStateOf("") }
+    var mode by remember { mutableStateOf(if (initialQuery.isNullOrBlank()) 0 else 2) }   // 0 populares, 1 recientes, 2 búsqueda
+    var query by remember { mutableStateOf(initialQuery.orEmpty()) }
+    var applied by remember { mutableStateOf(initialQuery.orEmpty()) }
     var page by remember { mutableStateOf(0) }
     var hasNext by remember { mutableStateOf(true) }
     var loading by remember { mutableStateOf(false) }
@@ -378,7 +411,7 @@ private fun statusLabel(s: Int) = when (s) {
 }
 
 @Composable
-private fun DetailScreen(src: Source, manga: SManga, onBack: () -> Unit, onRead: (List<SChapter>, Int) -> Unit) {
+private fun DetailScreen(src: Source, manga: SManga, startAfter: Double?, onBack: () -> Unit, onRead: (List<SChapter>, Int) -> Unit) {
     val ctx = LocalContext.current
     var detail by remember { mutableStateOf(manga) }
     var chapters by remember { mutableStateOf<List<SChapter>?>(null) }
@@ -395,6 +428,16 @@ private fun DetailScreen(src: Source, manga: SManga, onBack: () -> Unit, onRead:
     // Para leer: del más viejo al más nuevo. Las fuentes suelen devolver el más nuevo primero.
     val asc = remember(chapters) {
         chapters?.let { l -> if (l.size > 1 && l.first().chapter_number > l.last().chapter_number) l.reversed() else if (l.size > 1 && l.first().chapter_number == l.last().chapter_number) l.reversed() else l }
+    }
+    // Desde "Continuar leyendo": salta al primer capítulo después del último que leíste (una sola vez).
+    var auto by remember { mutableStateOf(startAfter) }
+    LaunchedEffect(asc) {
+        val after = auto ?: return@LaunchedEffect
+        val list = asc ?: return@LaunchedEffect
+        auto = null
+        val i = list.indexOfFirst { it.chapter_number >= 0 && it.chapter_number > after + 0.0001 }
+        if (i >= 0) onRead(list, i)
+        else if (list.any { it.chapter_number >= 0 }) Toast.makeText(ctx, "Ya estás al día en esta fuente", Toast.LENGTH_LONG).show()
     }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
@@ -460,7 +503,7 @@ private sealed class PageState {
 }
 
 @Composable
-private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, startIndex: Int, onBack: () -> Unit) {
+private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, startIndex: Int, linkTitle: String?, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var index by remember { mutableStateOf(startIndex) }
@@ -484,7 +527,7 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
     if (!recorded && total > 0 && lastVisible >= total - 1) {
         recorded = true
         scope.launch {
-            val saved = ReaderProgress.record(ctx, manga.title, chapter.name)
+            val saved = ReaderProgress.record(ctx, linkTitle ?: manga.title, chapter.name, preferTitle = linkTitle)
             if (saved != null) Toast.makeText(ctx, "${saved.title}: capítulo ${ReaderProgress.fmt(saved.chapter)} guardado", Toast.LENGTH_SHORT).show()
         }
     }

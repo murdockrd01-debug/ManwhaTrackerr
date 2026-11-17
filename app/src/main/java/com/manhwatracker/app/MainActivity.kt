@@ -854,7 +854,7 @@ fun DetailScreen(
                     )
                 }
                 Button(
-                    onClick = { context.startActivity(ReaderActivity.continueIntent(context, item.title, chapterNow)) },
+                    onClick = { context.startActivity(ExploreActivity.continueIntent(context, item.title, chapterNow)) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     shape = RoundedCornerShape(16.dp)
                 ) {

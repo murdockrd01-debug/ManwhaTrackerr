@@ -1,3 +1,7 @@
+## 5.6.1
+- "Continuar leyendo" (en cada manhwa de tu lista) ahora abre la lectura en línea de la app, no las descargas de Komikku. Si ya abriste ese manhwa en una fuente, va directo al capítulo siguiente al que llevas; si no, lo busca en la última fuente que usaste y, al elegirlo, la app recuerda el vínculo.
+- Al leer en línea, el avance se guarda en el manhwa vinculado aunque la fuente lo llame distinto.
+
 ## 5.6.0
 - "Leer" ahora es la lectura en línea: el botón Leer abre directamente tus fuentes (extensiones), con "Continuar donde te quedaste", acceso a Fuentes y a la última fuente que usaste. Leer archivos descargados (Komikku, .cbz) sigue disponible abajo del todo y en Más › Lector.
 
