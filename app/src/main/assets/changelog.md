@@ -1,3 +1,6 @@
+## 5.8.1
+- Pantalla principal: se quitó el botón "+" de las tarjetas (en lista y en cuadrícula).
+
 ## 5.8.0
 - Carátulas: en Más › Apariencia puedes elegir su tamaño (Pequeña, Mediana, Grande, Muy grande) para la cuadrícula y la lista de la pantalla principal.
 - Filtro +18: opción (apagada por defecto) para difuminar las carátulas de los manhwas +18 (género Hentai, y Ecchi si lo activas). En la ficha de cada manhwa puedes marcarlo o quitarle la marca a mano. En Android 12 o más es un desenfoque; en versiones anteriores, un mosaico.

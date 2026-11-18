@@ -390,7 +390,6 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
                     ManhwaGridCard(
                         m = m,
                         onClick = { onOpen(m.id) },
-                        onPlusOne = { vm.increment(m) },
                         onCoverMissing = { vm.coverFallback(m) }
                     )
                 }
@@ -407,7 +406,6 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
                     ManhwaCard(
                         m = m,
                         onClick = { onOpen(m.id) },
-                        onPlusOne = { vm.increment(m) },
                         onCoverMissing = { vm.coverFallback(m) }
                     )
                 }
@@ -528,7 +526,6 @@ private fun HeroStat(value: String, label: String, selected: Boolean, onClick: (
 fun ManhwaCard(
     m: Manhwa,
     onClick: () -> Unit,
-    onPlusOne: () -> Unit,
     onCoverMissing: () -> Unit
 ) {
     LaunchedEffect(m.id, m.coverUrl) {
@@ -584,9 +581,6 @@ fun ManhwaCard(
                     )
                 }
             }
-            FilledTonalIconButton(onClick = onPlusOne) {
-                Icon(Icons.Filled.Add, contentDescription = tr("Leí un capítulo más"))
-            }
         }
     }
 }
@@ -596,7 +590,6 @@ fun ManhwaCard(
 fun ManhwaGridCard(
     m: Manhwa,
     onClick: () -> Unit,
-    onPlusOne: () -> Unit,
     onCoverMissing: () -> Unit
 ) {
     LaunchedEffect(m.id, m.coverUrl) {
@@ -660,9 +653,6 @@ fun ManhwaGridCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White.copy(alpha = 0.85f)
                     )
-                }
-                FilledTonalIconButton(onClick = onPlusOne, modifier = Modifier.size(48.dp)) {
-                    Icon(Icons.Filled.Add, contentDescription = tr("Leí un capítulo más"))
                 }
             }
         }
