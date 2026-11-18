@@ -1,3 +1,6 @@
+## 5.15.0
+- Lo que agregas desde una fuente (con el botón o al empezar a leer) ahora entra con más datos: total de capítulos (el más alto que trae la fuente), tipo (Manhwa, Manga o Manhua si la fuente lo indica) y, si sus etiquetas dicen que es +18, queda marcado como +18 para el filtro de difuminado. Si ya estaba en tu lista sin total de capítulos, se completa.
+
 ## 5.14.0
 - Lector en línea: toca el centro de la pantalla para ocultar o mostrar los controles (al ocultarlos también se esconden las barras del sistema y la pantalla no se apaga mientras lees).
 - Nuevos modos de lectura en el menú ⋮: vertical continuo (como antes), paginado de izquierda a derecha y paginado de derecha a izquierda (manga). En paginado, toca el lado izquierdo o derecho para cambiar de página; el modo se recuerda.

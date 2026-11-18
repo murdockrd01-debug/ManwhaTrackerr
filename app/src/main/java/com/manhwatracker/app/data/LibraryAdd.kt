@@ -19,9 +19,26 @@ object LibraryAdd {
     }
 
     /** Agrega el manhwa si no estaba. Devuelve true si se agregó. */
-    suspend fun ensure(ctx: Context, title: String, coverUrl: String?, status: String = Status.READING): Boolean = withContext(Dispatchers.IO) {
+    suspend fun ensure(
+        ctx: Context, title: String, coverUrl: String?, status: String = Status.READING, info: SourceInfo.Info? = null
+    ): Boolean = withContext(Dispatchers.IO) {
         val clean = title.trim()
-        if (clean.isEmpty() || contains(ctx, clean)) return@withContext false
-        AppDatabase.get(ctx).dao().insert(Manhwa(title = clean, titleKey = titleKeyOf(clean), coverUrl = coverUrl, status = status)) > 0L
+        if (clean.isEmpty()) return@withContext false
+        val dao = AppDatabase.get(ctx).dao()
+        if (contains(ctx, clean)) {
+            // Ya estaba: si no tenía total de capítulos, se completa con lo que dice la fuente.
+            if (info != null && info.total > 0) {
+                val all = dao.all()
+                val old = all.firstOrNull { it.titleKey == titleKeyOf(clean) } ?: ReaderProgress.match(all, clean)
+                if (old != null && old.totalChapters == 0) dao.update(old.copy(totalChapters = info.total))
+            }
+            return@withContext false
+        }
+        dao.insert(
+            Manhwa(
+                title = clean, titleKey = titleKeyOf(clean), coverUrl = coverUrl, status = status,
+                totalChapters = info?.total ?: 0, type = info?.type ?: Types.MANHWA
+            )
+        ) > 0L
     }
 }

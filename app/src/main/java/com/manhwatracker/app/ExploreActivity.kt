@@ -136,7 +136,7 @@ private sealed class Screen {
     object Home : Screen()
     class Browse(val src: Source, val pkg: String, val initialQuery: String? = null) : Screen() { var autoOpened = false }
     class Detail(val src: Source, val pkg: String, val manga: SManga, val linkTitle: String? = null, var startAfter: Double? = null) : Screen()
-    class Read(val src: Source, val pkg: String, val manga: SManga, val chapters: List<SChapter>, val index: Int, val linkTitle: String? = null, val startPos: Pair<Int, Int>? = null) : Screen()
+    class Read(val src: Source, val pkg: String, val manga: SManga, val chapters: List<SChapter>, val index: Int, val linkTitle: String? = null, val startPos: Pair<Int, Int>? = null, val genre: String? = null) : Screen()
 }
 
 /** Devuelve una función que pide el permiso de notificaciones (Android 13+) si aún no lo tienes; sirve para ver el avance de las descargas. */
@@ -265,8 +265,8 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
             onContinue = { resume?.let { (b, d) -> stack = listOfNotNull(Screen.Home, b, d) } }
         )
         is Screen.Browse -> BrowseScreen(s.src, s.initialQuery, s.autoOpened, onAutoOpened = { s.autoOpened = true }, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it, s.initialQuery)) })
-        is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.linkTitle, s.startAfter, onAutoJumped = { s.startAfter = null }, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.pkg, s.manga, list, i, s.linkTitle, ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
-        is Screen.Read -> OnlineReader(s.src, s.pkg, s.manga, s.chapters, s.index, s.linkTitle, s.startPos, onBack = { pop() })
+        is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.linkTitle, s.startAfter, onAutoJumped = { s.startAfter = null }, onBack = { pop() }, onRead = { list, i, genre -> push(Screen.Read(s.src, s.pkg, s.manga, list, i, s.linkTitle, genre = genre, startPos = ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
+        is Screen.Read -> OnlineReader(s.src, s.pkg, s.manga, s.chapters, s.index, s.linkTitle, s.startPos, s.genre, onBack = { pop() })
     }
 }
 
@@ -547,7 +547,7 @@ private fun statusLabel(s: Int) = when (s) {
 }
 
 @Composable
-private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: String?, startAfter: Double?, onAutoJumped: () -> Unit, onBack: () -> Unit, onRead: (List<SChapter>, Int) -> Unit) {
+private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: String?, startAfter: Double?, onAutoJumped: () -> Unit, onBack: () -> Unit, onRead: (List<SChapter>, Int, String?) -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var detail by remember { mutableStateOf(manga) }
@@ -601,7 +601,7 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
         val nums = list.map { ChapterPick.number(it.chapter_number, it.name) }
         val last = ExploreMemory.readLast(ctx, linkTitle ?: manga.title)
         val i = ChapterPick.resumeIndex(list.map { it.url }, nums, last?.url, last?.done ?: false, after)
-        if (i >= 0) onRead(list, i)
+        if (i >= 0) onRead(list, i, detail.genre)
         else if (nums.any { it != null }) Toast.makeText(ctx, "Ya estás al día en esta fuente", Toast.LENGTH_LONG).show()
         else Toast.makeText(ctx, "Esta fuente no numera sus capítulos: elige uno de la lista", Toast.LENGTH_LONG).show()
     }
@@ -633,7 +633,11 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
                 false -> Button(
                     onClick = {
                         scope.launch {
-                            if (LibraryAdd.ensure(ctx, detail.title.ifBlank { manga.title }, detail.thumbnail_url ?: manga.thumbnail_url, Status.PLAN)) {
+                            val nm = chapters?.map { ChapterPick.number(it.chapter_number, it.name) } ?: emptyList()
+                            val info = com.manhwatracker.app.data.SourceInfo.info(detail.genre, nm, nm.size)
+                            val nameToAdd = detail.title.ifBlank { manga.title }
+                            if (LibraryAdd.ensure(ctx, nameToAdd, detail.thumbnail_url ?: manga.thumbnail_url, Status.PLAN, info)) {
+                                if (info.adult) ThemeState.setAdultMark(ctx, com.manhwatracker.app.data.titleKeyOf(nameToAdd), true)
                                 Toast.makeText(ctx, "Agregado a tus manhwas (Pendiente)", Toast.LENGTH_SHORT).show()
                             }
                             inLib.value = true
@@ -702,7 +706,7 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
                     containerColor = if (isNext || current) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isRead) 0.35f else 1f)
                 ), modifier = Modifier.fillMaxWidth().clickable {
                     val a = asc ?: list
-                    onRead(a, a.indexOfFirst { it.url == ch.url }.coerceAtLeast(0))
+                    onRead(a, a.indexOfFirst { it.url == ch.url }.coerceAtLeast(0), detail.genre)
                 }) {
                   Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.padding(12.dp).weight(1f)) {
@@ -746,7 +750,7 @@ private fun Context.findActivity(): android.app.Activity? {
 }
 
 @Composable
-private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List<SChapter>, startIndex: Int, linkTitle: String?, startPos: Pair<Int, Int>?, onBack: () -> Unit) {
+private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List<SChapter>, startIndex: Int, linkTitle: String?, startPos: Pair<Int, Int>?, genre: String?, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val view = androidx.compose.ui.platform.LocalView.current
     val scope = rememberCoroutineScope()
@@ -786,7 +790,11 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
 
     // Si empiezas a leer algo que no tenías, se agrega a tus manhwas (en "Leyendo").
     LaunchedEffect(Unit) {
-        if (LibraryAdd.ensure(ctx, linkTitle ?: manga.title, manga.thumbnail_url)) {
+        val nm = chapters.map { ChapterPick.number(it.chapter_number, it.name) }
+        val info = com.manhwatracker.app.data.SourceInfo.info(genre, nm, nm.size)
+        val nameToAdd = linkTitle ?: manga.title
+        if (LibraryAdd.ensure(ctx, nameToAdd, manga.thumbnail_url, info = info)) {
+            if (info.adult) ThemeState.setAdultMark(ctx, com.manhwatracker.app.data.titleKeyOf(nameToAdd), true)
             Toast.makeText(ctx, "Agregado a tus manhwas", Toast.LENGTH_SHORT).show()
         }
     }
