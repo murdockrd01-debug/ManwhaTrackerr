@@ -66,6 +66,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -738,9 +739,16 @@ private sealed class PageState {
     class Err(val msg: String) : PageState()
 }
 
+private fun Context.findActivity(): android.app.Activity? {
+    var c = this
+    while (c is android.content.ContextWrapper) { if (c is android.app.Activity) return c; c = c.baseContext }
+    return null
+}
+
 @Composable
 private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List<SChapter>, startIndex: Int, linkTitle: String?, startPos: Pair<Int, Int>?, onBack: () -> Unit) {
     val ctx = LocalContext.current
+    val view = androidx.compose.ui.platform.LocalView.current
     val scope = rememberCoroutineScope()
     var index by remember { mutableStateOf(startIndex) }
     val chapter = chapters[index]
@@ -749,10 +757,33 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
     val states = remember(index) { mutableStateMapOf<Int, PageState>() }
     // Una lista nueva por capítulo: si no, el capítulo siguiente heredaba la posición (al final) del anterior.
     val listState = remember(index) { LazyListState() }
+    val total = pages?.size ?: 0
+    // Modo paginado: una página por pantalla (+1 página final con el botón de siguiente capítulo).
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { if (total > 0) total + 1 else 0 })
+    var mode by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.readerMode(ctx)) }
+    val paged = mode != com.manhwatracker.app.data.ReaderTap.VERTICAL
+    val rtl = mode == com.manhwatracker.app.data.ReaderTap.PAGED_RTL
+    var controls by remember { mutableStateOf(true) }
+    var pendingJump by remember(index) { mutableStateOf<Int?>(null) }
+    var startUsed by remember(index) { mutableStateOf(false) }
     // true cuando ya se colocó la lista en su lugar (inicio o página guardada); antes de eso no se registra ni se guarda nada.
     var positioned by remember(index) { mutableStateOf(false) }
     val zoom = remember { ZoomState() }
     var recorded by remember(index) { mutableStateOf(false) }
+    fun curIndex() = if (paged) pagerState.currentPage else listState.firstVisibleItemIndex
+
+    // Pantalla encendida mientras lees; al ocultar los controles también se ocultan las barras del sistema.
+    DisposableEffect(Unit) { view.keepScreenOn = true; onDispose { view.keepScreenOn = false } }
+    DisposableEffect(controls) {
+        val w = ctx.findActivity()?.window
+        val c = w?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
+        if (!controls) {
+            c?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            c?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        } else c?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        onDispose { c?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars()) }
+    }
+
     // Si empiezas a leer algo que no tenías, se agrega a tus manhwas (en "Leyendo").
     LaunchedEffect(Unit) {
         if (LibraryAdd.ensure(ctx, linkTitle ?: manga.title, manga.thumbnail_url)) {
@@ -768,122 +799,176 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
         catch (e: CancellationException) { throw e }
         catch (e: Throwable) { failure = e.report() }
     }
-    // Al abrir: vuelve a la página donde ibas (solo en el capítulo con el que se abrió); si no, al inicio.
-    LaunchedEffect(index, pages) {
-        if (pages == null) return@LaunchedEffect
-        val pos = startPos?.takeIf { index == startIndex }
-        if (pos != null) listState.scrollToItem(pos.first.coerceIn(0, pages!!.size), pos.second) else listState.scrollToItem(0)
+    // Al abrir (o al cambiar de modo): vuelve a la página donde ibas; en un capítulo nuevo, al inicio.
+    LaunchedEffect(index, pages, mode) {
+        val n = pages?.size ?: return@LaunchedEffect
+        positioned = false
+        val jump = pendingJump
+        pendingJump = null
+        val saved = if (jump == null && !startUsed && index == startIndex) startPos else null
+        startUsed = true
+        val i = (jump ?: saved?.first ?: 0).coerceIn(0, n)
+        if (paged) pagerState.scrollToPage(i) else listState.scrollToItem(i, if (jump == null) saved?.second ?: 0 else 0)
         positioned = true
     }
     // Guarda por dónde vas (con una pequeña espera para no escribir en cada pixel).
-    LaunchedEffect(index, pages, positioned) {
+    LaunchedEffect(index, pages, positioned, mode) {
         if (pages == null || !positioned) return@LaunchedEffect
-        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }.collectLatest { (i, o) ->
+        snapshotFlow {
+            if (paged) pagerState.currentPage to 0 else listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+        }.collectLatest { (i, o) ->
             delay(500)
             ExploreMemory.savePos(ctx, linkTitle ?: manga.title, chapter.url, i, o, recorded)
         }
     }
 
     // Al llegar a la última página, el avance se guarda en tus manhwas (si ese manhwa está en tu lista).
-    val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
-    val total = pages?.size ?: 0
-    if (!recorded && positioned && total > 0 && lastVisible >= total - 1) {
+    val lastIdx = if (paged) pagerState.currentPage else (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1)
+    if (!recorded && positioned && total > 0 && lastIdx >= total - 1) {
         recorded = true
         scope.launch {
-            ExploreMemory.savePos(ctx, linkTitle ?: manga.title, chapter.url, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, true)
+            ExploreMemory.savePos(ctx, linkTitle ?: manga.title, chapter.url, curIndex(), if (paged) 0 else listState.firstVisibleItemScrollOffset, true)
             val saved = ReaderProgress.record(ctx, linkTitle ?: manga.title, chapter.name, preferTitle = linkTitle)
             if (saved != null) Toast.makeText(ctx, "${saved.title}: capítulo ${ReaderProgress.fmt(saved.chapter)} guardado", Toast.LENGTH_SHORT).show()
         }
     }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver")) }
-            Column(Modifier.weight(1f)) {
-                Text(manga.title, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(chapter.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            TextButton(enabled = index > 0, onClick = { index-- }) { Text("‹ Anterior") }
-            TextButton(enabled = index < chapters.lastIndex, onClick = { index++ }) { Text("Siguiente ›") }
-            var menu by remember { mutableStateOf(false) }
-            val askNotifR = rememberNotifAsk()
-            Box {
-                IconButton(onClick = { menu = true }) { Text("⋮", fontSize = 20.sp) }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Bajar los próximos 5 capítulos") },
-                        onClick = {
-                            menu = false
-                            scope.launch {
-                                val have = withContext(Dispatchers.IO) {
-                                    chapters.filter { OfflineStore.pageCount(ctx, OfflineStore.key(src.id, manga.url, it.url)) > 0 }.map { it.url }.toSet()
-                                }
-                                val idx = OfflinePlan.pick(chapters.map { it.url }, have, index + 1, 5)
-                                if (idx.isEmpty()) Toast.makeText(ctx, "Ya tienes los siguientes", Toast.LENGTH_SHORT).show()
-                                else {
-                                    askNotifR()
-                                    OfflineDownloads.enqueue(ctx, src, pkg, manga, idx.map { chapters[it] })
-                                    Toast.makeText(ctx, "Bajando ${idx.size} capítulos", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Fijar como mi avance") },
-                        onClick = {
-                            menu = false
-                            scope.launch {
-                                val r = ReaderProgress.record(ctx, linkTitle ?: manga.title, chapter.name, preferTitle = linkTitle, allowLower = true)
-                                Toast.makeText(
-                                    ctx,
-                                    if (r != null) "Tu avance en ${r.title} ahora es el capítulo ${ReaderProgress.fmt(r.chapter)}" else "Ese ya es tu avance (o el manhwa no está en tu lista)",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
-                        }
-                    )
-                }
+    // Una página (descarga perezosa). [fit] = paginado (la página entera en pantalla); si no, ancho completo (vertical).
+    @Composable
+    fun PageView(i: Int, list: List<Page>, fit: Boolean) {
+        val st = states[i]
+        LaunchedEffect(i, index) {
+            if (states[i] == null) {
+                states[i] = PageState.Loading
+                states[i] = try {
+                    val f = OnlineStore.pageFile(ctx, src, key, list[i])
+                    PageState.Ready(f, com.manhwatracker.app.data.ReaderSource.ratio(ctx, f) ?: 0.7f)
+                } catch (e: CancellationException) {
+                    // La página salió de pantalla antes de terminar: no es un error, se pide de nuevo al volver.
+                    states.remove(i)
+                    throw e
+                } catch (e: Throwable) { PageState.Err(e.message ?: e.javaClass.simpleName) }
             }
         }
+        when (st) {
+            is PageState.Ready ->
+                if (fit) AsyncImage(model = st.file, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                else AsyncImage(model = st.file, contentDescription = null, contentScale = ContentScale.FillWidth, modifier = Modifier.fillMaxWidth().aspectRatio(st.ratio))
+            is PageState.Err -> Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Text("Página ${i + 1}: " + st.msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = { states.remove(i) }) { Text("Reintentar") }
+            }
+            else -> Box(if (fit) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(360.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        }
+    }
+
+    @Composable
+    fun EndCard() {
+        Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Fin de ${chapter.name}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (index < chapters.lastIndex) Button(onClick = { index++ }) { Text("Siguiente capítulo") }
+            else Text("Es el último capítulo disponible", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+
+    fun setMode(m: String) {
+        pendingJump = curIndex()
+        zoom.scale = 1f; zoom.offX = 0f
+        mode = m
+        com.manhwatracker.app.data.Prefs.setReaderMode(ctx, m)
+    }
+
+    Box(Modifier.fillMaxSize()) {
         val list = pages
         when {
-            failure != null -> Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            failure != null -> Column(Modifier.statusBarsPadding().padding(16.dp).padding(top = 56.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("No se pudieron cargar las páginas", fontWeight = FontWeight.SemiBold)
                 Text(failure!!.lines().first(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 OutlinedButton(onClick = { copyText(ctx, failure!!) }) { Text("Copiar diagnóstico") }
             }
             list == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            list.isEmpty() -> Text("Este capítulo no tiene páginas", modifier = Modifier.padding(16.dp))
-            else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize().zoomable(zoom, listState)) {
-                items(list.size, key = { index.toString() + "-" + it }) { i ->
-                    val st = states[i]
-                    LaunchedEffect(i, index) {
-                        if (states[i] == null) {
-                            states[i] = PageState.Loading
-                            states[i] = try {
-                                val f = OnlineStore.pageFile(ctx, src, key, list[i])
-                                PageState.Ready(f, com.manhwatracker.app.data.ReaderSource.ratio(ctx, f) ?: 0.7f)
-                            } catch (e: CancellationException) {
-                                // La página salió de pantalla antes de terminar: no es un error, se pide de nuevo al volver.
-                                states.remove(i)
-                                throw e
-                            } catch (e: Throwable) { PageState.Err(e.message ?: e.javaClass.simpleName) }
+            list.isEmpty() -> Text("Este capítulo no tiene páginas", modifier = Modifier.statusBarsPadding().padding(16.dp).padding(top = 56.dp))
+            paged -> Box(
+                Modifier.fillMaxSize().pointerInput(rtl, index) {
+                    detectTapGestures(onTap = { o ->
+                        when (com.manhwatracker.app.data.ReaderTap.zone(o.x, size.width.toFloat(), rtl)) {
+                            com.manhwatracker.app.data.ReaderTap.PREV ->
+                                if (pagerState.currentPage > 0) scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+                                else if (index > 0) index--
+                            com.manhwatracker.app.data.ReaderTap.NEXT ->
+                                if (pagerState.currentPage < total) scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                                else if (index < chapters.lastIndex) index++
+                            else -> controls = !controls
                         }
-                    }
-                    when (st) {
-                        is PageState.Ready -> AsyncImage(model = st.file, contentDescription = null, contentScale = ContentScale.FillWidth, modifier = Modifier.fillMaxWidth().aspectRatio(st.ratio))
-                        is PageState.Err -> Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Página ${i + 1}: " + st.msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                            TextButton(onClick = { states.remove(i) }) { Text("Reintentar") }
-                        }
-                        else -> Box(Modifier.fillMaxWidth().height(360.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                    }
+                    })
                 }
-                item(key = "end") {
-                    Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Fin de ${chapter.name}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (index < chapters.lastIndex) Button(onClick = { index++ }) { Text("Siguiente capítulo") }
-                        else Text("Es el último capítulo disponible", style = MaterialTheme.typography.bodySmall)
+            ) {
+                androidx.compose.foundation.pager.HorizontalPager(
+                    state = pagerState, reverseLayout = rtl, beyondViewportPageCount = 2,
+                    key = { index.toString() + "-" + it }, modifier = Modifier.fillMaxSize()
+                ) { p ->
+                    if (p < total) PageView(p, list, true) else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { EndCard() }
+                }
+            }
+            else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize().zoomable(zoom, listState) { controls = !controls }) {
+                items(list.size, key = { index.toString() + "-" + it }) { i -> PageView(i, list, false) }
+                item(key = "end") { EndCard() }
+            }
+        }
+
+        if (controls) Surface(Modifier.align(Alignment.TopCenter).fillMaxWidth(), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)) {
+            Row(Modifier.statusBarsPadding().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver")) }
+                Column(Modifier.weight(1f)) {
+                    Text(manga.title, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(chapter.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                TextButton(enabled = index > 0, onClick = { index-- }) { Text("‹ Anterior") }
+                TextButton(enabled = index < chapters.lastIndex, onClick = { index++ }) { Text("Siguiente ›") }
+                var menu by remember { mutableStateOf(false) }
+                val askNotifR = rememberNotifAsk()
+                Box {
+                    IconButton(onClick = { menu = true }) { Text("⋮", fontSize = 20.sp) }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        listOf(
+                            com.manhwatracker.app.data.ReaderTap.VERTICAL to "Vertical continuo (webtoon)",
+                            com.manhwatracker.app.data.ReaderTap.PAGED_LTR to "Paginado, de izquierda a derecha",
+                            com.manhwatracker.app.data.ReaderTap.PAGED_RTL to "Paginado, de derecha a izquierda (manga)"
+                        ).forEach { (m, label) ->
+                            DropdownMenuItem(text = { Text((if (mode == m) "✓ " else "") + label) }, onClick = { menu = false; if (mode != m) setMode(m) })
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Bajar los próximos 5 capítulos") },
+                            onClick = {
+                                menu = false
+                                scope.launch {
+                                    val have = withContext(Dispatchers.IO) {
+                                        chapters.filter { OfflineStore.pageCount(ctx, OfflineStore.key(src.id, manga.url, it.url)) > 0 }.map { it.url }.toSet()
+                                    }
+                                    val idx = OfflinePlan.pick(chapters.map { it.url }, have, index + 1, 5)
+                                    if (idx.isEmpty()) Toast.makeText(ctx, "Ya tienes los siguientes", Toast.LENGTH_SHORT).show()
+                                    else {
+                                        askNotifR()
+                                        OfflineDownloads.enqueue(ctx, src, pkg, manga, idx.map { chapters[it] })
+                                        Toast.makeText(ctx, "Bajando ${idx.size} capítulos", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Fijar como mi avance") },
+                            onClick = {
+                                menu = false
+                                scope.launch {
+                                    val r = ReaderProgress.record(ctx, linkTitle ?: manga.title, chapter.name, preferTitle = linkTitle, allowLower = true)
+                                    Toast.makeText(
+                                        ctx,
+                                        if (r != null) "Tu avance en ${r.title} ahora es el capítulo ${ReaderProgress.fmt(r.chapter)}" else "Ese ya es tu avance (o el manhwa no está en tu lista)",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
+                        )
                     }
                 }
             }
@@ -910,11 +995,11 @@ class ZoomState {
     }
 }
 
-private fun Modifier.zoomable(z: ZoomState, list: LazyListState): Modifier = this
+private fun Modifier.zoomable(z: ZoomState, list: LazyListState, onTap: () -> Unit = {}): Modifier = this
     .clipToBounds()
     .onSizeChanged { z.viewW = it.width.toFloat() }
     .pointerInput(Unit) {
-        detectTapGestures(onDoubleTap = { p -> if (z.scale > 1.01f) z.zoomAt(1f / z.scale, p.x) else z.zoomAt(2.5f, p.x) })
+        detectTapGestures(onTap = { onTap() }, onDoubleTap = { p -> if (z.scale > 1.01f) z.zoomAt(1f / z.scale, p.x) else z.zoomAt(2.5f, p.x) })
     }
     .pointerInput(Unit) {
         awaitEachGesture {
