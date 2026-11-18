@@ -17,6 +17,13 @@ class ReaderProgressTest {
         assertEquals(15.0, ReaderProgress.chapterNumber("015")!!, 0.0)
         assertNull(ReaderProgress.chapterNumber("Prólogo"))
     }
+    @Test fun setExactCanLower() {
+        assertNull(ReaderProgress.setExact(m("A", 10.0), 10.0, 5))
+        assertEquals(4.0, ReaderProgress.setExact(m("A", 10.0), 4.0, 5)!!.lastChapter, 0.0)
+        assertEquals(Status.READING, ReaderProgress.setExact(m("A", 10.0, Status.PLAN), 4.0, 5)!!.status)
+        assertEquals(Status.COMPLETED, ReaderProgress.setExact(m("A", 10.0, Status.COMPLETED), 4.0, 5)!!.status)
+    }
+
     @Test fun raiseOnly() {
         assertNull(ReaderProgress.raise(m("A", 10.0), 10.0, 5))
         assertNull(ReaderProgress.raise(m("A", 10.0), 4.0, 5))

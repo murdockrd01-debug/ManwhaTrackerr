@@ -1,3 +1,7 @@
+## 5.10.1
+- Arreglado: al salir de un capítulo (flecha de volver o botón atrás) volvías a entrar al lector. Venía del salto automático de "Continuar leyendo", que se repetía al regresar a la ficha; ahora solo ocurre una vez.
+- Lector en línea: el avance ahora es el capítulo que acabas de terminar, aunque sea menor al guardado. Si adelantaste capítulos para probar y luego vuelves a leer los anteriores, tu avance baja a donde vas. (Se guarda al llegar a la última página de cada capítulo.)
+
 ## 5.10.0
 - Descargas sin conexión mejoradas: ahora corren con una notificación ("Descargando para leer sin conexión"), así que siguen aunque minimices la app o bloquees el teléfono. Si la app se cierra a mitad, al volver a abrir "Leer" se retoman solas.
 - Se guarda la carátula de cada manhwa descargado, y se ve sin conexión.

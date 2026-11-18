@@ -33,6 +33,16 @@ object ReaderProgress {
     }
 
     /**
+     * Fija el capítulo leído aunque sea menor al guardado (lector en línea: si vuelves a leer capítulos
+     * anteriores, tu avance es donde estás). Devuelve null si no cambia nada.
+     */
+    fun setExact(old: Manhwa, chapter: Double, now: Long): Manhwa? {
+        if (chapter == old.lastChapter) return null
+        val status = if (old.status == Status.PLAN || old.status == Status.PAUSED) Status.READING else old.status
+        return old.copy(lastChapter = chapter, updatedAt = now, status = status)
+    }
+
+    /**
      * Busca el manhwa por el nombre de su carpeta. Komikku limpia símbolos y puede recortar nombres largos,
      * así que además del título exacto se acepta un único título que empiece igual (si el nombre es largo).
      */
@@ -110,14 +120,14 @@ object ReaderProgress {
      */
     suspend fun record(
         ctx: Context, folder: String, chapterName: String,
-        now: Long = System.currentTimeMillis(), preferTitle: String? = null
+        now: Long = System.currentTimeMillis(), preferTitle: String? = null, allowLower: Boolean = false
     ): Saved? {
         val number = chapterNumber(chapterName) ?: return null
         val db = AppDatabase.get(ctx)
         val dao = db.dao()
         val all = dao.all()
         val old = preferTitle?.let { t -> all.firstOrNull { it.titleKey == titleKeyOf(t) } } ?: match(all, folder) ?: return null
-        val updated = raise(old, number, now) ?: return null
+        val updated = (if (allowLower) setExact(old, number, now) else raise(old, number, now)) ?: return null
         dao.update(updated)
         val n = maxOf(0, Math.floor(updated.lastChapter).toInt() - Math.floor(old.lastChapter).toInt())
         db.activity().bump(Stats.dayOf(now), ActivityKind.CHAPTER, n)

@@ -129,8 +129,8 @@ class ExploreActivity : ComponentActivity() {
 
 private sealed class Screen {
     object Home : Screen()
-    class Browse(val src: Source, val pkg: String, val initialQuery: String? = null) : Screen()
-    class Detail(val src: Source, val pkg: String, val manga: SManga, val linkTitle: String? = null, val startAfter: Double? = null) : Screen()
+    class Browse(val src: Source, val pkg: String, val initialQuery: String? = null) : Screen() { var autoOpened = false }
+    class Detail(val src: Source, val pkg: String, val manga: SManga, val linkTitle: String? = null, var startAfter: Double? = null) : Screen()
     class Read(val src: Source, val manga: SManga, val chapters: List<SChapter>, val index: Int, val linkTitle: String? = null, val startPos: Pair<Int, Int>? = null) : Screen()
 }
 
@@ -240,8 +240,8 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
             continueTitle = resume?.second?.manga?.title,
             onContinue = { resume?.let { (b, d) -> stack = listOfNotNull(Screen.Home, b, d) } }
         )
-        is Screen.Browse -> BrowseScreen(s.src, s.initialQuery, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it, s.initialQuery)) })
-        is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.startAfter, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.manga, list, i, s.linkTitle, ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
+        is Screen.Browse -> BrowseScreen(s.src, s.initialQuery, s.autoOpened, onAutoOpened = { s.autoOpened = true }, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it, s.initialQuery)) })
+        is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.startAfter, onAutoJumped = { s.startAfter = null }, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.manga, list, i, s.linkTitle, ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
         is Screen.Read -> OnlineReader(s.src, s.manga, s.chapters, s.index, s.linkTitle, s.startPos, onBack = { pop() })
     }
 }
@@ -405,7 +405,7 @@ private fun cover(src: Source, url: String?): ImageRequest {
 }
 
 @Composable
-private fun BrowseScreen(src: Source, initialQuery: String?, onBack: () -> Unit, onOpen: (SManga) -> Unit) {
+private fun BrowseScreen(src: Source, initialQuery: String?, alreadyAutoOpened: Boolean, onAutoOpened: () -> Unit, onBack: () -> Unit, onOpen: (SManga) -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val items = remember { mutableStateListOf<SManga>() }
@@ -417,7 +417,7 @@ private fun BrowseScreen(src: Source, initialQuery: String?, onBack: () -> Unit,
     var loading by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
     var gen by remember { mutableStateOf(0) }
-    var autoDone by remember { mutableStateOf(initialQuery.isNullOrBlank()) }
+    var autoDone by remember { mutableStateOf(initialQuery.isNullOrBlank() || alreadyAutoOpened) }
 
     fun loadMore() {
         if (loading || !hasNext) return
@@ -443,7 +443,7 @@ private fun BrowseScreen(src: Source, initialQuery: String?, onBack: () -> Unit,
                         autoDone = true
                         val want = ExploreMemory.norm(initialQuery.orEmpty())
                         val exact = items.filter { ExploreMemory.norm(it.title) == want }
-                        if (exact.size == 1 || (exact.isNotEmpty() && items.first() === exact.first())) onOpen(exact.first())
+                        if (exact.size == 1 || (exact.isNotEmpty() && items.first() === exact.first())) { onAutoOpened(); onOpen(exact.first()) }
                     }
                 }
             } catch (e: CancellationException) { loading = false; throw e
@@ -513,7 +513,7 @@ private fun statusLabel(s: Int) = when (s) {
 }
 
 @Composable
-private fun DetailScreen(src: Source, pkg: String, manga: SManga, startAfter: Double?, onBack: () -> Unit, onRead: (List<SChapter>, Int) -> Unit) {
+private fun DetailScreen(src: Source, pkg: String, manga: SManga, startAfter: Double?, onAutoJumped: () -> Unit, onBack: () -> Unit, onRead: (List<SChapter>, Int) -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var detail by remember { mutableStateOf(manga) }
@@ -557,6 +557,7 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, startAfter: Do
         val after = auto ?: return@LaunchedEffect
         val list = asc ?: return@LaunchedEffect
         auto = null
+        onAutoJumped()
         val nums = list.map { ChapterPick.number(it.chapter_number, it.name) }
         val i = ChapterPick.nextAfter(nums, after)
         if (i >= 0) onRead(list, i)
@@ -723,7 +724,7 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
     if (!recorded && total > 0 && lastVisible >= total - 1) {
         recorded = true
         scope.launch {
-            val saved = ReaderProgress.record(ctx, linkTitle ?: manga.title, chapter.name, preferTitle = linkTitle)
+            val saved = ReaderProgress.record(ctx, linkTitle ?: manga.title, chapter.name, preferTitle = linkTitle, allowLower = true)
             if (saved != null) Toast.makeText(ctx, "${saved.title}: capítulo ${ReaderProgress.fmt(saved.chapter)} guardado", Toast.LENGTH_SHORT).show()
         }
     }
