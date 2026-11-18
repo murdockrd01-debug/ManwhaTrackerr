@@ -841,9 +841,6 @@ fun DetailScreen(
             ) {
                 Text("Progreso", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxWidth())
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    FilledTonalIconButton(onClick = { setChapter(chapterNow - 1) }, modifier = Modifier.size(48.dp)) {
-                        Text("−", fontSize = 24.sp)
-                    }
                     OutlinedTextField(
                         value = chapterText,
                         onValueChange = { chapterText = it },
@@ -854,9 +851,6 @@ fun DetailScreen(
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.width(130.dp)
                     )
-                    FilledTonalIconButton(onClick = { setChapter(chapterNow + 1) }, modifier = Modifier.size(48.dp)) {
-                        Text("+", fontSize = 24.sp)
-                    }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("de", color = MaterialTheme.colorScheme.onSurfaceVariant)

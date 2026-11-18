@@ -1,3 +1,6 @@
+## 5.8.2
+- Ficha del manhwa: se quitaron los botones − y + del capítulo (el avance es automático). El número se puede seguir corrigiendo a mano.
+
 ## 5.8.1
 - Pantalla principal: se quitó el botón "+" de las tarjetas (en lista y en cuadrícula).
 
