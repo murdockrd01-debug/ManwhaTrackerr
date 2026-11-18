@@ -45,6 +45,10 @@ object Prefs {
             .putFloat("custom_hue", hue).putFloat("custom_accent", accent).apply()
     }
 
+    // ---- Descargas
+    fun wifiOnly(c: Context): Boolean = p(c).getBoolean("dl_wifi_only", false)
+    fun setWifiOnly(c: Context, on: Boolean) { p(c).edit().putBoolean("dl_wifi_only", on).apply() }
+
     // ---- Carátulas
     fun coverSize(c: Context): String = CoverStyle.normalize(p(c).getString("cover_size", null))
     fun setCoverSize(c: Context, v: String) { p(c).edit().putString("cover_size", v).apply() }

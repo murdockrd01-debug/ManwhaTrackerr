@@ -3,6 +3,7 @@ package com.manhwatracker.app.ext
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -31,6 +32,12 @@ class DownloadService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_CANCEL) {
+            OfflineDownloads.cancelAll(this)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         createChannel()
         val n = notification()
         if (Build.VERSION.SDK_INT >= 29) startForeground(ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else startForeground(ID, n)
@@ -56,6 +63,13 @@ class DownloadService : Service() {
             .setSmallIcon(R.drawable.ic_notif)
             .setContentTitle("Descargando para leer sin conexión")
             .setContentText(text)
+            .addAction(
+                R.drawable.ic_notif, "Cancelar",
+                PendingIntent.getService(
+                    this, 1, Intent(this, DownloadService::class.java).setAction(ACTION_CANCEL),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            )
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setProgress(100, ((current ?: 0f) * 100).toInt(), current == null)
@@ -75,6 +89,7 @@ class DownloadService : Service() {
     companion object {
         private const val CHANNEL = "downloads"
         private const val ID = 4107
+        private const val ACTION_CANCEL = "com.manhwatracker.app.CANCEL_DOWNLOADS"
         fun start(ctx: Context) {
             runCatching { ContextCompat.startForegroundService(ctx, Intent(ctx, DownloadService::class.java)) }
         }

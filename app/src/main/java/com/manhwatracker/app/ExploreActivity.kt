@@ -8,7 +8,9 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -133,7 +135,19 @@ private sealed class Screen {
     object Home : Screen()
     class Browse(val src: Source, val pkg: String, val initialQuery: String? = null) : Screen() { var autoOpened = false }
     class Detail(val src: Source, val pkg: String, val manga: SManga, val linkTitle: String? = null, var startAfter: Double? = null) : Screen()
-    class Read(val src: Source, val manga: SManga, val chapters: List<SChapter>, val index: Int, val linkTitle: String? = null, val startPos: Pair<Int, Int>? = null) : Screen()
+    class Read(val src: Source, val pkg: String, val manga: SManga, val chapters: List<SChapter>, val index: Int, val linkTitle: String? = null, val startPos: Pair<Int, Int>? = null) : Screen()
+}
+
+/** Devuelve una función que pide el permiso de notificaciones (Android 13+) si aún no lo tienes; sirve para ver el avance de las descargas. */
+@Composable
+private fun rememberNotifAsk(): () -> Unit {
+    val ctx = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    return {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) launcher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+    }
 }
 
 private fun copyText(ctx: Context, text: String) {
@@ -250,8 +264,8 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
             onContinue = { resume?.let { (b, d) -> stack = listOfNotNull(Screen.Home, b, d) } }
         )
         is Screen.Browse -> BrowseScreen(s.src, s.initialQuery, s.autoOpened, onAutoOpened = { s.autoOpened = true }, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it, s.initialQuery)) })
-        is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.linkTitle, s.startAfter, onAutoJumped = { s.startAfter = null }, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.manga, list, i, s.linkTitle, ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
-        is Screen.Read -> OnlineReader(s.src, s.manga, s.chapters, s.index, s.linkTitle, s.startPos, onBack = { pop() })
+        is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.linkTitle, s.startAfter, onAutoJumped = { s.startAfter = null }, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.pkg, s.manga, list, i, s.linkTitle, ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
+        is Screen.Read -> OnlineReader(s.src, s.pkg, s.manga, s.chapters, s.index, s.linkTitle, s.startPos, onBack = { pop() })
     }
 }
 
@@ -299,6 +313,16 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onO
                     }
                     Text("▶", fontSize = 22.sp)
                 }
+            }
+        }
+        item(key = "wifi") {
+            var wifiOnly by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.wifiOnly(ctx)) }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Bajar solo con Wi-Fi", fontWeight = FontWeight.Medium)
+                    Text("Las descargas esperan si estás con datos móviles.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                androidx.compose.material3.Switch(checked = wifiOnly, onCheckedChange = { wifiOnly = it; com.manhwatracker.app.data.Prefs.setWifiOnly(ctx, it) })
             }
         }
         if (saved.isNotEmpty()) {
@@ -531,6 +555,7 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
     var reload by remember { mutableStateOf(0) }
     var offlineMode by remember { mutableStateOf(false) }
     val startTitle = remember { manga.title }
+    val askNotif = rememberNotifAsk()
     LaunchedEffect(reload) {
         failure = null; chapters = null; offlineMode = false
         try {
@@ -640,13 +665,18 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
                     OutlinedButton(onClick = {
                         val idx = OfflinePlan.pick(a.map { it.url }, have, from, 5)
                         if (idx.isEmpty()) Toast.makeText(ctx, "Ya tienes esos capítulos", Toast.LENGTH_SHORT).show()
-                        else { OfflineDownloads.enqueue(ctx, src, pkg, detail, idx.map { a[it] }); Toast.makeText(ctx, "Bajando ${idx.size} capítulos", Toast.LENGTH_SHORT).show() }
+                        else { askNotif(); OfflineDownloads.enqueue(ctx, src, pkg, detail, idx.map { a[it] }); Toast.makeText(ctx, "Bajando ${idx.size} capítulos", Toast.LENGTH_SHORT).show() }
                     }) { Text("⬇ Siguientes 5") }
                     OutlinedButton(onClick = {
                         val idx = OfflinePlan.pick(a.map { it.url }, have, 0, 0)
                         if (idx.isEmpty()) Toast.makeText(ctx, "Ya tienes todos", Toast.LENGTH_SHORT).show()
-                        else { OfflineDownloads.enqueue(ctx, src, pkg, detail, idx.map { a[it] }); Toast.makeText(ctx, "Bajando ${idx.size} capítulos", Toast.LENGTH_SHORT).show() }
+                        else { askNotif(); OfflineDownloads.enqueue(ctx, src, pkg, detail, idx.map { a[it] }); Toast.makeText(ctx, "Bajando ${idx.size} capítulos", Toast.LENGTH_SHORT).show() }
                     }) { Text("⬇ Todos") }
+                }
+            }
+            item {
+                if (OfflineDownloads.active.isNotEmpty()) OutlinedButton(onClick = { OfflineDownloads.cancelAll(ctx) }) {
+                    Text("✕ Cancelar descargas (${OfflineDownloads.active.size})")
                 }
             }
             items(list, key = { it.url }) { ch ->
@@ -669,7 +699,7 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
                     when {
                         pr != null -> Text(if (pr < 0f) "…" else "${(pr * 100).toInt()}%", modifier = Modifier.padding(end = 14.dp), color = MaterialTheme.colorScheme.primary)
                         ch.url in have -> TextButton(onClick = { OfflineDownloads.delete(ctx, ckey) }) { Text("✓ 🗑") }
-                        !offlineMode -> TextButton(onClick = { OfflineDownloads.enqueue(ctx, src, pkg, detail, listOf(ch)) }) { Text("⬇") }
+                        !offlineMode -> TextButton(onClick = { askNotif(); OfflineDownloads.enqueue(ctx, src, pkg, detail, listOf(ch)) }) { Text("⬇") }
                     }
                   }
                 }
@@ -687,7 +717,7 @@ private sealed class PageState {
 }
 
 @Composable
-private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, startIndex: Int, linkTitle: String?, startPos: Pair<Int, Int>?, onBack: () -> Unit) {
+private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List<SChapter>, startIndex: Int, linkTitle: String?, startPos: Pair<Int, Int>?, onBack: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var index by remember { mutableStateOf(startIndex) }
@@ -754,9 +784,28 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
             TextButton(enabled = index > 0, onClick = { index-- }) { Text("‹ Anterior") }
             TextButton(enabled = index < chapters.lastIndex, onClick = { index++ }) { Text("Siguiente ›") }
             var menu by remember { mutableStateOf(false) }
+            val askNotifR = rememberNotifAsk()
             Box {
                 IconButton(onClick = { menu = true }) { Text("⋮", fontSize = 20.sp) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Bajar los próximos 5 capítulos") },
+                        onClick = {
+                            menu = false
+                            scope.launch {
+                                val have = withContext(Dispatchers.IO) {
+                                    chapters.filter { OfflineStore.pageCount(ctx, OfflineStore.key(src.id, manga.url, it.url)) > 0 }.map { it.url }.toSet()
+                                }
+                                val idx = OfflinePlan.pick(chapters.map { it.url }, have, index + 1, 5)
+                                if (idx.isEmpty()) Toast.makeText(ctx, "Ya tienes los siguientes", Toast.LENGTH_SHORT).show()
+                                else {
+                                    askNotifR()
+                                    OfflineDownloads.enqueue(ctx, src, pkg, manga, idx.map { chapters[it] })
+                                    Toast.makeText(ctx, "Bajando ${idx.size} capítulos", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    )
                     DropdownMenuItem(
                         text = { Text("Fijar como mi avance") },
                         onClick = {

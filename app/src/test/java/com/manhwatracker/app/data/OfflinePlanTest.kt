@@ -22,6 +22,12 @@ class OfflinePlanTest {
         assertEquals("3/12", OfflinePlan.progress(3, 12))
     }
 
+    @Test fun wifiRule() {
+        assertEquals(true, OfflinePlan.canDownload(false, true))
+        assertEquals(true, OfflinePlan.canDownload(true, false))
+        assertEquals(false, OfflinePlan.canDownload(true, true))
+    }
+
     @Test fun sizes() {
         assertEquals("0 KB", OfflinePlan.size(-5))
         assertEquals("850 KB", OfflinePlan.size(850L * 1024))

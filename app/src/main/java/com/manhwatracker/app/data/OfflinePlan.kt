@@ -20,6 +20,9 @@ object OfflinePlan {
     /** Texto corto del avance de una descarga: "3/12". */
     fun progress(done: Int, total: Int): String = "${done.coerceAtLeast(0)}/${total.coerceAtLeast(0)}"
 
+    /** ¿Se puede bajar ahora? Con "solo Wi-Fi" activado, no si la conexión es de datos móviles (medida). */
+    fun canDownload(wifiOnly: Boolean, metered: Boolean): Boolean = !(wifiOnly && metered)
+
     /** Tamaño legible: "850 KB", "12.4 MB", "1.2 GB". */
     fun size(bytes: Long): String {
         val b = bytes.coerceAtLeast(0)

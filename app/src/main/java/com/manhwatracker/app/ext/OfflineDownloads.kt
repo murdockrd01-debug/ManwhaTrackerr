@@ -13,6 +13,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import com.manhwatracker.app.data.OfflinePlan
+import com.manhwatracker.app.data.Prefs
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -22,6 +25,7 @@ import kotlinx.coroutines.sync.withLock
 object OfflineDownloads {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val queue = Mutex()
+    private val jobs = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Job>()
 
     /** Capítulos en cola o bajándose: clave → avance de 0 a 1 (-1 = esperando turno). */
     val active = mutableStateMapOf<String, Float>()
@@ -68,18 +72,25 @@ object OfflineDownloads {
             active[key] = -1f
             errors.remove(key)
             pend(app, true, pkg, src.id, manga.url, ch.url)
-            scope.launch {
+            jobs[key] = scope.launch {
                 queue.withLock {
                     try { download(app, src, key, ch) }
                     catch (e: CancellationException) { throw e }
                     catch (e: Throwable) { errors[key] = e.message ?: e.javaClass.simpleName }
-                    finally { active.remove(key); pend(app, false, pkg, src.id, manga.url, ch.url); version++ }
+                    finally { active.remove(key); jobs.remove(key); pend(app, false, pkg, src.id, manga.url, ch.url); version++ }
                 }
             }
         }
     }
 
     private suspend fun download(ctx: Context, src: Source, key: String, ch: SChapter) {
+        active[key] = 0f
+        // "Solo Wi-Fi": espera (sin gastar datos) hasta que haya una red no medida.
+        val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        while (!OfflinePlan.canDownload(Prefs.wifiOnly(ctx), cm.isActiveNetworkMetered)) {
+            active[key] = -1f
+            delay(4000)
+        }
         active[key] = 0f
         val pages = kotlinx.coroutines.withContext(Dispatchers.IO) { src.getPageList(ch).sortedBy { it.index } }
         if (pages.isEmpty()) throw IllegalStateException("El capítulo no tiene páginas")
@@ -93,6 +104,15 @@ object OfflineDownloads {
             }.awaitAll()
         }
         OfflineStore.markDone(ctx, key, pages.size)
+    }
+
+    /** Cancela todo lo que está en cola o bajándose (lo ya bajado se conserva). */
+    fun cancelAll(ctx: Context) {
+        jobs.values.forEach { it.cancel() }
+        jobs.clear()
+        synchronized(this) { prefs(ctx).edit().remove("pending").apply() }
+        active.clear()
+        version++
     }
 
     /** Avisa a las pantallas que cambió lo descargado (por ejemplo tras borrar un manhwa entero). */
