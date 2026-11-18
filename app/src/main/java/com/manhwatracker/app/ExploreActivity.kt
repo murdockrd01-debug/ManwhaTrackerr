@@ -89,7 +89,11 @@ import com.manhwatracker.app.data.LibraryAdd
 import com.manhwatracker.app.data.Status
 import com.manhwatracker.app.data.ReaderProgress
 import com.manhwatracker.app.ext.ExtensionHost
+import com.manhwatracker.app.ext.OfflineDownloads
+import com.manhwatracker.app.ext.OfflineStore
 import com.manhwatracker.app.ext.OnlineStore
+import com.manhwatracker.app.data.OfflinePlan
+import kotlinx.coroutines.CancellationException
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -156,6 +160,8 @@ private object ExploreMemory {
         if (f.size < 3 || f[0] != chapterUrl) return null
         return (f[1].toIntOrNull() ?: return null) to (f[2].toIntOrNull() ?: 0)
     }
+    fun lastReadUrl(c: Context, title: String): String? =
+        p(c).getString("pos_" + norm(title), null)?.split("\u001F")?.firstOrNull()
     /** El manhwa de la fuente que ya vinculaste con [title], si lo hay. */
     fun forTitle(c: Context, title: String): Last? {
         val f = p(c).getString("map_" + norm(title), null)?.split("\u001F") ?: return null
@@ -217,11 +223,12 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
     when (val s = stack.last()) {
         is Screen.Home -> HomeScreen(
             onExit = onExit, onOpen = { src, pkg -> push(Screen.Browse(src, pkg)) },
+            onOpenSaved = { src, pkg, m -> push(Screen.Detail(src, pkg, m)) },
             continueTitle = resume?.second?.manga?.title,
             onContinue = { resume?.let { (b, d) -> stack = listOfNotNull(Screen.Home, b, d) } }
         )
         is Screen.Browse -> BrowseScreen(s.src, s.initialQuery, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it, s.initialQuery)) })
-        is Screen.Detail -> DetailScreen(s.src, s.manga, s.startAfter, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.manga, list, i, s.linkTitle, ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
+        is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.startAfter, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.manga, list, i, s.linkTitle, ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
         is Screen.Read -> OnlineReader(s.src, s.manga, s.chapters, s.index, s.linkTitle, s.startPos, onBack = { pop() })
     }
 }
@@ -231,7 +238,7 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
 private class Row2(val pkg: String, val result: ExtensionHost.Result)
 
 @Composable
-private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, continueTitle: String?, onContinue: () -> Unit) {
+private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onOpenSaved: (Source, String, SManga) -> Unit, continueTitle: String?, onContinue: () -> Unit) {
     val ctx = LocalContext.current
     var rows by remember { mutableStateOf<List<Row2>?>(null) }
     var reload by remember { mutableStateOf(0) }
@@ -242,6 +249,10 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, con
             ExtensionHost.installedExtensions(ctx).map { Row2(it.packageName, ExtensionHost.load(ctx, it.packageName)) }
         }
     }
+    val homeScope = rememberCoroutineScope()
+    val dlVersion = OfflineDownloads.version
+    var saved by remember { mutableStateOf<List<Pair<OfflineStore.Saved, Int>>>(emptyList()) }
+    LaunchedEffect(dlVersion) { saved = withContext(Dispatchers.IO) { OfflineStore.downloadedManga(ctx) } }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -264,6 +275,28 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, con
                         Text(continueTitle, fontWeight = FontWeight.Bold, fontSize = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                     Text("▶", fontSize = 22.sp)
+                }
+            }
+        }
+        if (saved.isNotEmpty()) {
+            item(key = "dlh") { Text("Descargados (sin conexión)", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            items(saved.size, key = { "dl" + saved[it].first.srcId + saved[it].first.manga.url }) { i ->
+                val (sv, n) = saved[i]
+                Card(Modifier.fillMaxWidth().clickable {
+                    homeScope.launch {
+                        val r = withContext(Dispatchers.IO) { ExtensionHost.load(ctx, sv.pkg) }
+                        val src = (r as? ExtensionHost.Result.Ok)?.ext?.sources?.firstOrNull { it.id == sv.srcId }
+                        if (src != null) onOpenSaved(src, sv.pkg, sv.manga)
+                        else Toast.makeText(ctx, "La extensión de este manhwa no está disponible", Toast.LENGTH_LONG).show()
+                    }
+                }) {
+                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(sv.manga.title, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text("$n capítulos bajados", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text("Abrir ›", color = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         }
@@ -383,6 +416,7 @@ private fun BrowseScreen(src: Source, initialQuery: String?, onBack: () -> Unit,
                         if (exact.size == 1 || (exact.isNotEmpty() && items.first() === exact.first())) onOpen(exact.first())
                     }
                 }
+            } catch (e: CancellationException) { loading = false; throw e
             } catch (e: Throwable) {
                 if (my == gen) { failure = e.report(); hasNext = false }
             }
@@ -449,20 +483,29 @@ private fun statusLabel(s: Int) = when (s) {
 }
 
 @Composable
-private fun DetailScreen(src: Source, manga: SManga, startAfter: Double?, onBack: () -> Unit, onRead: (List<SChapter>, Int) -> Unit) {
+private fun DetailScreen(src: Source, pkg: String, manga: SManga, startAfter: Double?, onBack: () -> Unit, onRead: (List<SChapter>, Int) -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var detail by remember { mutableStateOf(manga) }
     var chapters by remember { mutableStateOf<List<SChapter>?>(null) }
     var failure by remember { mutableStateOf<String?>(null) }
     var reload by remember { mutableStateOf(0) }
+    var offlineMode by remember { mutableStateOf(false) }
+    val startTitle = remember { manga.title }
     LaunchedEffect(reload) {
-        failure = null; chapters = null
+        failure = null; chapters = null; offlineMode = false
         try {
             val up = withContext(Dispatchers.IO) { src.getMangaUpdate(manga, emptyList(), true, true) }
             detail = up.manga.also { if (it.title.isBlank()) it.title = manga.title }
             chapters = up.chapters
-        } catch (e: Throwable) { failure = e.report() }
+            withContext(Dispatchers.IO) { OfflineStore.saveManga(ctx, pkg, src.id, detail, up.chapters) }
+        } catch (e: CancellationException) { throw e
+        } catch (e: Throwable) {
+            // Sin conexión: si ya la abriste antes, se muestra lo guardado (y lo que bajaste se puede leer).
+            val saved = withContext(Dispatchers.IO) { OfflineStore.loadManga(ctx, src.id, manga.url) }
+            if (saved != null) { detail = saved.manga; chapters = saved.chapters; offlineMode = true }
+            else failure = e.report()
+        }
     }
     // Para leer: del más viejo al más nuevo. Las fuentes suelen devolver el más nuevo primero.
     val asc = remember(chapters) {
@@ -470,6 +513,13 @@ private fun DetailScreen(src: Source, manga: SManga, startAfter: Double?, onBack
             val nums = l.map { ChapterPick.number(it.chapter_number, it.name) }
             if (ChapterPick.newestFirst(nums)) l.reversed() else l
         }
+    }
+    // Capítulos ya bajados para leer sin conexión (se refresca cuando termina o se borra una descarga).
+    val dlVer = OfflineDownloads.version
+    var have by remember { mutableStateOf<Set<String>>(emptySet()) }
+    LaunchedEffect(chapters, dlVer) {
+        val l = chapters ?: return@LaunchedEffect
+        have = withContext(Dispatchers.IO) { l.filter { OfflineStore.pageCount(ctx, OfflineStore.key(src.id, manga.url, it.url)) > 0 }.map { it.url }.toSet() }
     }
     // Desde "Continuar leyendo": salta al primer capítulo después del último que leíste (una sola vez).
     var auto by remember { mutableStateOf(startAfter) }
@@ -535,22 +585,52 @@ private fun DetailScreen(src: Source, manga: SManga, startAfter: Double?, onBack
                 }
             }
         }
+        if (offlineMode) item {
+            Text("Sin conexión: se muestra lo guardado. Puedes leer los capítulos marcados ✓.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            OutlinedButton(onClick = { reload++ }) { Text("Reintentar") }
+        }
         if (chapters == null && failure == null) item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
         chapters?.let { list ->
-            item { Text("${list.size} capítulos", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)) }
+            item { Text("${list.size} capítulos · ${have.size} sin conexión", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)) }
+            if (!offlineMode) item {
+                val a = asc ?: list
+                val from = ExploreMemory.lastReadUrl(ctx, startTitle).let { u -> a.indexOfFirst { it.url == u }.let { if (it < 0) 0 else it } }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        val idx = OfflinePlan.pick(a.map { it.url }, have, from, 5)
+                        if (idx.isEmpty()) Toast.makeText(ctx, "Ya tienes esos capítulos", Toast.LENGTH_SHORT).show()
+                        else { OfflineDownloads.enqueue(ctx, src, pkg, detail, idx.map { a[it] }); Toast.makeText(ctx, "Bajando ${idx.size} capítulos", Toast.LENGTH_SHORT).show() }
+                    }) { Text("⬇ Siguientes 5") }
+                    OutlinedButton(onClick = {
+                        val idx = OfflinePlan.pick(a.map { it.url }, have, 0, 0)
+                        if (idx.isEmpty()) Toast.makeText(ctx, "Ya tienes todos", Toast.LENGTH_SHORT).show()
+                        else { OfflineDownloads.enqueue(ctx, src, pkg, detail, idx.map { a[it] }); Toast.makeText(ctx, "Bajando ${idx.size} capítulos", Toast.LENGTH_SHORT).show() }
+                    }) { Text("⬇ Todos") }
+                }
+            }
             items(list, key = { it.url }) { ch ->
+                val ckey = OfflineStore.key(src.id, manga.url, ch.url)
                 Card(Modifier.fillMaxWidth().clickable {
                     val a = asc ?: list
                     onRead(a, a.indexOfFirst { it.url == ch.url }.coerceAtLeast(0))
                 }) {
-                    Column(Modifier.padding(12.dp)) {
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.padding(12.dp).weight(1f)) {
                         Text(ch.name, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         val sub = listOfNotNull(
                             ch.date_upload.takeIf { it > 0 }?.let { DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(it)) },
                             ch.scanlator?.takeIf { it.isNotBlank() }
                         ).joinToString(" · ")
                         if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OfflineDownloads.errors[ckey]?.let { Text("No se pudo bajar: $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, maxLines = 2) }
                     }
+                    val pr = OfflineDownloads.active[ckey]
+                    when {
+                        pr != null -> Text(if (pr < 0f) "…" else "${(pr * 100).toInt()}%", modifier = Modifier.padding(end = 14.dp), color = MaterialTheme.colorScheme.primary)
+                        ch.url in have -> TextButton(onClick = { OfflineDownloads.delete(ctx, ckey) }) { Text("✓ 🗑") }
+                        !offlineMode -> TextButton(onClick = { OfflineDownloads.enqueue(ctx, src, pkg, detail, listOf(ch)) }) { Text("⬇") }
+                    }
+                  }
                 }
             }
         }
@@ -586,7 +666,10 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
     val key = src.id.toString() + "|" + manga.url + "|" + chapter.url
 
     LaunchedEffect(index) {
+        val saved = OfflineStore.pageCount(ctx, key)
+        if (saved > 0) { pages = List(saved) { Page(it) }; return@LaunchedEffect }
         try { pages = withContext(Dispatchers.IO) { src.getPageList(chapter).sortedBy { it.index } } }
+        catch (e: CancellationException) { throw e }
         catch (e: Throwable) { failure = e.report() }
     }
     // Al abrir: vuelve a la página donde ibas (solo en el capítulo con el que se abrió); si no, al inicio.
@@ -643,6 +726,10 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
                             states[i] = try {
                                 val f = OnlineStore.pageFile(ctx, src, key, list[i])
                                 PageState.Ready(f, com.manhwatracker.app.data.ReaderSource.ratio(ctx, f) ?: 0.7f)
+                            } catch (e: CancellationException) {
+                                // La página salió de pantalla antes de terminar: no es un error, se pide de nuevo al volver.
+                                states.remove(i)
+                                throw e
                             } catch (e: Throwable) { PageState.Err(e.message ?: e.javaClass.simpleName) }
                         }
                     }
