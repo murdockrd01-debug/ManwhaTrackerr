@@ -1,3 +1,6 @@
+## 5.13.0
+- Ficha del manhwa en una fuente: los capítulos que ya leíste (según tu avance) salen atenuados con ✓, el que te toca lleva la etiqueta "siguiente", y el que dejaste a medias "en curso". Arriba hay un botón "Ir a mi siguiente capítulo" que baja hasta él.
+
 ## 5.12.0
 - Descargas: la app ahora pide el permiso de notificaciones (Android 13+) la primera vez que bajas algo, para que veas el avance.
 - Botón "✕ Cancelar descargas" en la ficha y acción "Cancelar" en la notificación. Lo que ya se bajó se conserva.

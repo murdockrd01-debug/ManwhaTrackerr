@@ -16,6 +16,13 @@ object ChapterPick {
     /** Posición (en una lista del más viejo al más nuevo) del primer capítulo con número mayor que [after]; -1 si no hay. */
     fun nextAfter(nums: List<Double?>, after: Double): Int = nums.indexOfFirst { it != null && it > after + 0.0001 }
 
+    /** ¿Este capítulo ya está leído según tu avance? Sin número, no se puede saber (false). */
+    fun isRead(num: Double?, readUpTo: Double?): Boolean = num != null && readUpTo != null && readUpTo > 0.0 && num <= readUpTo + 0.0001
+
+    /** El número del capítulo que sigue a tu avance (el menor mayor que [readUpTo]); null si no hay. */
+    fun nextNumber(nums: List<Double?>, readUpTo: Double): Double? =
+        nums.filterNotNull().filter { it > readUpTo + 0.0001 }.minOrNull()
+
     /**
      * Qué capítulo abrir con "Continuar leyendo" (lista del más viejo al más nuevo). [lastUrl] es el último capítulo
      * que abriste en el lector y [lastDone] si llegaste a su última página. Si lo dejaste a medias, se reabre ese mismo

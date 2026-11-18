@@ -28,6 +28,17 @@ class ChapterPickTest {
         assertEquals(3, ChapterPick.nextAfter(listOf(1.0, 2.0, null, 3.0), 2.0).let { if (it == 3) 3 else it })
     }
 
+    @Test fun readState() {
+        assertEquals(true, ChapterPick.isRead(3.0, 3.0))
+        assertEquals(true, ChapterPick.isRead(2.0, 3.0))
+        assertEquals(false, ChapterPick.isRead(4.0, 3.0))
+        assertEquals(false, ChapterPick.isRead(null, 3.0))
+        assertEquals(false, ChapterPick.isRead(1.0, null))
+        assertEquals(false, ChapterPick.isRead(1.0, 0.0))
+        assertEquals(4.0, ChapterPick.nextNumber(listOf(5.0, 4.0, 1.0, null, 3.0), 3.0)!!, 0.0)
+        assertEquals(null, ChapterPick.nextNumber(listOf(1.0, 2.0), 2.0))
+    }
+
     @Test fun resume() {
         val urls = listOf("a", "b", "c", "d")
         val nums = listOf(1.0, 2.0, 3.0, 4.0)

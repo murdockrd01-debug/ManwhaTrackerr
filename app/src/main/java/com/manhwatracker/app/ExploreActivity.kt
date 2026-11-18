@@ -556,6 +556,11 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
     var offlineMode by remember { mutableStateOf(false) }
     val startTitle = remember { manga.title }
     val askNotif = rememberNotifAsk()
+    val listState = rememberLazyListState()
+    // Tu avance en la lista y el capítulo que dejaste a medias, para marcar los leídos.
+    var readUp by remember { mutableStateOf<Double?>(null) }
+    val inProgress = remember { ExploreMemory.readLast(ctx, linkTitle ?: manga.title)?.takeIf { !it.done }?.url }
+    LaunchedEffect(manga.title) { readUp = LibraryAdd.lastChapter(ctx, linkTitle ?: manga.title) }
     LaunchedEffect(reload) {
         failure = null; chapters = null; offlineMode = false
         try {
@@ -599,7 +604,7 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
         else if (nums.any { it != null }) Toast.makeText(ctx, "Ya estás al día en esta fuente", Toast.LENGTH_LONG).show()
         else Toast.makeText(ctx, "Esta fuente no numera sus capítulos: elige uno de la lista", Toast.LENGTH_LONG).show()
     }
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver")) }
@@ -658,6 +663,13 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
         if (chapters == null && failure == null) item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
         chapters?.let { list ->
             item { Text("${list.size} capítulos · ${have.size} sin conexión", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)) }
+            val nextNum = readUp?.let { up -> ChapterPick.nextNumber(list.map { ChapterPick.number(it.chapter_number, it.name) }, up) }
+            if (nextNum != null) item {
+                OutlinedButton(onClick = {
+                    val i = list.indexOfFirst { ChapterPick.number(it.chapter_number, it.name)?.let { n -> Math.abs(n - nextNum) < 0.0001 } == true }
+                    if (i >= 0) scope.launch { listState.animateScrollToItem((listState.layoutInfo.totalItemsCount - list.size + i).coerceAtLeast(0)) }
+                }, modifier = Modifier.fillMaxWidth()) { Text("Ir a mi siguiente capítulo (${ReaderProgress.fmt(nextNum)})") }
+            }
             if (!offlineMode) item {
                 val a = asc ?: list
                 val from = ExploreMemory.lastReadUrl(ctx, startTitle).let { u -> a.indexOfFirst { it.url == u }.let { if (it < 0) 0 else it } }
@@ -681,13 +693,23 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
             }
             items(list, key = { it.url }) { ch ->
                 val ckey = OfflineStore.key(src.id, manga.url, ch.url)
-                Card(Modifier.fillMaxWidth().clickable {
+                val chNum = ChapterPick.number(ch.chapter_number, ch.name)
+                val isRead = ChapterPick.isRead(chNum, readUp)
+                val isNext = nextNum != null && chNum != null && Math.abs(chNum - nextNum) < 0.0001
+                val current = ch.url == inProgress
+                Card(colors = androidx.compose.material3.CardDefaults.cardColors(
+                    containerColor = if (isNext || current) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isRead) 0.35f else 1f)
+                ), modifier = Modifier.fillMaxWidth().clickable {
                     val a = asc ?: list
                     onRead(a, a.indexOfFirst { it.url == ch.url }.coerceAtLeast(0))
                 }) {
                   Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.padding(12.dp).weight(1f)) {
-                        Text(ch.name, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            (if (isRead) "✓ " else "") + ch.name + (if (current) "  · en curso" else if (isNext) "  · siguiente" else ""),
+                            fontWeight = if (isNext || current) FontWeight.Bold else FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            color = if (isRead && !current) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                        )
                         val sub = listOfNotNull(
                             ch.date_upload.takeIf { it > 0 }?.let { DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(it)) },
                             ch.scanlator?.takeIf { it.isNotBlank() }
