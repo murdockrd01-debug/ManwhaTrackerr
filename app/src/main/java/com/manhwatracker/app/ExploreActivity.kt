@@ -57,6 +57,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -153,8 +155,15 @@ private object ExploreMemory {
         e.apply()
     }
     /** Por dónde ibas en un capítulo: página (elemento de la lista) y desplazamiento. */
-    fun savePos(c: Context, title: String, chapterUrl: String, index: Int, offset: Int) =
-        p(c).edit().putString("pos_" + norm(title), listOf(chapterUrl, index.toString(), offset.toString()).joinToString("\u001F")).apply()
+    fun savePos(c: Context, title: String, chapterUrl: String, index: Int, offset: Int, done: Boolean = false) =
+        p(c).edit().putString("pos_" + norm(title), listOf(chapterUrl, index.toString(), offset.toString(), if (done) "1" else "0").joinToString("\u001F")).apply()
+    class LastPos(val url: String, val done: Boolean)
+    /** Último capítulo abierto de [title] y si llegaste a su final. */
+    fun readLast(c: Context, title: String): LastPos? {
+        val f = p(c).getString("pos_" + norm(title), null)?.split("\u001F") ?: return null
+        if (f.isEmpty() || f[0].isEmpty()) return null
+        return LastPos(f[0], f.getOrNull(3) == "1")
+    }
     fun readPos(c: Context, title: String, chapterUrl: String): Pair<Int, Int>? {
         val f = p(c).getString("pos_" + norm(title), null)?.split("\u001F") ?: return null
         if (f.size < 3 || f[0] != chapterUrl) return null
@@ -241,7 +250,7 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
             onContinue = { resume?.let { (b, d) -> stack = listOfNotNull(Screen.Home, b, d) } }
         )
         is Screen.Browse -> BrowseScreen(s.src, s.initialQuery, s.autoOpened, onAutoOpened = { s.autoOpened = true }, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it, s.initialQuery)) })
-        is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.startAfter, onAutoJumped = { s.startAfter = null }, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.manga, list, i, s.linkTitle, ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
+        is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.linkTitle, s.startAfter, onAutoJumped = { s.startAfter = null }, onBack = { pop() }, onRead = { list, i -> push(Screen.Read(s.src, s.manga, list, i, s.linkTitle, ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
         is Screen.Read -> OnlineReader(s.src, s.manga, s.chapters, s.index, s.linkTitle, s.startPos, onBack = { pop() })
     }
 }
@@ -513,7 +522,7 @@ private fun statusLabel(s: Int) = when (s) {
 }
 
 @Composable
-private fun DetailScreen(src: Source, pkg: String, manga: SManga, startAfter: Double?, onAutoJumped: () -> Unit, onBack: () -> Unit, onRead: (List<SChapter>, Int) -> Unit) {
+private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: String?, startAfter: Double?, onAutoJumped: () -> Unit, onBack: () -> Unit, onRead: (List<SChapter>, Int) -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var detail by remember { mutableStateOf(manga) }
@@ -559,7 +568,8 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, startAfter: Do
         auto = null
         onAutoJumped()
         val nums = list.map { ChapterPick.number(it.chapter_number, it.name) }
-        val i = ChapterPick.nextAfter(nums, after)
+        val last = ExploreMemory.readLast(ctx, linkTitle ?: manga.title)
+        val i = ChapterPick.resumeIndex(list.map { it.url }, nums, last?.url, last?.done ?: false, after)
         if (i >= 0) onRead(list, i)
         else if (nums.any { it != null }) Toast.makeText(ctx, "Ya estás al día en esta fuente", Toast.LENGTH_LONG).show()
         else Toast.makeText(ctx, "Esta fuente no numera sus capítulos: elige uno de la lista", Toast.LENGTH_LONG).show()
@@ -714,7 +724,7 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
         if (pages == null) return@LaunchedEffect
         snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }.collectLatest { (i, o) ->
             delay(500)
-            ExploreMemory.savePos(ctx, linkTitle ?: manga.title, chapter.url, i, o)
+            ExploreMemory.savePos(ctx, linkTitle ?: manga.title, chapter.url, i, o, recorded)
         }
     }
 
@@ -724,7 +734,8 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
     if (!recorded && total > 0 && lastVisible >= total - 1) {
         recorded = true
         scope.launch {
-            val saved = ReaderProgress.record(ctx, linkTitle ?: manga.title, chapter.name, preferTitle = linkTitle, allowLower = true)
+            ExploreMemory.savePos(ctx, linkTitle ?: manga.title, chapter.url, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, true)
+            val saved = ReaderProgress.record(ctx, linkTitle ?: manga.title, chapter.name, preferTitle = linkTitle)
             if (saved != null) Toast.makeText(ctx, "${saved.title}: capítulo ${ReaderProgress.fmt(saved.chapter)} guardado", Toast.LENGTH_SHORT).show()
         }
     }
@@ -738,6 +749,26 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
             }
             TextButton(enabled = index > 0, onClick = { index-- }) { Text("‹ Anterior") }
             TextButton(enabled = index < chapters.lastIndex, onClick = { index++ }) { Text("Siguiente ›") }
+            var menu by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { menu = true }) { Text("⋮", fontSize = 20.sp) }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Fijar como mi avance") },
+                        onClick = {
+                            menu = false
+                            scope.launch {
+                                val r = ReaderProgress.record(ctx, linkTitle ?: manga.title, chapter.name, preferTitle = linkTitle, allowLower = true)
+                                Toast.makeText(
+                                    ctx,
+                                    if (r != null) "Tu avance en ${r.title} ahora es el capítulo ${ReaderProgress.fmt(r.chapter)}" else "Ese ya es tu avance (o el manhwa no está en tu lista)",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    )
+                }
+            }
         }
         val list = pages
         when {

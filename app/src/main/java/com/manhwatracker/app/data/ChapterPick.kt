@@ -15,4 +15,16 @@ object ChapterPick {
 
     /** Posición (en una lista del más viejo al más nuevo) del primer capítulo con número mayor que [after]; -1 si no hay. */
     fun nextAfter(nums: List<Double?>, after: Double): Int = nums.indexOfFirst { it != null && it > after + 0.0001 }
+
+    /**
+     * Qué capítulo abrir con "Continuar leyendo" (lista del más viejo al más nuevo). [lastUrl] es el último capítulo
+     * que abriste en el lector y [lastDone] si llegaste a su última página. Si lo dejaste a medias, se reabre ese mismo
+     * (aunque sea viejo); si lo terminaste, el que sigue. Sin ese dato, el siguiente al avance de tu lista ([libraryChapter]).
+     * Devuelve -1 si no queda nada por leer.
+     */
+    fun resumeIndex(urls: List<String>, nums: List<Double?>, lastUrl: String?, lastDone: Boolean, libraryChapter: Double): Int {
+        val li = if (lastUrl == null) -1 else urls.indexOf(lastUrl)
+        if (li >= 0) return if (!lastDone) li else if (li + 1 < urls.size) li + 1 else -1
+        return nextAfter(nums, libraryChapter)
+    }
 }
