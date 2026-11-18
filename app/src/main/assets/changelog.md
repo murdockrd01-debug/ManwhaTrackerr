@@ -1,4 +1,4 @@
-## 5.11.0
-- Releer un capítulo viejo ya no baja tu avance: el avance de tu lista se queda en el capítulo más alto que terminaste. Si quieres cambiarlo, en el lector hay un menú ⋮ → "Fijar como mi avance" que lo deja en el capítulo que estás viendo.
-- "Continuar leyendo" ahora vuelve a donde estabas: si dejaste un capítulo a medias (aunque sea uno viejo), lo reabre en la misma página; solo pasa al siguiente si ya lo terminaste.
+## 5.11.1
+- Arreglado: "Continuar leyendo" (y "Siguiente capítulo") podían abrir el capítulo al final y darlo por leído. El lector heredaba la posición del capítulo anterior; ahora cada capítulo empieza limpio, en la primera página, o en la página donde lo dejaste si estaba a medias.
+- Si tu avance quedó adelantado por este error, corrígelo en el lector: ⋮ → "Fijar como mi avance".
 

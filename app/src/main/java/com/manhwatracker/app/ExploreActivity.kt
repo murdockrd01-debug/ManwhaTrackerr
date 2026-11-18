@@ -695,7 +695,10 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
     var pages by remember(index) { mutableStateOf<List<Page>?>(null) }
     var failure by remember(index) { mutableStateOf<String?>(null) }
     val states = remember(index) { mutableStateMapOf<Int, PageState>() }
-    val listState = rememberLazyListState()
+    // Una lista nueva por capítulo: si no, el capítulo siguiente heredaba la posición (al final) del anterior.
+    val listState = remember(index) { LazyListState() }
+    // true cuando ya se colocó la lista en su lugar (inicio o página guardada); antes de eso no se registra ni se guarda nada.
+    var positioned by remember(index) { mutableStateOf(false) }
     val zoom = remember { ZoomState() }
     var recorded by remember(index) { mutableStateOf(false) }
     // Si empiezas a leer algo que no tenías, se agrega a tus manhwas (en "Leyendo").
@@ -718,10 +721,11 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
         if (pages == null) return@LaunchedEffect
         val pos = startPos?.takeIf { index == startIndex }
         if (pos != null) listState.scrollToItem(pos.first.coerceIn(0, pages!!.size), pos.second) else listState.scrollToItem(0)
+        positioned = true
     }
     // Guarda por dónde vas (con una pequeña espera para no escribir en cada pixel).
-    LaunchedEffect(index, pages) {
-        if (pages == null) return@LaunchedEffect
+    LaunchedEffect(index, pages, positioned) {
+        if (pages == null || !positioned) return@LaunchedEffect
         snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }.collectLatest { (i, o) ->
             delay(500)
             ExploreMemory.savePos(ctx, linkTitle ?: manga.title, chapter.url, i, o, recorded)
@@ -731,7 +735,7 @@ private fun OnlineReader(src: Source, manga: SManga, chapters: List<SChapter>, s
     // Al llegar a la última página, el avance se guarda en tus manhwas (si ese manhwa está en tu lista).
     val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
     val total = pages?.size ?: 0
-    if (!recorded && total > 0 && lastVisible >= total - 1) {
+    if (!recorded && positioned && total > 0 && lastVisible >= total - 1) {
         recorded = true
         scope.launch {
             ExploreMemory.savePos(ctx, linkTitle ?: manga.title, chapter.url, listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, true)
