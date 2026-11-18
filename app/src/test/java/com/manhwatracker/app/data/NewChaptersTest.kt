@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class NewChaptersTest {
-    @Test fun notify() {
+    @Test fun notifyRules() {
         assertEquals(false, NewChapters.shouldNotify(null, 50.0, 10.0))   // primera vez: solo punto de partida
         assertEquals(true, NewChapters.shouldNotify(49.0, 50.0, 10.0))    // salió uno nuevo
         assertEquals(false, NewChapters.shouldNotify(50.0, 50.0, 10.0))   // sin cambios

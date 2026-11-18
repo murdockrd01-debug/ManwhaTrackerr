@@ -1,3 +1,6 @@
+## 5.16.1
+- Corrección interna para que compile 5.16.0 (avisos de capítulos nuevos); sin cambios en la app.
+
 ## 5.16.0
 - Avisos de capítulos nuevos: cada 6 horas (con internet) la app revisa en las fuentes lo que lees y te avisa con una notificación cuando sale un capítulo que aún no has leído. La primera revisión solo toma nota (no avisa). En "Leer" hay un interruptor para apagarlo, un botón "Revisar ahora" y una sección "Capítulos nuevos" que abre el manhwa directo en el capítulo que sigue.
 - Android no garantiza la hora exacta de las revisiones en segundo plano; puede tardar más de 6 horas.
