@@ -21,4 +21,11 @@ class OfflinePlanTest {
         assertEquals(listOf(0), OfflinePlan.pick(keys, emptySet(), -4, 1))
         assertEquals("3/12", OfflinePlan.progress(3, 12))
     }
+
+    @Test fun sizes() {
+        assertEquals("0 KB", OfflinePlan.size(-5))
+        assertEquals("850 KB", OfflinePlan.size(850L * 1024))
+        assertEquals("12.5 MB", OfflinePlan.size((12.5 * 1048576).toLong()))
+        assertEquals("1.5 GB", OfflinePlan.size((1.5 * 1073741824).toLong()))
+    }
 }

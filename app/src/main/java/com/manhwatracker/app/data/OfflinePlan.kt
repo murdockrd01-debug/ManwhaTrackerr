@@ -19,4 +19,14 @@ object OfflinePlan {
 
     /** Texto corto del avance de una descarga: "3/12". */
     fun progress(done: Int, total: Int): String = "${done.coerceAtLeast(0)}/${total.coerceAtLeast(0)}"
+
+    /** Tamaño legible: "850 KB", "12.4 MB", "1.2 GB". */
+    fun size(bytes: Long): String {
+        val b = bytes.coerceAtLeast(0)
+        return when {
+            b < 1024 * 1024 -> "${b / 1024} KB"
+            b < 1024L * 1024 * 1024 -> String.format(java.util.Locale.US, "%.1f MB", b / 1048576.0)
+            else -> String.format(java.util.Locale.US, "%.1f GB", b / 1073741824.0)
+        }
+    }
 }

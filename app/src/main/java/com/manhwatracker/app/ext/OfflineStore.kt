@@ -76,14 +76,26 @@ object OfflineStore {
         return Saved(j.getString("pkg"), j.getLong("src"), m, chs)
     }
 
-    /** Los manhwas que tienen al menos un capítulo bajado: (copia guardada, cuántos capítulos). */
-    fun downloadedManga(ctx: Context): List<Pair<Saved, Int>> {
-        val files = File(root(ctx), "manga").listFiles()?.toList() ?: return emptyList()
+    fun coverFile(ctx: Context, srcId: Long, mangaUrl: String) = File(root(ctx), "manga/" + sha("$srcId|$mangaUrl") + ".cover")
+
+    class Entry(val saved: Saved, val chapters: Int, val bytes: Long)
+
+    private fun dirSize(d: File): Long = d.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+
+    /** Los manhwas que tienen al menos un capítulo bajado, con cuántos capítulos y cuánto espacio ocupan. */
+    fun downloadedManga(ctx: Context): List<Entry> {
+        val files = File(root(ctx), "manga").listFiles { f -> f.name.endsWith(".json") }?.toList() ?: return emptyList()
         return files.mapNotNull { f ->
             val s = runCatching { parse(f) }.getOrNull() ?: return@mapNotNull null
-            val n = s.chapters.count { pageCount(ctx, key(s.srcId, s.manga.url, it.url)) > 0 }
-            if (n > 0) s to n else null
-        }.sortedBy { it.first.manga.title.lowercase() }
+            val have = s.chapters.filter { pageCount(ctx, key(s.srcId, s.manga.url, it.url)) > 0 }
+            if (have.isEmpty()) null
+            else Entry(s, have.size, have.sumOf { dirSize(chapterDir(ctx, key(s.srcId, s.manga.url, it.url))) })
+        }.sortedBy { it.saved.manga.title.lowercase() }
+    }
+
+    /** Borra todos los capítulos bajados de un manhwa (la ficha guardada se queda). */
+    fun deleteManga(ctx: Context, s: Saved) {
+        s.chapters.forEach { delete(ctx, key(s.srcId, s.manga.url, it.url)) }
     }
 
     fun key(srcId: Long, mangaUrl: String, chapterUrl: String) = "$srcId|$mangaUrl|$chapterUrl"

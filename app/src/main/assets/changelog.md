@@ -1,3 +1,8 @@
+## 5.10.0
+- Descargas sin conexión mejoradas: ahora corren con una notificación ("Descargando para leer sin conexión"), así que siguen aunque minimices la app o bloquees el teléfono. Si la app se cierra a mitad, al volver a abrir "Leer" se retoman solas.
+- Se guarda la carátula de cada manhwa descargado, y se ve sin conexión.
+- En "Leer › Descargados" ves cuánto espacio ocupa cada manhwa y el total, y un botón 🗑 para borrar todo lo bajado de uno.
+
 ## 5.9.1
 - Corrección interna para que compile el modo sin conexión (misma función que 5.9.0).
 

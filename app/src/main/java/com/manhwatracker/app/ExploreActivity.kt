@@ -188,6 +188,19 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
     val ctx = LocalContext.current
     var stack by remember { mutableStateOf(listOf<Screen>(Screen.Home)) }
     var resume by remember { mutableStateOf<Pair<Screen.Browse, Screen.Detail?>?>(null) }
+    // Retoma las descargas que quedaron a medias si la app se cerró.
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            OfflineDownloads.pending(ctx).groupBy { it[0] + "|" + it[1] + "|" + it[2] }.values.forEach { group ->
+                val (pkg, sid, murl) = group.first()
+                val srcId = sid.toLongOrNull() ?: return@forEach
+                val saved = OfflineStore.loadManga(ctx, srcId, murl) ?: return@forEach
+                val src = (ExtensionHost.load(ctx, pkg) as? ExtensionHost.Result.Ok)?.ext?.sources?.firstOrNull { it.id == srcId } ?: return@forEach
+                val urls = group.map { it[3] }.toSet()
+                OfflineDownloads.enqueue(ctx, src, pkg, saved.manga, saved.chapters.filter { it.url in urls })
+            }
+        }
+    }
     // Al abrir: vuelve a la última fuente (y deja un acceso al último manhwa en el inicio).
     LaunchedEffect(Unit) {
         // Si vienes de "Continuar leyendo" de un manhwa de tu lista: abre su ficha en la fuente, o lo busca.
@@ -251,7 +264,8 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onO
     }
     val homeScope = rememberCoroutineScope()
     val dlVersion = OfflineDownloads.version
-    var saved by remember { mutableStateOf<List<Pair<OfflineStore.Saved, Int>>>(emptyList()) }
+    var saved by remember { mutableStateOf<List<OfflineStore.Entry>>(emptyList()) }
+    var confirmDelete by remember { mutableStateOf<OfflineStore.Entry?>(null) }
     LaunchedEffect(dlVersion) { saved = withContext(Dispatchers.IO) { OfflineStore.downloadedManga(ctx) } }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
@@ -279,9 +293,11 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onO
             }
         }
         if (saved.isNotEmpty()) {
-            item(key = "dlh") { Text("Descargados (sin conexión)", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            items(saved.size, key = { "dl" + saved[it].first.srcId + saved[it].first.manga.url }) { i ->
-                val (sv, n) = saved[i]
+            item(key = "dlh") { Text("Descargados (sin conexión) · " + com.manhwatracker.app.data.OfflinePlan.size(saved.sumOf { it.bytes }), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            items(saved.size, key = { "dl" + saved[it].saved.srcId + saved[it].saved.manga.url }) { i ->
+                val ent = saved[i]
+                val sv = ent.saved
+                val n = ent.chapters
                 Card(Modifier.fillMaxWidth().clickable {
                     homeScope.launch {
                         val r = withContext(Dispatchers.IO) { ExtensionHost.load(ctx, sv.pkg) }
@@ -291,11 +307,16 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onO
                     }
                 }) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        val cf = OfflineStore.coverFile(ctx, sv.srcId, sv.manga.url)
+                        if (cf.exists()) {
+                            AsyncImage(model = cf, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.width(44.dp).height(62.dp).clip(RoundedCornerShape(8.dp)))
+                            Spacer(Modifier.width(12.dp))
+                        }
                         Column(Modifier.weight(1f)) {
                             Text(sv.manga.title, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text("$n capítulos bajados", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("$n capítulos · " + com.manhwatracker.app.data.OfflinePlan.size(ent.bytes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Text("Abrir ›", color = MaterialTheme.colorScheme.primary)
+                        TextButton(onClick = { confirmDelete = ent }) { Text("🗑") }
                     }
                 }
             }
@@ -354,6 +375,15 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onO
                 Text("Leer archivos descargados (Komikku, .cbz)")
             }
         }
+    }
+    confirmDelete?.let { ent ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text("¿Borrar descargas?") },
+            text = { Text("Se borran los ${ent.chapters} capítulos bajados de ${ent.saved.manga.title} (${com.manhwatracker.app.data.OfflinePlan.size(ent.bytes)}). Tu progreso no cambia y podrás volver a bajarlos.") },
+            confirmButton = { Button(onClick = { OfflineStore.deleteManga(ctx, ent.saved); OfflineDownloads.refresh(); confirmDelete = null }) { Text("Borrar") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Cancelar") } }
+        )
     }
     trusting?.let { t ->
         androidx.compose.material3.AlertDialog(
@@ -543,7 +573,7 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, startAfter: Do
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.width(110.dp).aspectRatio(0.7f).clip(RoundedCornerShape(10.dp))) {
-                    AsyncImage(model = cover(src, detail.thumbnail_url), imageLoader = ExtensionHost.imageLoader(ctx), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    AsyncImage(model = if (offlineMode) (OfflineStore.coverFile(ctx, src.id, manga.url).takeIf { it.exists() } ?: cover(src, detail.thumbnail_url)) else cover(src, detail.thumbnail_url), imageLoader = ExtensionHost.imageLoader(ctx), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(detail.title, fontSize = 20.sp, fontWeight = FontWeight.Bold)

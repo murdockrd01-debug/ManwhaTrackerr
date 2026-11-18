@@ -31,20 +31,49 @@ object OfflineDownloads {
     var version by mutableIntStateOf(0)
         private set
 
+    // ---- Cola guardada: si la app se cierra a mitad, al volver a abrirla se retoma (ver [resume]).
+    private const val SEP = "\u001F"
+    private fun prefs(c: Context) = c.getSharedPreferences("offline_queue", Context.MODE_PRIVATE)
+    private fun pend(c: Context, add: Boolean, pkg: String, srcId: Long, mangaUrl: String, chUrl: String) = synchronized(this) {
+        val cur = (prefs(c).getStringSet("pending", emptySet()) ?: emptySet()).toMutableSet()
+        val e = listOf(pkg, srcId.toString(), mangaUrl, chUrl).joinToString(SEP)
+        if (add) cur.add(e) else cur.remove(e)
+        prefs(c).edit().putStringSet("pending", cur).apply()
+    }
+    /** Pendientes guardados: pkg, id de fuente, url del manhwa, url del capítulo. */
+    fun pending(c: Context): List<List<String>> =
+        (prefs(c).getStringSet("pending", emptySet()) ?: emptySet()).map { it.split(SEP) }.filter { it.size == 4 }
+
+    private fun saveCover(ctx: Context, src: Source, manga: SManga) {
+        val url = manga.thumbnail_url ?: return
+        val f = OfflineStore.coverFile(ctx, src.id, manga.url)
+        if (f.exists() && f.length() > 0) return
+        runCatching {
+            val b = okhttp3.Request.Builder().url(url)
+            (src as? eu.kanade.tachiyomi.source.online.HttpSource)?.headers?.let { b.headers(it) }
+            ExtensionHost.network(ctx).client.newCall(b.build()).execute().use { r ->
+                if (r.isSuccessful) { f.parentFile?.mkdirs(); r.body.byteStream().use { i -> f.outputStream().use { o -> i.copyTo(o) } } }
+            }
+        }
+    }
+
     fun enqueue(ctx: Context, src: Source, pkg: String, manga: SManga, chapters: List<SChapter>) {
         val app = ctx.applicationContext
         OfflineStore.saveManga(app, pkg, src.id, manga, chapters)
+        scope.launch { saveCover(app, src, manga) }
+        DownloadService.start(app)
         for (ch in chapters) {
             val key = OfflineStore.key(src.id, manga.url, ch.url)
             if (active.containsKey(key) || OfflineStore.pageCount(app, key) > 0) continue
             active[key] = -1f
             errors.remove(key)
+            pend(app, true, pkg, src.id, manga.url, ch.url)
             scope.launch {
                 queue.withLock {
                     try { download(app, src, key, ch) }
                     catch (e: CancellationException) { throw e }
                     catch (e: Throwable) { errors[key] = e.message ?: e.javaClass.simpleName }
-                    finally { active.remove(key); version++ }
+                    finally { active.remove(key); pend(app, false, pkg, src.id, manga.url, ch.url); version++ }
                 }
             }
         }
@@ -65,6 +94,9 @@ object OfflineDownloads {
         }
         OfflineStore.markDone(ctx, key, pages.size)
     }
+
+    /** Avisa a las pantallas que cambió lo descargado (por ejemplo tras borrar un manhwa entero). */
+    fun refresh() { version++ }
 
     fun delete(ctx: Context, key: String) {
         OfflineStore.delete(ctx, key)
