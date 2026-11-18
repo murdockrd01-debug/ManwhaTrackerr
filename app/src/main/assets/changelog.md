@@ -1,3 +1,6 @@
+## 5.9.1
+- Corrección interna para que compile el modo sin conexión (misma función que 5.9.0).
+
 ## 5.9.0
 - Arreglado el aviso "The coroutine scope left the composition" dentro de los capítulos: aparecía al pasar rápido por las páginas y ya no se muestra como error (la página simplemente se vuelve a pedir).
 - Modo sin conexión: en la ficha de cada manhwa, junto a cada capítulo hay un botón ⬇ para bajarlo al teléfono, y arriba "⬇ Siguientes 5" (desde donde ibas) y "⬇ Todos". Los capítulos bajados llevan ✓ (con 🗑 para borrarlos) y se leen sin internet. En "Leer" aparece la sección "Descargados" para abrirlos sin conexión. Las descargas siguen mientras la app esté abierta.

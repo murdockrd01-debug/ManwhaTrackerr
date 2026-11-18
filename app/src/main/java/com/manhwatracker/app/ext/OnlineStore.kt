@@ -20,7 +20,7 @@ object OnlineStore {
     private fun sha(s: String) =
         MessageDigest.getInstance("SHA-1").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }.take(16)
 
-    private fun fetchTo(ctx: Context, src: Source, page: Page, f: File) {
+    private suspend fun fetchTo(ctx: Context, src: Source, page: Page, f: File) {
         val tmp = File(f.parentFile, f.name.substringBefore('.') + ".tmp")
         if (src is HttpSource) {
             if (page.imageUrl.isNullOrEmpty()) page.imageUrl = src.getImageUrl(page)
