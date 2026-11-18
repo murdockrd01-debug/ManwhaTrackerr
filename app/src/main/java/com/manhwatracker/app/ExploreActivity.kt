@@ -95,6 +95,8 @@ import com.manhwatracker.app.data.Status
 import com.manhwatracker.app.data.ReaderProgress
 import com.manhwatracker.app.ext.ExtensionHost
 import com.manhwatracker.app.ext.OfflineDownloads
+import com.manhwatracker.app.ext.UpdateChecker
+import com.manhwatracker.app.ext.UpdateWorker
 import com.manhwatracker.app.ext.OfflineStore
 import com.manhwatracker.app.ext.OnlineStore
 import com.manhwatracker.app.data.OfflinePlan
@@ -157,7 +159,7 @@ private fun copyText(ctx: Context, text: String) {
 }
 
 /** Recuerda la última fuente y el último manhwa abiertos, para volver ahí sin empezar de cero. */
-private object ExploreMemory {
+internal object ExploreMemory {
     private fun p(c: Context) = c.getSharedPreferences("explore", Context.MODE_PRIVATE)
     fun saveSource(c: Context, pkg: String, id: Long) = p(c).edit().putString("pkg", pkg).putLong("src", id).apply()
     fun norm(t: String) = t.lowercase().filter { it.isLetterOrDigit() }
@@ -186,6 +188,20 @@ private object ExploreMemory {
     }
     fun lastReadUrl(c: Context, title: String): String? =
         p(c).getString("pos_" + norm(title), null)?.split("\u001F")?.firstOrNull()
+    /** Todos los manhwas de fuentes vinculados: (títulos posibles en tu lista, vínculo). Sin repetir. */
+    fun allLinks(c: Context): List<Pair<List<String>, Last>> {
+        val groups = LinkedHashMap<String, Pair<MutableList<String>, Last>>()
+        for ((k, v) in p(c).all) {
+            if (!k.startsWith("map_") || v !is String) continue
+            val f = v.split("\u001F")
+            if (f.size < 5) continue
+            val m = SManga.create().apply { url = f[2]; title = f[3]; thumbnail_url = f[4].ifEmpty { null } }
+            val last = Last(f[0], f[1].toLongOrNull() ?: continue, m)
+            val g = groups.getOrPut(f[0] + "|" + f[1] + "|" + f[2]) { mutableListOf(m.title) to last }
+            g.first.add(k.removePrefix("map_"))
+        }
+        return groups.values.map { it.first.distinct() to it.second }
+    }
     /** El manhwa de la fuente que ya vinculaste con [title], si lo hay. */
     fun forTitle(c: Context, title: String): Last? {
         val f = p(c).getString("map_" + norm(title), null)?.split("\u001F") ?: return null
@@ -261,6 +277,7 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
         is Screen.Home -> HomeScreen(
             onExit = onExit, onOpen = { src, pkg -> push(Screen.Browse(src, pkg)) },
             onOpenSaved = { src, pkg, m -> push(Screen.Detail(src, pkg, m)) },
+            onOpenNew = { src, pkg, m, title, after -> push(Screen.Detail(src, pkg, m, title, after)) },
             continueTitle = resume?.second?.manga?.title,
             onContinue = { resume?.let { (b, d) -> stack = listOfNotNull(Screen.Home, b, d) } }
         )
@@ -275,7 +292,7 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
 private class Row2(val pkg: String, val result: ExtensionHost.Result)
 
 @Composable
-private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onOpenSaved: (Source, String, SManga) -> Unit, continueTitle: String?, onContinue: () -> Unit) {
+private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onOpenSaved: (Source, String, SManga) -> Unit, onOpenNew: (Source, String, SManga, String, Double) -> Unit, continueTitle: String?, onContinue: () -> Unit) {
     val ctx = LocalContext.current
     var rows by remember { mutableStateOf<List<Row2>?>(null) }
     var reload by remember { mutableStateOf(0) }
@@ -290,6 +307,9 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onO
     val dlVersion = OfflineDownloads.version
     var saved by remember { mutableStateOf<List<OfflineStore.Entry>>(emptyList()) }
     var confirmDelete by remember { mutableStateOf<OfflineStore.Entry?>(null) }
+    var newVersion by remember { mutableStateOf(0) }
+    var freshList by remember { mutableStateOf<List<Pair<String, Double>>>(emptyList()) }
+    LaunchedEffect(newVersion) { freshList = withContext(Dispatchers.IO) { UpdateChecker.fresh(ctx) } }
     LaunchedEffect(dlVersion) { saved = withContext(Dispatchers.IO) { OfflineStore.downloadedManga(ctx) } }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
@@ -313,6 +333,64 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onO
                         Text(continueTitle, fontWeight = FontWeight.Bold, fontSize = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                     Text("▶", fontSize = 22.sp)
+                }
+            }
+        }
+        item(key = "updates") {
+            var on by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.updatesEnabled(ctx)) }
+            var checking by remember { mutableStateOf(false) }
+            val askN = rememberNotifAsk()
+            LaunchedEffect(Unit) {
+                // Primera vez: pide el permiso de notificaciones para poder avisarte.
+                if (on && !com.manhwatracker.app.data.Prefs.askedNotifications(ctx)) { com.manhwatracker.app.data.Prefs.setAskedNotifications(ctx); askN() }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Avisarme de capítulos nuevos", fontWeight = FontWeight.Medium)
+                        Text("Revisa cada pocas horas lo que lees en las fuentes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    androidx.compose.material3.Switch(checked = on, onCheckedChange = {
+                        on = it
+                        com.manhwatracker.app.data.Prefs.setUpdatesEnabled(ctx, it)
+                        if (it) { askN(); UpdateWorker.schedule(ctx) } else UpdateWorker.cancel(ctx)
+                    })
+                }
+                TextButton(enabled = !checking, onClick = {
+                    checking = true
+                    homeScope.launch {
+                        val n = try { withContext(Dispatchers.IO) { UpdateChecker.run(ctx, notify = false) } } catch (e: CancellationException) { throw e } catch (e: Throwable) { -1 }
+                        checking = false
+                        newVersion++
+                        Toast.makeText(ctx, if (n < 0) "No se pudo revisar" else if (n == 0) "Sin capítulos nuevos por ahora" else "$n manhwas con capítulos nuevos", Toast.LENGTH_LONG).show()
+                    }
+                }) { Text(if (checking) "Revisando…" else "Revisar ahora") }
+            }
+        }
+        if (freshList.isNotEmpty()) {
+            item(key = "freshh") { Text("Capítulos nuevos", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }
+            items(freshList.size, key = { "fresh" + freshList[it].first }) { i ->
+                val (title, latest) = freshList[i]
+                Card(
+                    Modifier.fillMaxWidth().clickable {
+                        homeScope.launch {
+                            val link = ExploreMemory.forTitle(ctx, title)
+                            val r = link?.let { withContext(Dispatchers.IO) { ExtensionHost.load(ctx, it.pkg) } }
+                            val src = (r as? ExtensionHost.Result.Ok)?.ext?.sources?.firstOrNull { it.id == link?.srcId }
+                            val after = LibraryAdd.lastChapter(ctx, title)
+                            if (link?.manga != null && src != null && after != null) onOpenNew(src, link.pkg, link.manga, title, after)
+                            else Toast.makeText(ctx, "No se pudo abrir la fuente de este manhwa", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(title, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text("Ya salió el cap. ${ReaderProgress.fmt(latest)}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text("Leer ›", color = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         }

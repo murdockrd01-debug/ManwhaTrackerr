@@ -12,11 +12,14 @@ object LibraryAdd {
         all.any { it.titleKey == titleKeyOf(title) } || ReaderProgress.match(all, title) != null
     }
 
-    /** El capítulo en que vas en tu lista para este título, o null si no está en la lista. */
-    suspend fun lastChapter(ctx: Context, title: String): Double? = withContext(Dispatchers.IO) {
+    /** El manhwa de tu lista con este título, o null si no está. */
+    suspend fun find(ctx: Context, title: String): Manhwa? = withContext(Dispatchers.IO) {
         val all = AppDatabase.get(ctx).dao().all()
-        (all.firstOrNull { it.titleKey == titleKeyOf(title) } ?: ReaderProgress.match(all, title))?.lastChapter
+        all.firstOrNull { it.titleKey == titleKeyOf(title) } ?: ReaderProgress.match(all, title)
     }
+
+    /** El capítulo en que vas en tu lista para este título, o null si no está en la lista. */
+    suspend fun lastChapter(ctx: Context, title: String): Double? = find(ctx, title)?.lastChapter
 
     /** Agrega el manhwa si no estaba. Devuelve true si se agregó. */
     suspend fun ensure(

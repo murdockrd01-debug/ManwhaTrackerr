@@ -1,3 +1,7 @@
+## 5.16.0
+- Avisos de capítulos nuevos: cada 6 horas (con internet) la app revisa en las fuentes lo que lees y te avisa con una notificación cuando sale un capítulo que aún no has leído. La primera revisión solo toma nota (no avisa). En "Leer" hay un interruptor para apagarlo, un botón "Revisar ahora" y una sección "Capítulos nuevos" que abre el manhwa directo en el capítulo que sigue.
+- Android no garantiza la hora exacta de las revisiones en segundo plano; puede tardar más de 6 horas.
+
 ## 5.15.0
 - Lo que agregas desde una fuente (con el botón o al empezar a leer) ahora entra con más datos: total de capítulos (el más alto que trae la fuente), tipo (Manhwa, Manga o Manhua si la fuente lo indica) y, si sus etiquetas dicen que es +18, queda marcado como +18 para el filtro de difuminado. Si ya estaba en tu lista sin total de capítulos, se completa.
 

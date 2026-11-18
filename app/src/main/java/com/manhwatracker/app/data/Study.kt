@@ -45,6 +45,12 @@ object Prefs {
             .putFloat("custom_hue", hue).putFloat("custom_accent", accent).apply()
     }
 
+    // ---- Avisos de capítulos nuevos
+    fun updatesEnabled(c: Context): Boolean = p(c).getBoolean("updates_enabled", true)
+    fun setUpdatesEnabled(c: Context, on: Boolean) { p(c).edit().putBoolean("updates_enabled", on).apply() }
+    fun askedNotifications(c: Context): Boolean = p(c).getBoolean("asked_notif", false)
+    fun setAskedNotifications(c: Context) { p(c).edit().putBoolean("asked_notif", true).apply() }
+
     // ---- Lector en línea
     fun readerMode(c: Context): String = ReaderTap.normalizeMode(p(c).getString("reader_mode", null))
     fun setReaderMode(c: Context, v: String) { p(c).edit().putString("reader_mode", v).apply() }
