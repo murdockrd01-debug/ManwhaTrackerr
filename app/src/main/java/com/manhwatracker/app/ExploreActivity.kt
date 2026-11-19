@@ -142,6 +142,7 @@ private sealed class Screen {
     object Home : Screen()
     class Browse(val src: Source, val pkg: String, val initialQuery: String? = null) : Screen() { var autoOpened = false }
     class Detail(val src: Source, val pkg: String, val manga: SManga, val linkTitle: String? = null, var startAfter: Double? = null) : Screen()
+    class Search(val query: String) : Screen()
     class Read(val src: Source, val pkg: String, val manga: SManga, val chapters: List<SChapter>, val index: Int, val linkTitle: String? = null, val startPos: Pair<Int, Int>? = null, val genre: String? = null) : Screen()
 }
 
@@ -278,7 +279,9 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
     fun pop() { if (stack.size > 1) stack = stack.dropLast(1) else onExit() }
     BackHandler { pop() }
     when (val s = stack.last()) {
+        is Screen.Search -> GlobalSearchScreen(s.query, onBack = { pop() }, onOpen = { src, pkg, m -> push(Screen.Detail(src, pkg, m)) })
         is Screen.Home -> HomeScreen(
+            onSearch = { push(Screen.Search(it)) },
             onExit = onExit, onOpen = { src, pkg -> push(Screen.Browse(src, pkg)) },
             onOpenSaved = { src, pkg, m -> push(Screen.Detail(src, pkg, m)) },
             onOpenNew = { src, pkg, m, title, after -> push(Screen.Detail(src, pkg, m, title, after)) },
@@ -296,7 +299,7 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
 private class Row2(val pkg: String, val result: ExtensionHost.Result)
 
 @Composable
-private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onOpenSaved: (Source, String, SManga) -> Unit, onOpenNew: (Source, String, SManga, String, Double) -> Unit, continueTitle: String?, onContinue: () -> Unit) {
+private fun HomeScreen(onSearch: (String) -> Unit, onExit: () -> Unit, onOpen: (Source, String) -> Unit, onOpenSaved: (Source, String, SManga) -> Unit, onOpenNew: (Source, String, SManga, String, Double) -> Unit, continueTitle: String?, onContinue: () -> Unit) {
     val ctx = LocalContext.current
     var rows by remember { mutableStateOf<List<Row2>?>(null) }
     var reload by remember { mutableStateOf(0) }
@@ -332,7 +335,7 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onO
             (row.result as? ExtensionHost.Result.Ok)?.let { ok -> ok.ext.sources.map { Triple(it, row.pkg, ok.ext.versionName) } } ?: emptyList()
         }.sortedBy { it.first.name.lowercase() }
     }
-    val shown = remember(flat, query) { if (query.isBlank()) flat else flat.filter { it.first.name.contains(query.trim(), ignoreCase = true) } }
+    val shown = flat
     val problems = rows.orEmpty().filter { it.result !is ExtensionHost.Result.Ok }
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -343,6 +346,15 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onO
                 IconButton(onClick = { showSettings = true }) { Text("⚙", fontSize = 22.sp) }
                 TextButton(onClick = { SourcesActivity.open(ctx) }) { Text("Fuentes") }
             }
+        }
+        if (flat.isNotEmpty()) item(key = "gsearch") {
+            OutlinedTextField(
+                value = query, onValueChange = { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Buscar en todas tus fuentes") }, shape = RoundedCornerShape(14.dp),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Search),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { if (query.isNotBlank()) onSearch(query.trim()) }),
+                trailingIcon = { TextButton(enabled = query.isNotBlank(), onClick = { onSearch(query.trim()) }) { Text("Buscar") } }
+            )
         }
         if (!continueTitle.isNullOrBlank()) item {
             Card(
@@ -429,12 +441,6 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onO
         item(key = "srch") {
             Text("Fuentes" + if (flat.isNotEmpty()) " (${flat.size})" else "", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
         }
-        if (flat.size > 6) item(key = "q") {
-            OutlinedTextField(
-                value = query, onValueChange = { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Buscar una fuente") }, shape = RoundedCornerShape(14.dp)
-            )
-        }
         if (rows == null) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
         else if (rows!!.isEmpty()) item {
             Card(Modifier.fillMaxWidth()) {
@@ -484,7 +490,6 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onO
                 Text("›", fontSize = 22.sp, color = MaterialTheme.colorScheme.outline)
             }
         }
-        if (shown.isEmpty() && flat.isNotEmpty()) item { Text("Ninguna fuente se llama así.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 
     if (showSettings) {

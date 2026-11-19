@@ -1,3 +1,6 @@
+## 5.20.0
+- Buscador general: en Leer, escribe un nombre y se busca en todas tus fuentes a la vez. Te muestra en cuáles está (por ejemplo, "Solo Leveling" está en Asura Scans, Comic Scans…), con las portadas de cada fuente; toca una para abrirla.
+
 ## 5.19.0
 - Pantalla "Leer" rediseñada y más corta: "Continuar donde te quedaste" más compacto, "Capítulos nuevos" en filas pequeñas, "Descargados" plegado en una sola fila (se abre al tocarlo) y las fuentes en una lista ordenada por nombre, con buscador cuando hay muchas.
 - Los avisos de capítulos nuevos, "Bajar solo con Wi-Fi", "Revisar ahora" y el lector de archivos .cbz pasaron al botón ⚙ de arriba.
