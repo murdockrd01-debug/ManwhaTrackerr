@@ -40,6 +40,8 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -530,6 +532,14 @@ private fun BrowseScreen(src: Source, initialQuery: String?, alreadyAutoOpened: 
     var failure by remember { mutableStateOf<String?>(null) }
     var gen by remember { mutableStateOf(0) }
     var autoDone by remember { mutableStateOf(initialQuery.isNullOrBlank() || alreadyAutoOpened) }
+    // Filtros de la fuente (géneros, estado, orden...): una sola lista que se va modificando y se reutiliza en cada página.
+    var filters by remember { mutableStateOf<FilterList?>(null) }
+    var showFilters by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+    var ftick by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        filters = try { withContext(Dispatchers.IO) { (src as? CatalogueSource)?.getFilterList() } } catch (e: CancellationException) { throw e } catch (e: Throwable) { null }
+    }
 
     fun loadMore() {
         if (loading || !hasNext) return
@@ -542,7 +552,7 @@ private fun BrowseScreen(src: Source, initialQuery: String?, alreadyAutoOpened: 
                     when (mode) {
                         0 -> src.getPopularManga(next)
                         1 -> src.getLatestUpdates(next)
-                        else -> src.getSearchManga(next, applied, (src as? CatalogueSource)?.getFilterList() ?: FilterList())
+                        else -> src.getSearchManga(next, applied, filters ?: (src as? CatalogueSource)?.getFilterList() ?: FilterList())
                     }
                 }
                 if (my == gen) {
@@ -568,6 +578,26 @@ private fun BrowseScreen(src: Source, initialQuery: String?, alreadyAutoOpened: 
     fun restart() { gen++; items.clear(); page = 0; hasNext = true; loading = false; failure = null; loadMore() }
     LaunchedEffect(Unit) { loadMore() }
 
+    if (showFilters) filters?.let { fl ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showFilters = false },
+            title = { Text("Filtros") },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) { FilterEditor(fl, ftick) { ftick++ } } },
+            confirmButton = { Button(onClick = { showFilters = false; applied = query.trim(); mode = 2; restart() }) { Text("Aplicar") } },
+            dismissButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        filters = try { withContext(Dispatchers.IO) { (src as? CatalogueSource)?.getFilterList() } } catch (e: CancellationException) { throw e } catch (e: Throwable) { fl }
+                        ftick++
+                    }
+                }) { Text("Restablecer") }
+            }
+        )
+    }
+    if (showSettings) (src as? eu.kanade.tachiyomi.source.ConfigurableSource)?.let { cs ->
+        SourceSettingsDialog(cs) { showSettings = false; restart() }
+    }
+
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver")) }
@@ -575,6 +605,8 @@ private fun BrowseScreen(src: Source, initialQuery: String?, alreadyAutoOpened: 
                 Text(src.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(com.manhwatracker.app.data.Sources.langLabel(src.lang.ifBlank { "all" }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            if (filters?.isNotEmpty() == true) TextButton(onClick = { showFilters = true }) { Text("Filtros") }
+            if (src is eu.kanade.tachiyomi.source.ConfigurableSource) TextButton(onClick = { showSettings = true }) { Text("Ajustes") }
         }
         Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(selected = mode == 0, onClick = { mode = 0; restart() }, label = { Text("Populares") })

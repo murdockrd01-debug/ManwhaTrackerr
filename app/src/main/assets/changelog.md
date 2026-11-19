@@ -1,3 +1,8 @@
+## 5.17.0
+- Fuentes con JavaScript: se incluyó el motor QuickJS, así que las extensiones que lo necesitan (varias de keiyoushi) ya pueden funcionar.
+- Filtros de búsqueda: en cada fuente, botón "Filtros" con lo que ofrezca (géneros, estado, orden, etc.), con "Aplicar" y "Restablecer". Se puede buscar solo con filtros, sin escribir nada.
+- Ajustes de la fuente: botón "Ajustes" en las fuentes que los tienen (dominio o espejo, idioma, calidad...). Al cerrarlos, la lista se recarga.
+
 ## 5.16.1
 - Corrección interna para que compile 5.16.0 (avisos de capítulos nuevos); sin cambios en la app.
 

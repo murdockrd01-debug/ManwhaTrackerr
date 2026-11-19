@@ -14,8 +14,8 @@ android {
         applicationId = "com.manhwatracker.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 79
-        versionName = "5.16.1"
+        versionCode = 80
+        versionName = "5.17.0"
     }
 
     // Clave fija: así cada APK nuevo se instala encima del anterior sin desinstalar.
@@ -97,6 +97,8 @@ dependencies {
     implementation("uy.kohesive.injekt:injekt-core:1.16.1")
     implementation("io.reactivex:rxjava:1.3.8")
     implementation("androidx.preference:preference-ktx:1.2.1")
+    // Motor de JavaScript para extensiones (package app.cash.quickjs.QuickJs, el que esperan)
+    implementation("app.cash.quickjs:quickjs-android:0.9.2")
     // Revisar capítulos nuevos en segundo plano
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 
