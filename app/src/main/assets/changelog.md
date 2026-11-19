@@ -1,3 +1,7 @@
+## 5.19.0
+- Pantalla "Leer" rediseñada y más corta: "Continuar donde te quedaste" más compacto, "Capítulos nuevos" en filas pequeñas, "Descargados" plegado en una sola fila (se abre al tocarlo) y las fuentes en una lista ordenada por nombre, con buscador cuando hay muchas.
+- Los avisos de capítulos nuevos, "Bajar solo con Wi-Fi", "Revisar ahora" y el lector de archivos .cbz pasaron al botón ⚙ de arriba.
+
 ## 5.18.1
 - Arreglado un cierre inesperado al usar fuentes de keiyoushi ("NoSuchMethodError … runBlockingK"): las extensiones nuevas necesitan una versión más reciente de la librería de corrutinas, que ahora se actualizó a la misma que usa Mihon.
 - Si una extensión es incompatible con la app, ahora sale como error de esa fuente en vez de cerrar toda la app.

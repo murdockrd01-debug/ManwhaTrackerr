@@ -11,6 +11,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,6 +59,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -311,70 +313,58 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onO
     var confirmDelete by remember { mutableStateOf<OfflineStore.Entry?>(null) }
     var newVersion by remember { mutableStateOf(0) }
     var freshList by remember { mutableStateOf<List<Pair<String, Double>>>(emptyList()) }
+    var showSettings by remember { mutableStateOf(false) }
+    var dlOpen by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    val askN = rememberNotifAsk()
     LaunchedEffect(newVersion) { freshList = withContext(Dispatchers.IO) { UpdateChecker.fresh(ctx) } }
     LaunchedEffect(dlVersion) { saved = withContext(Dispatchers.IO) { OfflineStore.downloadedManga(ctx) } }
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    LaunchedEffect(Unit) {
+        // Primera vez: pide el permiso de notificaciones para poder avisarte.
+        if (com.manhwatracker.app.data.Prefs.updatesEnabled(ctx) && !com.manhwatracker.app.data.Prefs.askedNotifications(ctx)) {
+            com.manhwatracker.app.data.Prefs.setAskedNotifications(ctx); askN()
+        }
+    }
+
+    // Todas las fuentes de las extensiones que cargaron bien, en una sola lista ordenada por nombre.
+    val flat = remember(rows) {
+        rows.orEmpty().flatMap { row ->
+            (row.result as? ExtensionHost.Result.Ok)?.let { ok -> ok.ext.sources.map { Triple(it, row.pkg, ok.ext.versionName) } } ?: emptyList()
+        }.sortedBy { it.first.name.lowercase() }
+    }
+    val shown = remember(flat, query) { if (query.isBlank()) flat else flat.filter { it.first.name.contains(query.trim(), ignoreCase = true) } }
+    val problems = rows.orEmpty().filter { it.result !is ExtensionHost.Result.Ok }
+
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onExit) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver")) }
-                Column(Modifier.weight(1f)) {
-                    Text("Leer", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                    Text("Lee en línea con tus extensiones", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                Text("Leer", fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                IconButton(onClick = { showSettings = true }) { Text("⚙", fontSize = 22.sp) }
                 TextButton(onClick = { SourcesActivity.open(ctx) }) { Text("Fuentes") }
             }
         }
         if (!continueTitle.isNullOrBlank()) item {
             Card(
                 Modifier.fillMaxWidth().clickable(onClick = onContinue),
+                shape = RoundedCornerShape(16.dp),
                 colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             ) {
-                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Continuar donde te quedaste", style = MaterialTheme.typography.labelMedium)
-                        Text(continueTitle, fontWeight = FontWeight.Bold, fontSize = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("Continuar donde te quedaste", style = MaterialTheme.typography.labelSmall)
+                        Text(continueTitle, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    Text("▶", fontSize = 22.sp)
+                    Text("▶", fontSize = 20.sp)
                 }
-            }
-        }
-        item(key = "updates") {
-            var on by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.updatesEnabled(ctx)) }
-            var checking by remember { mutableStateOf(false) }
-            val askN = rememberNotifAsk()
-            LaunchedEffect(Unit) {
-                // Primera vez: pide el permiso de notificaciones para poder avisarte.
-                if (on && !com.manhwatracker.app.data.Prefs.askedNotifications(ctx)) { com.manhwatracker.app.data.Prefs.setAskedNotifications(ctx); askN() }
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Avisarme de capítulos nuevos", fontWeight = FontWeight.Medium)
-                        Text("Revisa cada pocas horas lo que lees en las fuentes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    androidx.compose.material3.Switch(checked = on, onCheckedChange = {
-                        on = it
-                        com.manhwatracker.app.data.Prefs.setUpdatesEnabled(ctx, it)
-                        if (it) { askN(); UpdateWorker.schedule(ctx) } else UpdateWorker.cancel(ctx)
-                    })
-                }
-                TextButton(enabled = !checking, onClick = {
-                    checking = true
-                    homeScope.launch {
-                        val n = try { withContext(Dispatchers.IO) { UpdateChecker.run(ctx, notify = false) } } catch (e: CancellationException) { throw e } catch (e: Throwable) { -1 }
-                        checking = false
-                        newVersion++
-                        Toast.makeText(ctx, if (n < 0) "No se pudo revisar" else if (n == 0) "Sin capítulos nuevos por ahora" else "$n manhwas con capítulos nuevos", Toast.LENGTH_LONG).show()
-                    }
-                }) { Text(if (checking) "Revisando…" else "Revisar ahora") }
             }
         }
         if (freshList.isNotEmpty()) {
-            item(key = "freshh") { Text("Capítulos nuevos", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }
+            item(key = "freshh") { Text("Capítulos nuevos (${freshList.size})", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp)) }
             items(freshList.size, key = { "fresh" + freshList[it].first }) { i ->
                 val (title, latest) = freshList[i]
-                Card(
-                    Modifier.fillMaxWidth().clickable {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.secondaryContainer).clickable {
                         homeScope.launch {
                             val link = ExploreMemory.forTitle(ctx, title)
                             val r = link?.let { withContext(Dispatchers.IO) { ExtensionHost.load(ctx, it.pkg) } }
@@ -383,112 +373,165 @@ private fun HomeScreen(onExit: () -> Unit, onOpen: (Source, String) -> Unit, onO
                             if (link?.manga != null && src != null && after != null) onOpenNew(src, link.pkg, link.manga, title, after)
                             else Toast.makeText(ctx, "No se pudo abrir la fuente de este manhwa", Toast.LENGTH_LONG).show()
                         }
-                    },
-                    colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    }.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(title, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text("Ya salió el cap. ${ReaderProgress.fmt(latest)}", style = MaterialTheme.typography.bodySmall)
-                        }
-                        Text("Leer ›", color = MaterialTheme.colorScheme.primary)
+                    Column(Modifier.weight(1f)) {
+                        Text(title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("Ya salió el cap. ${ReaderProgress.fmt(latest)}", style = MaterialTheme.typography.bodySmall)
                     }
+                    Text("›", fontSize = 20.sp)
                 }
-            }
-        }
-        item(key = "wifi") {
-            var wifiOnly by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.wifiOnly(ctx)) }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Bajar solo con Wi-Fi", fontWeight = FontWeight.Medium)
-                    Text("Las descargas esperan si estás con datos móviles.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                androidx.compose.material3.Switch(checked = wifiOnly, onCheckedChange = { wifiOnly = it; com.manhwatracker.app.data.Prefs.setWifiOnly(ctx, it) })
             }
         }
         if (saved.isNotEmpty()) {
-            item(key = "dlh") { Text("Descargados (sin conexión) · " + com.manhwatracker.app.data.OfflinePlan.size(saved.sumOf { it.bytes }), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            items(saved.size, key = { "dl" + saved[it].saved.srcId + saved[it].saved.manga.url }) { i ->
+            item(key = "dlh") {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).clickable { dlOpen = !dlOpen }.padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Descargados", fontWeight = FontWeight.SemiBold)
+                        Text("${saved.size} " + (if (saved.size == 1) "manhwa" else "manhwas") + " · " + com.manhwatracker.app.data.OfflinePlan.size(saved.sumOf { it.bytes }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text(if (dlOpen) "▲" else "▼", color = MaterialTheme.colorScheme.outline)
+                }
+            }
+            if (dlOpen) items(saved.size, key = { "dl" + saved[it].saved.srcId + saved[it].saved.manga.url }) { i ->
                 val ent = saved[i]
                 val sv = ent.saved
-                val n = ent.chapters
-                Card(Modifier.fillMaxWidth().clickable {
-                    homeScope.launch {
-                        val r = withContext(Dispatchers.IO) { ExtensionHost.load(ctx, sv.pkg) }
-                        val src = (r as? ExtensionHost.Result.Ok)?.ext?.sources?.firstOrNull { it.id == sv.srcId }
-                        if (src != null) onOpenSaved(src, sv.pkg, sv.manga)
-                        else Toast.makeText(ctx, "La extensión de este manhwa no está disponible", Toast.LENGTH_LONG).show()
-                    }
-                }) {
-                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        val cf = OfflineStore.coverFile(ctx, sv.srcId, sv.manga.url)
-                        if (cf.exists()) {
-                            AsyncImage(model = cf, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.width(44.dp).height(62.dp).clip(RoundedCornerShape(8.dp)))
-                            Spacer(Modifier.width(12.dp))
+                Row(
+                    Modifier.fillMaxWidth().clickable {
+                        homeScope.launch {
+                            val r = withContext(Dispatchers.IO) { ExtensionHost.load(ctx, sv.pkg) }
+                            val src = (r as? ExtensionHost.Result.Ok)?.ext?.sources?.firstOrNull { it.id == sv.srcId }
+                            if (src != null) onOpenSaved(src, sv.pkg, sv.manga)
+                            else Toast.makeText(ctx, "La extensión de este manhwa no está disponible", Toast.LENGTH_LONG).show()
                         }
-                        Column(Modifier.weight(1f)) {
-                            Text(sv.manga.title, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text("$n capítulos · " + com.manhwatracker.app.data.OfflinePlan.size(ent.bytes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        TextButton(onClick = { confirmDelete = ent }) { Text("🗑") }
+                    }.padding(start = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val cf = OfflineStore.coverFile(ctx, sv.srcId, sv.manga.url)
+                    if (cf.exists()) {
+                        AsyncImage(model = cf, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.width(36.dp).height(50.dp).clip(RoundedCornerShape(6.dp)))
+                        Spacer(Modifier.width(10.dp))
                     }
+                    Column(Modifier.weight(1f)) {
+                        Text(sv.manga.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${ent.chapters} capítulos · " + com.manhwatracker.app.data.OfflinePlan.size(ent.bytes), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = { confirmDelete = ent }) { Text("🗑") }
                 }
             }
         }
-        val list = rows
-        if (list == null) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-        else if (list.isEmpty()) item {
+
+        // ---- Fuentes: una lista corta y buscable
+        item(key = "srch") {
+            Text("Fuentes" + if (flat.isNotEmpty()) " (${flat.size})" else "", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+        }
+        if (flat.size > 6) item(key = "q") {
+            OutlinedTextField(
+                value = query, onValueChange = { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Buscar una fuente") }, shape = RoundedCornerShape(14.dp)
+            )
+        }
+        if (rows == null) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+        else if (rows!!.isEmpty()) item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("No hay extensiones instaladas", fontWeight = FontWeight.SemiBold)
-                    Text("Agrega un repositorio e instala una extensión en Más › Fuentes, y vuelve aquí.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Agrega un repositorio e instala una extensión en Fuentes, y vuelve aquí.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(onClick = { SourcesActivity.open(ctx) }, modifier = Modifier.fillMaxWidth()) { Text("Ir a Fuentes") }
                 }
             }
         }
-        list?.forEach { row ->
+        problems.forEach { row ->
             when (val r = row.result) {
-                is ExtensionHost.Result.Ok -> {
-                    item(key = row.pkg + "h") { Text(r.ext.name + " · v" + r.ext.versionName, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    items(r.ext.sources, key = { row.pkg + it.id }) { src ->
-                        Card(Modifier.fillMaxWidth().clickable { onOpen(src, row.pkg) }) {
-                            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(src.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(com.manhwatracker.app.data.Sources.langLabel(src.lang.ifBlank { "all" }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                Text("Abrir ›", color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    }
-                }
                 is ExtensionHost.Result.NeedsTrust -> item(key = row.pkg) {
-                    Card(Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(r.name, fontWeight = FontWeight.SemiBold)
-                                Text("Necesita tu permiso para usarse", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Button(onClick = { trusting = r }) { Text("Confiar") }
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(r.name, fontWeight = FontWeight.SemiBold)
+                            Text("Necesita tu permiso para usarse", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        Button(onClick = { trusting = r }) { Text("Confiar") }
                     }
                 }
                 is ExtensionHost.Result.Fail -> item(key = row.pkg) {
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(row.pkg.substringAfterLast('.'), fontWeight = FontWeight.SemiBold)
-                            Text("No se pudo cargar: " + r.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                            TextButton(onClick = { copyText(ctx, r.message + "\n" + r.detail.take(3000)) }) { Text("Copiar diagnóstico") }
-                        }
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(row.pkg.substringAfterLast('.'), fontWeight = FontWeight.SemiBold)
+                        Text("No se pudo cargar: " + r.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, maxLines = 2)
+                        TextButton(onClick = { copyText(ctx, r.message + "\n" + r.detail.take(3000)) }) { Text("Copiar diagnóstico") }
                     }
                 }
+                else -> {}
             }
         }
-        item(key = "downloads") {
-            TextButton(onClick = { ctx.startActivity(Intent(ctx, ReaderActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) {
-                Text("Leer archivos descargados (Komikku, .cbz)")
+        items(shown.size, key = { shown[it].second + shown[it].first.id }) { i ->
+            val (src, pkg, ver) = shown[i]
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).clickable { onOpen(src, pkg) }.padding(horizontal = 14.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) { Text(src.name.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(src.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(com.manhwatracker.app.data.Sources.langLabel(src.lang.ifBlank { "all" }) + " · v" + ver, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text("›", fontSize = 22.sp, color = MaterialTheme.colorScheme.outline)
             }
         }
+        if (shown.isEmpty() && flat.isNotEmpty()) item { Text("Ninguna fuente se llama así.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    }
+
+    if (showSettings) {
+        var updatesOn by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.updatesEnabled(ctx)) }
+        var wifiOnly by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.wifiOnly(ctx)) }
+        var checking by remember { mutableStateOf(false) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showSettings = false },
+            title = { Text("Ajustes de lectura") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Avisarme de capítulos nuevos", fontWeight = FontWeight.Medium)
+                            Text("Revisa cada pocas horas lo que lees.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        androidx.compose.material3.Switch(checked = updatesOn, onCheckedChange = {
+                            updatesOn = it
+                            com.manhwatracker.app.data.Prefs.setUpdatesEnabled(ctx, it)
+                            if (it) { askN(); UpdateWorker.schedule(ctx) } else UpdateWorker.cancel(ctx)
+                        })
+                    }
+                    TextButton(enabled = !checking, onClick = {
+                        checking = true
+                        homeScope.launch {
+                            val n = try { withContext(Dispatchers.IO) { UpdateChecker.run(ctx, notify = false) } } catch (e: CancellationException) { throw e } catch (e: Throwable) { -1 }
+                            checking = false
+                            newVersion++
+                            Toast.makeText(ctx, if (n < 0) "No se pudo revisar" else if (n == 0) "Sin capítulos nuevos por ahora" else "$n manhwas con capítulos nuevos", Toast.LENGTH_LONG).show()
+                        }
+                    }) { Text(if (checking) "Revisando…" else "Revisar ahora") }
+                    HorizontalDivider()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Bajar solo con Wi-Fi", fontWeight = FontWeight.Medium)
+                            Text("Las descargas esperan si usas datos móviles.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        androidx.compose.material3.Switch(checked = wifiOnly, onCheckedChange = { wifiOnly = it; com.manhwatracker.app.data.Prefs.setWifiOnly(ctx, it) })
+                    }
+                    HorizontalDivider()
+                    TextButton(onClick = { showSettings = false; ctx.startActivity(Intent(ctx, ReaderActivity::class.java)) }) {
+                        Text("Leer archivos descargados (.cbz)")
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showSettings = false }) { Text("Listo") } }
+        )
     }
     confirmDelete?.let { ent ->
         androidx.compose.material3.AlertDialog(
