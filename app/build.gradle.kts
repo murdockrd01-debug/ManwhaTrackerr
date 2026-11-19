@@ -14,8 +14,8 @@ android {
         applicationId = "com.manhwatracker.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 81
-        versionName = "5.18.0"
+        versionCode = 82
+        versionName = "5.18.1"
     }
 
     // Clave fija: así cada APK nuevo se instala encima del anterior sin desinstalar.
@@ -88,7 +88,9 @@ dependencies {
 
     // Motor de extensiones (lo que Komikku/Mihon les prestan a las extensiones)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-okio:1.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    // 1.11.0 como Mihon: las extensiones nuevas se compilan contra esta versión (usan runBlockingK).
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("com.squareup.okhttp3:okhttp:5.3.0")
     implementation("com.squareup.okhttp3:okhttp-brotli:5.3.0")
     implementation("com.squareup.okhttp3:okhttp-zstd:5.3.0")

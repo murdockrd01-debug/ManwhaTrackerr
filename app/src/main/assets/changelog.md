@@ -1,3 +1,7 @@
+## 5.18.1
+- Arreglado un cierre inesperado al usar fuentes de keiyoushi ("NoSuchMethodError … runBlockingK"): las extensiones nuevas necesitan una versión más reciente de la librería de corrutinas, que ahora se actualizó a la misma que usa Mihon.
+- Si una extensión es incompatible con la app, ahora sale como error de esa fuente en vez de cerrar toda la app.
+
 ## 5.18.0
 - Pantalla de detalle de cada manhwa rediseñada para que sea más compacta: portada más pequeña, capítulo y total en una sola fila, y estado y tipo juntos en una tarjeta.
 - Las secciones largas (Mi opinión, Géneros y listas, Reseñas, Parecidos y Palabras del modo estudio) ahora vienen plegadas con un resumen de una línea; se abren al tocarlas.

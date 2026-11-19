@@ -23,6 +23,10 @@ class UncaughtExceptionInterceptor : Interceptor {
             } else {
                 throw IOException(e)
             }
+        } catch (e: LinkageError) {
+            // La extensión usa una función que esta versión de la app no tiene (NoSuchMethodError, etc.):
+            // se convierte en un error normal de esa fuente en vez de cerrar toda la app.
+            throw IOException("La extensión es incompatible con esta versión de la app: ${e.javaClass.simpleName}: ${e.message}", e)
         }
     }
 }
