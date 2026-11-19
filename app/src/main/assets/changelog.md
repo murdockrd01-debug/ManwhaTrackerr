@@ -1,3 +1,9 @@
+## 5.18.0
+- Pantalla de detalle de cada manhwa rediseñada para que sea más compacta: portada más pequeña, capítulo y total en una sola fila, y estado y tipo juntos en una tarjeta.
+- Las secciones largas (Mi opinión, Géneros y listas, Reseñas, Parecidos y Palabras del modo estudio) ahora vienen plegadas con un resumen de una línea; se abren al tocarlas.
+- Buscar otra portada, marcar +18 y eliminar pasaron al menú ⋮ de la cabecera.
+- Se quitó el botón "Abrir en Komikku" de esta pantalla.
+
 ## 5.17.0
 - Fuentes con JavaScript: se incluyó el motor QuickJS, así que las extensiones que lo necesitan (varias de keiyoushi) ya pueden funcionar.
 - Filtros de búsqueda: en cada fuente, botón "Filtros" con lo que ofrezca (géneros, estado, orden, etc.), con "Aplicar" y "Restablecer". Se puede buscar solo con filtros, sin escribir nada.

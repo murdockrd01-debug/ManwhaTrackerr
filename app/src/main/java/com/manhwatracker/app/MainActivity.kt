@@ -795,21 +795,25 @@ fun DetailScreen(
     val totalNow = totalText.toIntOrNull() ?: 0
     fun setChapter(v: Double) { chapterText = fmt(maxOf(0.0, v)) }
 
+    var menu by remember { mutableStateOf(false) }
+    val isAdultNow = CoverStyle.isAdult(item.genres, ThemeState.adultMarks[item.titleKey], ThemeState.blurEcchi)
+    val genreList = Genres.parse(item.genres)
+
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        // ---- Cabecera: portada, título y estado
-        Box(Modifier.fillMaxWidth().background(brandBrush()).padding(16.dp)) {
+        // ---- Cabecera: portada pequeña, título y un menú ⋮ con lo secundario
+        Box(Modifier.fillMaxWidth().background(brandBrush()).padding(start = 16.dp, top = 12.dp, bottom = 14.dp, end = 4.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Cover(
                     item, { vm.coverFallback(item) },
-                    Modifier.width(112.dp).height(160.dp).clip(RoundedCornerShape(16.dp))
+                    Modifier.width(84.dp).height(120.dp).clip(RoundedCornerShape(14.dp))
                 )
-                Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(item.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 3, overflow = TextOverflow.Ellipsis)
                     Row(
                         Modifier.horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -817,51 +821,55 @@ fun DetailScreen(
                         HeroPill(Status.label(status), statusColor(status))
                         HeroPill(Types.label(item.type), Color(0x33FFFFFF))
                         if (rating > 0) HeroPill("★ $rating", ratingColor(rating).copy(alpha = 0.9f))
+                        if (isAdultNow) HeroPill("+18", Color(0x55000000))
                     }
-                    TextButton(onClick = { vm.coverFallback(item, force = true) }) {
-                        Text("Buscar portada", color = Color.White)
-                    }
-                    val ctxAdult = LocalContext.current
-                    val isAdultNow = CoverStyle.isAdult(item.genres, ThemeState.adultMarks[item.titleKey], ThemeState.blurEcchi)
-                    TextButton(onClick = { ThemeState.setAdultMark(ctxAdult, item.titleKey, !isAdultNow) }) {
-                        Text(if (isAdultNow) "Quitar marca +18" else "Marcar como +18", color = Color.White)
+                }
+                Box {
+                    IconButton(onClick = { menu = true }) { Text("⋮", color = Color.White, fontSize = 22.sp) }
+                    androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Buscar otra portada") },
+                            onClick = { menu = false; vm.coverFallback(item, force = true) }
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(if (isAdultNow) "Quitar marca +18" else "Marcar como +18") },
+                            onClick = { menu = false; ThemeState.setAdultMark(context, item.titleKey, !isAdultNow) }
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Eliminar de mi lista", color = MaterialTheme.colorScheme.error) },
+                            onClick = { menu = false; confirmDelete = true }
+                        )
                     }
                 }
             }
         }
 
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
 
-        // ---- Progreso
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-            Column(
-                Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text("Progreso", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxWidth())
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        // ---- Progreso: capítulo y total en una sola fila
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = chapterText,
                         onValueChange = { chapterText = it },
                         label = { Text("Capítulo") },
-                        textStyle = LocalTextStyle.current.copy(fontSize = 28.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                        textStyle = LocalTextStyle.current.copy(fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.width(130.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.weight(1f)
                     )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("de", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(
                         value = totalText,
                         onValueChange = { totalText = it.filter { c -> c.isDigit() } },
-                        label = { Text("Total (opcional)") },
+                        label = { Text("Total") },
+                        textStyle = LocalTextStyle.current.copy(fontSize = 20.sp, textAlign = TextAlign.Center),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.width(170.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.weight(1f)
                     )
                 }
                 if (totalNow > 0) {
@@ -869,7 +877,7 @@ fun DetailScreen(
                     val left = maxOf(0, (totalNow - chapterNow).toInt())
                     LinearProgressIndicator(
                         progress = { frac },
-                        modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(50)),
+                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)),
                         trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                     Text(
@@ -880,188 +888,150 @@ fun DetailScreen(
                 }
                 Button(
                     onClick = { context.startActivity(ExploreActivity.continueIntent(context, item.title, chapterNow)) },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                    shape = RoundedCornerShape(16.dp)
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
                     Text("▶  Continuar leyendo", fontWeight = FontWeight.SemiBold)
                 }
-                // Komikku sigue siendo el lugar para descargar los capítulos nuevos.
-                ReaderLink.target(context)?.let { r ->
-                    OutlinedButton(
-                        onClick = {
-                            if (!ReaderLink.open(context, item.title)) vm.showMessage("No encontré ninguna app lectora instalada en este teléfono")
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Text("Abrir en " + r.name)
-                    }
-                }
             }
         }
 
-        // ---- Estado
-        Text("Estado", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Status.all.forEach { st ->
-                FilterChip(
-                    selected = status == st,
-                    onClick = { status = st },
-                    label = { Text(Status.label(st)) },
-                    leadingIcon = {
-                        Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(statusColor(st)))
-                    }
-                )
-            }
-        }
-
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Mi calificación", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    Text(
-                        if (rating > 0) "★ $rating / 10" else "Sin calificar",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (rating > 0) ratingColor(rating) else MaterialTheme.colorScheme.outline
-                    )
-                }
-                Row(
-                    Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    (1..10).forEach { n ->
+        // ---- Estado y tipo, siempre a la vista
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Estado", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Status.all.forEach { st ->
                         FilterChip(
-                            selected = rating == n,
-                            // Tocar la nota elegida otra vez la quita.
-                            onClick = { rating = if (rating == n) 0 else n },
-                            label = { Text("$n") }
+                            selected = status == st,
+                            onClick = { status = st },
+                            label = { Text(Status.label(st)) },
+                            leadingIcon = { Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(statusColor(st))) }
                         )
                     }
                 }
-                OutlinedTextField(
-                    value = review,
-                    onValueChange = { review = it },
-                    label = { Text("Mi comentario (opcional)") },
-                    minLines = 3,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Text("Tipo", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Types.all.forEach { t ->
+                        FilterChip(selected = item.type == t, onClick = { vm.setType(item, t) }, label = { Text(Types.label(t)) })
+                    }
+                }
             }
         }
 
-        // ---- Detalles
-        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Tipo", style = MaterialTheme.typography.labelLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Types.all.forEach { t ->
-                FilterChip(
-                    selected = item.type == t,
-                    onClick = { vm.setType(item, t) },
-                    label = { Text(Types.label(t)) }
-                )
+        // ---- Secciones plegadas: se abren al tocarlas
+        CollapsibleCard(
+            "Mi opinión",
+            (if (rating > 0) "★ $rating / 10" else "Sin calificar") + if (review.isNotBlank()) " · con comentario" else ""
+        ) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                (1..10).forEach { n ->
+                    FilterChip(
+                        selected = rating == n,
+                        // Tocar la nota elegida otra vez la quita.
+                        onClick = { rating = if (rating == n) 0 else n },
+                        label = { Text("$n") }
+                    )
+                }
             }
+            OutlinedTextField(
+                value = review,
+                onValueChange = { review = it },
+                label = { Text("Mi comentario (opcional)") },
+                minLines = 2,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
-        // ---- Géneros
-        val genreList = Genres.parse(item.genres)
-        if (genreList.isNotEmpty()) {
-            Text("Géneros", style = MaterialTheme.typography.labelLarge)
+        val listsIn = allLists.count { l -> allEntries.any { it.listId == l.id && it.titleKey == item.titleKey } }
+        CollapsibleCard(
+            "Géneros y listas",
+            (if (genreList.isNotEmpty()) genreList.take(3).joinToString(", ") { Genres.label(it) } else "Sin géneros") +
+                " · en $listsIn " + (if (listsIn == 1) "lista" else "listas")
+        ) {
+            if (genreList.isNotEmpty()) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    genreList.forEach { g -> AssistChip(onClick = {}, label = { Text(Genres.label(g)) }) }
+                }
+            }
+            Text("Mis listas", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             Row(
                 Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                genreList.forEach { g -> AssistChip(onClick = {}, label = { Text(Genres.label(g)) }) }
+                allLists.forEach { l ->
+                    val inIt = allEntries.any { it.listId == l.id && it.titleKey == item.titleKey }
+                    FilterChip(selected = inIt, onClick = { vm.toggleInList(l.id, item.titleKey, !inIt) }, label = { Text(l.name) })
+                }
+                AssistChip(onClick = { newListHere = true }, label = { Text("＋ Nueva lista") })
             }
         }
 
-        // ---- Listas personalizadas
-        Text("Mis listas", style = MaterialTheme.typography.labelLarge)
-        Row(
-            Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            allLists.forEach { l ->
-                val inIt = allEntries.any { it.listId == l.id && it.titleKey == item.titleKey }
-                FilterChip(
-                    selected = inIt,
-                    onClick = { vm.toggleInList(l.id, item.titleKey, !inIt) },
-                    label = { Text(l.name) }
-                )
-            }
-            AssistChip(onClick = { newListHere = true }, label = { Text("＋ Nueva lista") })
-        }
-        }
+        CollapsibleCard("Reseñas de AniList", "Lo que opina la gente") {
+            ReviewsSection(resetKey = item.id) { vm.loadReviews(item) }
         }
 
-        // ---- Reseñas (AniList)
-        HorizontalDivider()
-        ReviewsSection(resetKey = item.id) { vm.loadReviews(item) }
-
-        // ---- Parecidos (AniList)
-        HorizontalDivider()
-        Text("Parecidos", style = MaterialTheme.typography.titleSmall)
-        val sims = similar
-        when {
-            loadingSimilar -> Text("Buscando…", style = MaterialTheme.typography.bodySmall)
-            sims == null -> {
-                OutlinedButton(
-                    onClick = {
-                        loadingSimilar = true
-                        similarError = null
-                        scope.launch {
-                            val result = vm.loadSimilar(item)
-                            if (result == null) similarError = "No pude conectar con AniList. Revisa tu internet."
-                            else similar = result
-                            loadingSimilar = false
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("Ver manhwas parecidos") }
-                similarError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-            }
-            sims.isEmpty() -> Text("AniList no tiene recomendaciones para este título.", style = MaterialTheme.typography.bodySmall)
-            else -> Row(
-                Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                sims.forEach { s ->
-                    val have = all.any { it.titleKey == titleKeyOf(s.title) }
-                    Column(Modifier.width(110.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Box(
-                            Modifier.width(110.dp).height(160.dp).clip(RoundedCornerShape(14.dp))
-                        ) {
-                            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surfaceVariant) {}
-                            if (!s.cover.isNullOrBlank()) {
-                                AsyncImage(
-                                    model = s.cover,
-                                    contentDescription = s.title,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
+        CollapsibleCard("Parecidos", "Otros manhwas que te pueden gustar") {
+            val sims = similar
+            when {
+                loadingSimilar -> Text("Buscando…", style = MaterialTheme.typography.bodySmall)
+                sims == null -> {
+                    OutlinedButton(
+                        onClick = {
+                            loadingSimilar = true
+                            similarError = null
+                            scope.launch {
+                                val result = vm.loadSimilar(item)
+                                if (result == null) similarError = "No pude conectar con AniList. Revisa tu internet."
+                                else similar = result
+                                loadingSimilar = false
                             }
-                            s.score?.let {
-                                Text(
-                                    "★ ${it / 10.0}",
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(4.dp)
-                                        .clip(RoundedCornerShape(50))
-                                        .background(Color(0xCC000000))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Ver manhwas parecidos") }
+                    similarError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+                }
+                sims.isEmpty() -> Text("AniList no tiene recomendaciones para este título.", style = MaterialTheme.typography.bodySmall)
+                else -> Row(
+                    Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    sims.forEach { s ->
+                        val have = all.any { it.titleKey == titleKeyOf(s.title) }
+                        Column(Modifier.width(110.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(
+                                Modifier.width(110.dp).height(160.dp).clip(RoundedCornerShape(14.dp))
+                            ) {
+                                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surfaceVariant) {}
+                                if (!s.cover.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = s.cover,
+                                        contentDescription = s.title,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                s.score?.let {
+                                    Text(
+                                        "★ ${it / 10.0}",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(4.dp)
+                                            .clip(RoundedCornerShape(50))
+                                            .background(Color(0xCC000000))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
                             }
-                        }
-                        Text(s.title, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        if (have) {
-                            Text("✓ Ya lo tienes", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        } else {
-                            TextButton(onClick = { vm.addPlanned(s.title, s.cover) }) { Text("＋ Pendiente") }
+                            Text(s.title, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            if (have) {
+                                Text("✓ Ya lo tienes", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            } else {
+                                TextButton(onClick = { vm.addPlanned(s.title, s.cover) }) { Text("＋ Pendiente") }
+                            }
                         }
                     }
                 }
@@ -1069,58 +1039,53 @@ fun DetailScreen(
         }
 
         if (Features.study) {
-        HorizontalDivider()
-        Text(
-            "Palabras de este manhwa (${mine.size})",
-            style = MaterialTheme.typography.titleSmall
-        )
-        Button(onClick = { addingWord = true }, modifier = Modifier.fillMaxWidth()) {
-            Text("＋ Guardar una palabra de este manhwa")
-        }
-        if (mine.isEmpty()) {
-            Text(
-                "Aún no guardaste palabras de este manhwa. En Estudio, al guardar una palabra, elige este título.",
-                style = MaterialTheme.typography.bodySmall
-            )
-        } else {
-            mine.forEach { w ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        w.text + (w.translation?.let { " — $it" } ?: ""),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (w.learned) {
-                        Text("✓", color = MaterialTheme.colorScheme.primary)
+            CollapsibleCard(
+                "Palabras de este manhwa (${mine.size})",
+                if (mine.isEmpty()) "Ninguna guardada" else if (pending > 0) "$pending por aprender" else "Todas aprendidas"
+            ) {
+            Button(onClick = { addingWord = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("＋ Guardar una palabra de este manhwa")
+            }
+            if (mine.isEmpty()) {
+                Text(
+                    "Aún no guardaste palabras de este manhwa. En Estudio, al guardar una palabra, elige este título.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else {
+                mine.forEach { w ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            w.text + (w.translation?.let { " — $it" } ?: ""),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (w.learned) {
+                            Text("✓", color = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
+                OutlinedButton(
+                    onClick = {
+                        saveEdits()
+                        onReviewWords(item.titleKey, item.title)
+                    },
+                    enabled = pending > 0,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (pending > 0) "Repasar solo estas ($pending)" else "Ya aprendiste todas estas")
+                }
             }
-            OutlinedButton(
-                onClick = {
-                    saveEdits()
-                    onReviewWords(item.titleKey, item.title)
-                },
-                enabled = pending > 0,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (pending > 0) "Repasar solo estas ($pending)" else "Ya aprendiste todas estas")
             }
         }
-        }
-        HorizontalDivider()
 
         Button(
             onClick = {
                 saveEdits()
                 onClose()
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            shape = RoundedCornerShape(14.dp)
         ) { Text("Guardar") }
-
-        TextButton(
-            onClick = { confirmDelete = true },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Eliminar de mi lista") }
         }
     }
 
@@ -1159,6 +1124,29 @@ fun DetailScreen(
                 TextButton(onClick = { confirmDelete = false }) { Text("Cancelar") }
             }
         )
+    }
+}
+
+/** Tarjeta que se pliega: muestra el título y un resumen de una línea; al tocarla se abre el contenido. */
+@Composable
+private fun CollapsibleCard(title: String, summary: String? = null, startOpen: Boolean = false, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    var open by remember(title) { mutableStateOf(startOpen) }
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+        Column {
+            Row(
+                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    if (!open && summary != null) {
+                        Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                Text(if (open) "▲" else "▼", color = MaterialTheme.colorScheme.outline)
+            }
+            if (open) Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { content() }
+        }
     }
 }
 
