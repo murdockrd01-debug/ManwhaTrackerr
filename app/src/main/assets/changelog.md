@@ -1,3 +1,8 @@
+## 5.21.0
+- Se quitó todo lo relacionado con abrir o sincronizar con Komikku: el botón de abrir la app lectora, el lector de archivos descargados, la elección de "App para leer" y la importación automática desde una carpeta.
+- Importar copia de otra app: en Más › Copias manuales › "Importar copia de otra app" sirve el archivo .tachibk de Komikku, Mihon y Tachiyomi (comparten formato). Las copias de anime de Aniyomi no tienen mangas y la app lo avisa.
+- El aviso de versión nueva de abajo ahora tiene una X para descartarlo.
+
 ## 5.20.1
 - La app ya trae añadido el repositorio de extensiones de keiyoushi: quien la instale entra a Leer → Fuentes y ya ve la lista para instalar, sin pegar nada. Se puede quitar y no vuelve a aparecer. Quien ya tenía repositorios no se ve afectado.
 

@@ -6,14 +6,6 @@
 
     <!-- Android 11+: sin esto la app no puede encontrar el motor de texto a voz (botón 🔊). -->
     <queries>
-        <!-- Para poder abrir Komikku (o Mihon) desde el detalle de un manhwa. -->
-        <package android:name="app.komikku" />
-        <package android:name="app.komikku.beta" />
-        <package android:name="app.mihon" />
-        <package android:name="app.mihon.dev" />
-        <package android:name="eu.kanade.tachiyomi" />
-        <package android:name="eu.kanade.tachiyomi.sy" />
-        <package android:name="com.kodjodevf.mangayomi" />
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
@@ -30,7 +22,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <!-- Para saber qué extensiones (de Komikku/Mihon) hay instaladas y si tienen actualización -->
+    <!-- Para saber qué extensiones (de otras apps lectoras) hay instaladas y si tienen actualización -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <application
@@ -180,11 +172,6 @@
             android:name=".SourcesActivity"
             android:exported="false"
             android:label="Fuentes"
-            android:theme="@style/Theme.ManhwaTracker" />
-        <activity
-            android:name=".ReaderActivity"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:theme="@style/Theme.ManhwaTracker" />
 
         <!-- Recibe lo que escribes en la barra rápida de notificaciones -->

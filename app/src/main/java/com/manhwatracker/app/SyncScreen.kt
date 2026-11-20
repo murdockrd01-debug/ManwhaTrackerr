@@ -32,7 +32,7 @@ private fun formatTime(millis: Long): String =
     DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(millis))
 
 /**
- * Sincronización: la app lee sola la copia de Komikku y guarda sola una copia de tus datos.
+ * Sincronización: la app guarda sola una copia de tus datos.
  * Solo hace falta elegir las carpetas una vez.
  */
 @Composable
@@ -43,9 +43,6 @@ fun SyncScreen(vm: MainViewModel) {
     // Por si se cambió algo mientras la pantalla estaba cerrada (por ejemplo, una copia hecha al salir de la app).
     LaunchedEffect(Unit) { vm.refreshSync() }
 
-    val komikkuPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) vm.addKomikkuFolder(uri)
-    }
     val backupPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) vm.setBackupFolder(uri)
     }
@@ -57,51 +54,6 @@ fun SyncScreen(vm: MainViewModel) {
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // ---------------- Komikku
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Importar de Komikku automáticamente", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Elige la carpeta donde Komikku guarda sus copias de seguridad (por ejemplo Documentos/Manwhas). " +
-                        "Sirven las automáticas y las manuales: si agregas varias carpetas, se usa siempre la copia más reciente de todas. " +
-                        "Cada vez que abras la app o vuelvas a ella, la leerá y actualizará tus manhwas sola.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-
-                val folders = info.komikkuFolders
-                if (folders.isEmpty()) {
-                    Text("Todavía no elegiste carpeta.", style = MaterialTheme.typography.bodyMedium)
-                    Button(onClick = { komikkuPicker.launch(null) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Elegir carpeta de Komikku")
-                    }
-                } else {
-                    folders.forEach { f ->
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                f.label,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f)
-                            )
-                            TextButton(onClick = { vm.removeKomikkuFolder(f.uri) }) { Text("Quitar") }
-                        }
-                    }
-                    Text(
-                        if (info.komikkuLastName != null)
-                            "Última copia importada: ${info.komikkuLastName} (${formatTime(info.komikkuLastAt)})"
-                        else
-                            "Todavía no se importó ninguna copia.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Button(onClick = { vm.autoSync(manual = true) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Actualizar ahora")
-                    }
-                    OutlinedButton(onClick = { komikkuPicker.launch(null) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Agregar otra carpeta")
-                    }
-                }
-            }
-        }
-
         // ---------------- Copia propia
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -159,13 +111,13 @@ fun SyncScreen(vm: MainViewModel) {
 
                 Text("Progreso en tiempo real con AniList", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Komikku puede subir tu progreso a AniList cada vez que terminas un capítulo. " +
+                    "Tu app lectora (Mihon, Tachiyomi…) puede subir tu progreso a AniList cada vez que terminas un capítulo. " +
                         "Esta app lo lee al abrirla o al volver a ella, y así tus capítulos se actualizan sin copias.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Text(
-                    "1. En Komikku: Más › Ajustes › Seguimiento › AniList, e inicia sesión.\n" +
-                        "2. En cada manhwa de Komikku, toca el ícono de seguimiento y vincúlalo con AniList.\n" +
+                    "1. En tu app lectora: Ajustes › Seguimiento › AniList, e inicia sesión.\n" +
+                        "2. En cada manhwa de esa app, toca el ícono de seguimiento y vincúlalo con AniList.\n" +
                         "3. Escribe aquí tu usuario de AniList (tu lista debe ser pública).",
                     style = MaterialTheme.typography.bodySmall
                 )

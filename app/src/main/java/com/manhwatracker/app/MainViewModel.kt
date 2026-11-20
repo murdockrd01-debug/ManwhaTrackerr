@@ -41,9 +41,6 @@ import kotlinx.coroutines.withContext
 data class FolderInfo(val uri: String, val label: String)
 
 data class SyncInfo(
-    val komikkuFolders: List<FolderInfo>,
-    val komikkuLastName: String?,
-    val komikkuLastAt: Long,
     val backupFolder: String?,
     val backupLastName: String?,
     val backupLastAt: Long,
@@ -209,14 +206,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    // ---------- Importar backup de Komikku / Mihon ----------
+    // ---------- Importar copia de Komikku / Mihon / Tachiyomi ----------
 
     fun importBackup(uri: Uri) {
         viewModelScope.launch { runImport(uri, quiet = false, prefix = "Listo") }
     }
 
     /**
-     * Importa un backup de Komikku. Con [quiet] solo avisa si hubo cambios (para la importación automática).
+     * Importa una copia de seguridad (.tachibk). Con [quiet] solo avisa si hubo cambios.
      * Devuelve true si pudo leer el archivo.
      */
     private suspend fun runImport(uri: Uri, quiet: Boolean, prefix: String): Boolean {
@@ -260,12 +257,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     if (progressChanged) updated++
                 }
             }
+            if (parsed.isEmpty()) {
+                _message.value = "Esa copia no tiene manhwas ni mangas (las copias de anime de Aniyomi no sirven aquí)"
+                return true
+            }
             if (!quiet || added + updated > 0) {
                 _message.value = "$prefix: $added nuevos, $updated actualizados"
             }
             return true
         } catch (e: Exception) {
-            _message.value = "No pude leer ese archivo. ¿Es un backup de Komikku (.tachibk)?"
+            _message.value = "No pude leer ese archivo. ¿Es una copia de Komikku, Mihon o Tachiyomi (.tachibk)?"
             return false
         }
     }
@@ -275,9 +276,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun readSync(): SyncInfo {
         val c = getApplication<Application>()
         return SyncInfo(
-            komikkuFolders = Prefs.komikkuFolders(c).map { FolderInfo(it, AutoSync.folderLabel(Uri.parse(it))) },
-            komikkuLastName = Prefs.lastKomikkuName(c),
-            komikkuLastAt = Prefs.lastKomikkuAt(c),
             backupFolder = Prefs.backupFolder(c)?.let { AutoSync.folderLabel(Uri.parse(it)) },
             backupLastName = Prefs.lastBackupName(c),
             backupLastAt = Prefs.lastBackupAt(c),
@@ -291,58 +289,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshSync() {
         _sync.value = readSync()
     }
-
-    /** Agrega una carpeta donde Komikku guarda copias (se pueden tener varias). */
-    fun addKomikkuFolder(uri: Uri) {
-        val c = getApplication<Application>()
-        AutoSync.takePermission(c, uri, write = false)
-        val current = Prefs.komikkuFolders(c)
-        if (uri.toString() !in current) Prefs.setKomikkuFolders(c, current + uri.toString())
-        Prefs.setLastKomikku(c, null, null, 0L)
-        refreshSync()
-        autoSync(manual = true)
-    }
-
-    fun removeKomikkuFolder(uri: String) {
-        val c = getApplication<Application>()
-        Prefs.setKomikkuFolders(c, Prefs.komikkuFolders(c).filter { it != uri })
-        Prefs.setLastKomikku(c, null, null, 0L)
-        refreshSync()
-    }
-
-    /**
-     * Importa la copia más reciente de Komikku si es nueva. Se llama al abrir la app (en silencio)
-     * y desde el botón "Actualizar ahora" ([manual] = true, que también avisa cuando no hay nada nuevo).
-     */
-    fun autoSync(manual: Boolean = false) {
-        val c = getApplication<Application>()
-        if (Prefs.komikkuFolders(c).isEmpty()) return
-        viewModelScope.launch {
-            // Si ya hay una revisión en curso, no se lanza otra (evita importar dos veces lo mismo).
-            if (!syncMutex.tryLock()) return@launch
-            try {
-                when (val check = withContext(Dispatchers.IO) { AutoSync.checkKomikku(c) }) {
-                    is AutoSync.KomikkuCheck.NoFiles ->
-                        if (manual) _message.value = "No encontré copias de Komikku (.tachibk) en esa carpeta"
-
-                    is AutoSync.KomikkuCheck.UpToDate ->
-                        if (manual) _message.value = "Ya estás al día con la última copia de Komikku"
-
-                    is AutoSync.KomikkuCheck.Pending -> {
-                        val ok = runImport(check.uri, quiet = !manual, prefix = "Komikku")
-                        if (ok) Prefs.setLastKomikku(c, check.key, check.name, System.currentTimeMillis())
-                    }
-                }
-            } catch (e: Exception) {
-                _message.value = "No pude leer la carpeta de Komikku. Elígela otra vez en Sincronización."
-            } finally {
-                syncMutex.unlock()
-            }
-            refreshSync()
-        }
-    }
-
-    private val syncMutex = Mutex()
 
     fun setBackupFolder(uri: Uri) {
         val c = getApplication<Application>()

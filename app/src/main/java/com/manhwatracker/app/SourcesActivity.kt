@@ -71,7 +71,7 @@ import com.manhwatracker.app.data.SourcesStore
 import com.manhwatracker.app.data.UpdateCheck
 import kotlinx.coroutines.launch
 
-/** Fuentes: repositorios de extensiones (los mismos de Komikku/Mihon) y sus extensiones. La app no trae ninguno. */
+/** Fuentes: repositorios de extensiones (formato Mihon/Tachiyomi) y sus extensiones. Trae uno de fábrica que se puede quitar. */
 class SourcesActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -206,7 +206,7 @@ private fun SourcesScreen(onExit: () -> Unit) {
                     Text("Repositorios", fontWeight = FontWeight.SemiBold)
                     if (repos.isEmpty()) {
                         Text(
-                            "Las fuentes son extensiones compatibles con Komikku y Mihon. Esta app no incluye ningún repositorio: pega la dirección del que quieras usar (la misma que pondrías en Komikku, en Más › Ajustes › Navegar › Repositorios de extensiones). Tú eres responsable de lo que uses con ellos.",
+                            "Las fuentes son extensiones en formato Mihon/Tachiyomi. Pega la dirección del repositorio que quieras usar. Tú eres responsable de lo que uses con ellos.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

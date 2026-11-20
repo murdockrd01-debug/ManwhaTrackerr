@@ -107,13 +107,11 @@ import com.manhwatracker.app.data.titleKeyOf
 
 class MainActivity : ComponentActivity() {
     /**
-     * Cada vez que la app pasa a primer plano (al abrirla o al volver a ella) se mira si hay una copia
-     * nueva de Komikku. Así una copia manual hecha mientras la app estaba en segundo plano se lee al volver.
+     * Cada vez que la app pasa a primer plano (al abrirla o al volver a ella) se revisa AniList.
      */
     override fun onStart() {
         super.onStart()
         ViewModelProvider(this)[MainViewModel::class.java].also {
-            it.autoSync()
             it.syncAniList()
         }
     }
@@ -370,7 +368,7 @@ fun ListScreen(vm: MainViewModel, onOpen: (Long) -> Unit) {
                 Text(
                     when {
                         all.isEmpty() ->
-                            "Aún no tienes nada.\n\nVe a Más → Importar copia de Komikku y elige el archivo .tachibk, o usa el botón + para agregar uno a mano."
+                            "Aún no tienes nada.\n\nVe a Más → Importar copia de otra app y elige un archivo .tachibk, o usa el botón + para agregar uno a mano."
                         query.isNotBlank() -> "Nada coincide con “${query.trim()}”."
                         else -> "No hay manhwas en esta categoría."
                     }

@@ -529,10 +529,6 @@ private fun HomeScreen(onSearch: (String) -> Unit, onExit: () -> Unit, onOpen: (
                         }
                         androidx.compose.material3.Switch(checked = wifiOnly, onCheckedChange = { wifiOnly = it; com.manhwatracker.app.data.Prefs.setWifiOnly(ctx, it) })
                     }
-                    HorizontalDivider()
-                    TextButton(onClick = { showSettings = false; ctx.startActivity(Intent(ctx, ReaderActivity::class.java)) }) {
-                        Text("Leer archivos descargados (.cbz)")
-                    }
                 }
             },
             confirmButton = { TextButton(onClick = { showSettings = false }) { Text("Listo") } }

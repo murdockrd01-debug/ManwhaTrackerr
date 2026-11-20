@@ -14,24 +14,12 @@ import java.time.LocalDate
 
 /**
  * Sincronización con carpetas elegidas por el usuario (sin permisos especiales, con el selector de carpetas de Android):
- *  - Komikku: lee la copia de seguridad más reciente de la carpeta donde Komikku guarda las suyas.
  *  - Copia propia: guarda una copia de los datos de esta app en otra carpeta, una por día.
  */
 object AutoSync {
 
     /** Un archivo de la carpeta, con la dirección para abrirlo. */
     class Entry(val uri: Uri, val info: SyncLogic.FileInfo)
-
-    sealed class KomikkuCheck {
-        /** La carpeta no tiene ninguna copia de Komikku. */
-        object NoFiles : KomikkuCheck()
-
-        /** La copia más reciente ya se importó. */
-        object UpToDate : KomikkuCheck()
-
-        /** Hay una copia nueva por importar. [key] se guarda al terminar para no repetirla. */
-        class Pending(val uri: Uri, val name: String, val key: String) : KomikkuCheck()
-    }
 
     /** Como mínimo pasa un minuto entre dos copias automáticas (evita copiar al cambiar rápido de app). */
     private const val BACKUP_MIN_INTERVAL = 60 * 1000L
@@ -92,34 +80,6 @@ object AutoSync {
             }
         }
         return out
-    }
-
-    // ---------------------------------------------------------------- Komikku
-
-    /** Mira la carpeta de Komikku y dice si hay una copia nueva. Puede lanzar excepción si la carpeta ya no se puede leer. */
-    fun checkKomikku(context: Context): KomikkuCheck {
-        val folders = Prefs.komikkuFolders(context)
-        if (folders.isEmpty()) return KomikkuCheck.NoFiles
-
-        // Se juntan los archivos de todas las carpetas; gana la copia más reciente, sea automática o manual.
-        val entries = mutableListOf<Entry>()
-        var failure: Exception? = null
-        var readable = 0
-        for (folder in folders) {
-            try {
-                entries += list(context, Uri.parse(folder))
-                readable++
-            } catch (e: Exception) {
-                failure = e
-            }
-        }
-        if (readable == 0) throw failure ?: IllegalStateException("No se pudo leer ninguna carpeta")
-
-        val newest = SyncLogic.newestKomikku(entries.map { it.info }) ?: return KomikkuCheck.NoFiles
-        val key = SyncLogic.fingerprint(newest)
-        if (key == Prefs.lastKomikkuKey(context)) return KomikkuCheck.UpToDate
-        val entry = entries.first { it.info == newest }
-        return KomikkuCheck.Pending(entry.uri, newest.name, key)
     }
 
     // ---------------------------------------------------------------- Copia propia

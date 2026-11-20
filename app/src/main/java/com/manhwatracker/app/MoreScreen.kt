@@ -53,7 +53,6 @@ fun MoreScreen(
     onLook: () -> Unit,
     onIcons: () -> Unit,
     onDiscover: () -> Unit,
-    onReader: () -> Unit,
     onSettings: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
@@ -67,12 +66,11 @@ fun MoreScreen(
     ) {
         MoreGroup(null) {
             if (Features.study) MoreRow("💡", "Descubrir", "Recomendaciones y tendencias", onDiscover)
-            MoreRow("📖", "Lector", "Archivos descargados (carpeta o .cbz), por si los necesitas", onReader)
-            MoreRow("🧩", "Fuentes", "Repositorios y extensiones de Komikku/Mihon") { SourcesActivity.open(moreCtx) }
+            MoreRow("🧩", "Fuentes", "Repositorios y extensiones para leer") { SourcesActivity.open(moreCtx) }
             MoreRow("⭐", "Calificaciones", "Tu ranking, favoritos y promedio", onRatings)
         }
         MoreGroup("Datos") {
-            MoreRow("🔄", "Sincronización y copias", "Importar de Komikku y AniList, guardar tus datos", onSync)
+            MoreRow("🔄", "Sincronización y copias", "Importar copias, AniList, guardar tus datos", onSync)
             MoreRow("📦", "Copias manuales", "Importar, exportar o restaurar un archivo") { manual = true }
         }
         MoreGroup("Personalizar") {
@@ -89,7 +87,7 @@ fun MoreScreen(
             title = { Text("Copias manuales") },
             text = {
                 Column {
-                    MoreRow("📥", "Importar copia de Komikku", "Elige un archivo .tachibk") { manual = false; onImport() }
+                    MoreRow("📥", "Importar copia de otra app", "Komikku, Mihon, Tachiyomi (.tachibk)") { manual = false; onImport() }
                     MoreRow("📤", "Exportar mi copia", "Guarda manhwas, palabras y notas") { manual = false; onExport() }
                     MoreRow("♻️", "Restaurar mi copia", "Recupera un archivo .json") { manual = false; onRestore() }
                 }

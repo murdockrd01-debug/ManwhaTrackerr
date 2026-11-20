@@ -163,29 +163,6 @@ private fun GeneralPage() {
             }
         }
 
-        SettingCard {
-            val readers = remember { ReaderLink.installed(ctx) }
-            var chosen by remember { mutableStateOf(Prefs.reader(ctx)) }
-            Text("App para leer", style = MaterialTheme.typography.titleMedium)
-            if (readers.isEmpty()) {
-                Text("No encontré Komikku, Mihon ni Mangayomi instalados.", style = MaterialTheme.typography.bodySmall)
-            } else {
-                Text("Es la app que se abre con el botón de cada manhwa.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    androidx.compose.material3.FilterChip(
-                        selected = chosen == null, onClick = { chosen = null; Prefs.setReader(ctx, null) },
-                        label = { Text("Automático") }
-                    )
-                    readers.forEach { r ->
-                        androidx.compose.material3.FilterChip(
-                            selected = chosen == r.pkg, onClick = { chosen = r.pkg; Prefs.setReader(ctx, r.pkg) },
-                            label = { Text(r.name) }
-                        )
-                    }
-                }
-            }
-        }
-
     }
 }
 
@@ -206,7 +183,7 @@ private fun CapturePage() {
                 }
                 Text(if (on) "✓ Activada" else "Sin activar", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Mientras lees en Komikku, toma una captura con un gesto, toca los globos que quieras y se guardan en tu vocabulario con el manhwa y capítulo en que vas. " +
+                    "Mientras lees, toma una captura con un gesto, toca los globos que quieras y se guardan en tu vocabulario con el manhwa y capítulo en que vas. " +
                         "Todo se lee dentro del teléfono; no se envía nada.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -232,7 +209,7 @@ private fun CapturePage() {
                 var bubbleOn by remember { mutableStateOf(Prefs.bubble(ctx)) }
                 SwitchRow(
                     "Burbuja flotante",
-                    "Un botón que flota sobre Komikku: tócalo para escribir una palabra viendo el manhwa (sin notificación) y mantenlo pulsado para capturar la pantalla. Arrástralo donde quieras.",
+                    "Un botón que flota sobre la app donde lees: tócalo para escribir una palabra viendo el manhwa (sin notificación) y mantenlo pulsado para capturar la pantalla. Arrástralo donde quieras.",
                     bubbleOn
                 ) {
                     bubbleOn = it
@@ -398,8 +375,8 @@ private data class IntroPage(val icon: String, val title: String, val text: Stri
 fun IntroGuide(onDone: () -> Unit) {
     val pages = remember(Features.study) {
         buildList {
-            add(IntroPage("📚", "Tu biblioteca", "Agrega manhwas con el botón + o impórtalos desde Komikku. Con el botón + de cada tarjeta sumas un capítulo."))
-            add(IntroPage("🔄", "Sincroniza con Komikku", "En Más › Sincronización elige la carpeta donde Komikku guarda sus copias: la app las lee sola y tu progreso se actualiza."))
+            add(IntroPage("📚", "Tu biblioteca", "Agrega manhwas con el botón + o impórtalos desde una copia de otra app lectora. Con el botón + de cada tarjeta sumas un capítulo."))
+            add(IntroPage("🧩", "Lee desde la app", "En Leer › Fuentes instala las extensiones que quieras, busca en todas a la vez y lee sin salir de la app."))
             if (Features.study) add(IntroPage("🔤", "Guarda palabras", "Selecciona texto en cualquier app y elige \"Guardar en vocabulario\". Luego repásalas con tarjetas en Repaso."))
             else add(IntroPage("💡", "Descubre", "En Descubrir verás recomendaciones según lo que lees, tendencias y reseñas."))
             add(IntroPage("🎨", "Hazla tuya", "En Más › Apariencia y Icono cambias colores y diseño. En Ajustes activas los avisos de versión nueva."))
