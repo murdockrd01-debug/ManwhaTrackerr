@@ -65,3 +65,14 @@ class SourcesTest {
         assertEquals("Varios idiomas", Sources.langLabel("all")); assertTrue(Sources.langLabel("en").startsWith("Ingl"))
     }
 }
+
+class SourcesSeedTest {
+    @org.junit.Test fun seedsOnlyOnce() {
+        org.junit.Assert.assertEquals(listOf(Sources.DEFAULT_REPO), Sources.seeded(emptyList(), false))
+        org.junit.Assert.assertEquals(emptyList<String>(), Sources.seeded(emptyList(), true))
+        org.junit.Assert.assertEquals(listOf("https://x.com/r"), Sources.seeded(listOf("https://x.com/r"), false))
+    }
+    @org.junit.Test fun defaultIsNormalized() {
+        org.junit.Assert.assertEquals(Sources.DEFAULT_REPO, Sources.normalizeRepoUrl(Sources.DEFAULT_REPO))
+    }
+}

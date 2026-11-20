@@ -1,3 +1,6 @@
+## 5.20.1
+- La app ya trae añadido el repositorio de extensiones de keiyoushi: quien la instale entra a Leer → Fuentes y ya ve la lista para instalar, sin pegar nada. Se puede quitar y no vuelve a aparecer. Quien ya tenía repositorios no se ve afectado.
+
 ## 5.20.0
 - Buscador general: en Leer, escribe un nombre y se busca en todas tus fuentes a la vez. Te muestra en cuáles está (por ejemplo, "Solo Leveling" está en Asura Scans, Comic Scans…), con las portadas de cada fuente; toca una para abrirla.
 

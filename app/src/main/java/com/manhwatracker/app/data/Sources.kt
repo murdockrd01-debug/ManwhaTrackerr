@@ -71,6 +71,13 @@ object Sources {
         return if (host == "raw.githubusercontent.com" && parts.size >= 2) parts[0] + "/" + parts[1] else host
     }
 
+    /** Repositorio que viene ya añadido la primera vez (se puede quitar). */
+    const val DEFAULT_REPO = "https://raw.githubusercontent.com/keiyoushi/extensions/repo"
+
+    /** Lista inicial: si todavía no se sembró y no hay repositorios, trae el de fábrica; si no, deja todo igual. */
+    fun seeded(list: List<String>, alreadySeeded: Boolean): List<String> =
+        if (alreadySeeded || list.isNotEmpty()) list else addRepo(list, DEFAULT_REPO)
+
     /** Agrega [url] a la lista sin repetirla (comparando sin mayúsculas). */
     fun addRepo(list: List<String>, url: String): List<String> =
         if (list.any { it.equals(url, true) }) list else list + url

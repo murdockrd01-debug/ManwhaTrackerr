@@ -10,7 +10,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 
-/** Guarda los repositorios que añade el usuario y baja sus índices y APK. La app no trae ningún repositorio. */
+/** Guarda los repositorios que añade el usuario y baja sus índices y APK. Trae uno de fábrica (Sources.DEFAULT_REPO), que se puede quitar. */
 object SourcesStore {
     private fun p(c: Context) = c.getSharedPreferences("sources", Context.MODE_PRIVATE)
 
@@ -18,6 +18,14 @@ object SourcesStore {
 
     private fun setRepos(c: Context, l: List<String>) {
         p(c).edit().putString("repos", l.joinToString("\n")).apply()
+    }
+
+    /** La primera vez deja añadido el repositorio de fábrica. Solo una vez: si el usuario lo quita, no vuelve. */
+    fun seedDefault(c: Context) {
+        val done = p(c).getBoolean("seeded", false)
+        if (done) return
+        setRepos(c, Sources.seeded(repos(c), false))
+        p(c).edit().putBoolean("seeded", true).apply()
     }
 
     fun add(c: Context, url: String) = setRepos(c, Sources.addRepo(repos(c), url))
