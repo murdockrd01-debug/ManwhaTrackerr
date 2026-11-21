@@ -666,6 +666,12 @@ fun shouldBlur(m: Manhwa): Boolean =
 fun Cover(m: Manhwa, onError: () -> Unit, modifier: Modifier) {
     val blurred = shouldBlur(m)
     val strong = blurred && android.os.Build.VERSION.SDK_INT >= 31
+    // Si el manhwa está descargado, su portada guardada se usa primero (carga al instante y funciona sin internet).
+    val appCtx = LocalContext.current
+    val local by androidx.compose.runtime.produceState<java.io.File?>(null, m.title, com.manhwatracker.app.ext.OfflineDownloads.version) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.manhwatracker.app.ext.OfflineStore.coverForTitle(appCtx, m.title) }
+    }
+    val model: Any? = local ?: m.coverUrl?.takeIf { it.isNotBlank() }
     Box(
         modifier
             .clip(RoundedCornerShape(12.dp))
@@ -673,12 +679,12 @@ fun Cover(m: Manhwa, onError: () -> Unit, modifier: Modifier) {
         contentAlignment = Alignment.Center
     ) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surfaceVariant) {}
-        if (!m.coverUrl.isNullOrBlank()) {
+        if (model != null) {
             if (blurred && !strong) {
                 // Android 11 o menos: no hay desenfoque nativo; se carga la imagen minúscula y se estira (mosaico).
                 AsyncImage(
                     model = coil.request.ImageRequest.Builder(LocalContext.current)
-                        .data(m.coverUrl).size(8, 12).build(),
+                        .data(model).size(8, 12).build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     filterQuality = androidx.compose.ui.graphics.FilterQuality.Low,
@@ -687,7 +693,7 @@ fun Cover(m: Manhwa, onError: () -> Unit, modifier: Modifier) {
                 )
             } else {
                 AsyncImage(
-                    model = m.coverUrl,
+                    model = model,
                     contentDescription = if (blurred) null else m.title,
                     contentScale = ContentScale.Crop,
                     onError = { onError() },

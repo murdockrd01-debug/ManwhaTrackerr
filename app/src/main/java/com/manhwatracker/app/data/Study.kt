@@ -59,6 +59,12 @@ object Prefs {
     fun wifiOnly(c: Context): Boolean = p(c).getBoolean("dl_wifi_only", false)
     fun setWifiOnly(c: Context, on: Boolean) { p(c).edit().putBoolean("dl_wifi_only", on).apply() }
 
+    // ---- Filtros guardados por fuente
+    fun sourceFilters(c: Context, srcId: Long): String? = p(c).getString("src_filters_$srcId", null)
+    fun setSourceFilters(c: Context, srcId: Long, v: String?) {
+        p(c).edit().apply { if (v == null) remove("src_filters_$srcId") else putString("src_filters_$srcId", v) }.apply()
+    }
+
     // ---- Carátulas
     fun coverSize(c: Context): String = CoverStyle.normalize(p(c).getString("cover_size", null))
     fun setCoverSize(c: Context, v: String) { p(c).edit().putString("cover_size", v).apply() }
@@ -86,27 +92,7 @@ object Prefs {
         p(c).edit().putBoolean("grid", on).apply()
     }
 
-    // ---- Sincronización con carpetas (ver AutoSync)
-    /** Carpetas donde Komikku guarda sus copias (automáticas o manuales). Se guardan separadas por saltos de línea. */
-    fun komikkuFolders(c: Context): List<String> {
-        val joined = p(c).getString("komikku_folders", null)
-        if (joined != null) return joined.split("\n").filter { it.isNotBlank() }
-        // Versión 1.4 guardaba una sola carpeta.
-        return listOfNotNull(p(c).getString("komikku_folder", null))
-    }
-
-    fun setKomikkuFolders(c: Context, uris: List<String>) {
-        p(c).edit().putString("komikku_folders", uris.joinToString("\n")).remove("komikku_folder").apply()
-    }
-
-    fun lastKomikkuKey(c: Context): String? = p(c).getString("komikku_last_key", null)
-    fun lastKomikkuName(c: Context): String? = p(c).getString("komikku_last_name", null)
-    fun lastKomikkuAt(c: Context): Long = p(c).getLong("komikku_last_at", 0L)
-    fun setLastKomikku(c: Context, key: String?, name: String?, at: Long) {
-        p(c).edit().putString("komikku_last_key", key).putString("komikku_last_name", name)
-            .putLong("komikku_last_at", at).apply()
-    }
-
+    // ---- Copia automática de mis datos (ver AutoSync)
     fun backupFolder(c: Context): String? = p(c).getString("backup_folder", null)
     fun setBackupFolder(c: Context, uri: String?) {
         p(c).edit().putString("backup_folder", uri).apply()
@@ -121,12 +107,6 @@ object Prefs {
     fun backupError(c: Context): String? = p(c).getString("backup_error", null)
     fun setBackupError(c: Context, message: String?) {
         p(c).edit().putString("backup_error", message).apply()
-    }
-
-    /** Paquete de la app lectora elegida; null = la primera que esté instalada. */
-    fun reader(c: Context): String? = p(c).getString("reader", null)
-    fun setReader(c: Context, pkg: String?) {
-        p(c).edit().putString("reader", pkg).apply()
     }
 
     /** true = en el repaso salen primero las palabras más útiles. */

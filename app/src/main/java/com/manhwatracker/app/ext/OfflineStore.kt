@@ -78,6 +78,32 @@ object OfflineStore {
 
     fun coverFile(ctx: Context, srcId: Long, mangaUrl: String) = File(root(ctx), "manga/" + sha("$srcId|$mangaUrl") + ".cover")
 
+    @Volatile private var coverIdx: Pair<String, Map<String, File>>? = null
+
+    /**
+     * La portada guardada de un manhwa descargado, buscada por su título (el mismo que usa la biblioteca).
+     * Se arma un índice una vez y solo se rehace cuando cambia la carpeta; así sirve para pintar muchas tarjetas.
+     */
+    fun coverForTitle(ctx: Context, title: String): File? {
+        val dir = File(root(ctx), "manga")
+        val files = dir.listFiles() ?: return null
+        val sig = "${dir.lastModified()}|${files.size}|${files.maxOfOrNull { it.lastModified() } ?: 0L}"
+        val cur = coverIdx
+        val map = if (cur != null && cur.first == sig) cur.second else {
+            val m = HashMap<String, File>()
+            files.filter { it.name.endsWith(".json") }.forEach { j ->
+                val cover = File(dir, j.name.removeSuffix(".json") + ".cover")
+                if (cover.length() > 0) {
+                    val t = runCatching { JSONObject(j.readText()).optString("title") }.getOrDefault("")
+                    if (t.isNotBlank()) m.putIfAbsent(com.manhwatracker.app.data.titleKeyOf(t), cover)
+                }
+            }
+            coverIdx = sig to m
+            m
+        }
+        return map[com.manhwatracker.app.data.titleKeyOf(title)]
+    }
+
     class Entry(val saved: Saved, val chapters: Int, val bytes: Long)
 
     private fun dirSize(d: File): Long = d.walkTopDown().filter { it.isFile }.sumOf { it.length() }

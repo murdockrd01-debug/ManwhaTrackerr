@@ -34,6 +34,7 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -583,6 +584,8 @@ private fun BrowseScreen(src: Source, initialQuery: String?, alreadyAutoOpened: 
     var ftick by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) {
         filters = try { withContext(Dispatchers.IO) { (src as? CatalogueSource)?.getFilterList() } } catch (e: CancellationException) { throw e } catch (e: Throwable) { null }
+        // Lo que elegiste la última vez en esta fuente (se ve al abrir "Filtros"; se usa al tocar Aplicar).
+        filters?.let { fl -> com.manhwatracker.app.data.FilterState.apply(fl, com.manhwatracker.app.data.Prefs.sourceFilters(ctx, src.id)); ftick++ }
     }
 
     fun loadMore() {
@@ -627,11 +630,16 @@ private fun BrowseScreen(src: Source, initialQuery: String?, alreadyAutoOpened: 
             onDismissRequest = { showFilters = false },
             title = { Text("Filtros") },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) { FilterEditor(fl, ftick) { ftick++ } } },
-            confirmButton = { Button(onClick = { showFilters = false; applied = query.trim(); mode = 2; restart() }) { Text("Aplicar") } },
+            confirmButton = { Button(onClick = {
+                showFilters = false; applied = query.trim(); mode = 2
+                com.manhwatracker.app.data.Prefs.setSourceFilters(ctx, src.id, com.manhwatracker.app.data.FilterState.encode(fl))
+                restart()
+            }) { Text("Aplicar") } },
             dismissButton = {
                 TextButton(onClick = {
                     scope.launch {
                         filters = try { withContext(Dispatchers.IO) { (src as? CatalogueSource)?.getFilterList() } } catch (e: CancellationException) { throw e } catch (e: Throwable) { fl }
+                        com.manhwatracker.app.data.Prefs.setSourceFilters(ctx, src.id, null)
                         ftick++
                     }
                 }) { Text("Restablecer") }
@@ -918,6 +926,9 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
     val total = pages?.size ?: 0
     // Modo paginado: una página por pantalla (+1 página final con el botón de siguiente capítulo).
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { if (total > 0) total + 1 else 0 })
+    // Zoom con dos dedos del modo por páginas; vuelve al tamaño normal al cambiar de página o de capítulo.
+    var pz by remember { mutableStateOf(com.manhwatracker.app.data.PageZoom.T()) }
+    LaunchedEffect(pagerState.currentPage, index) { pz = com.manhwatracker.app.data.PageZoom.T() }
     var mode by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.readerMode(ctx)) }
     val paged = mode != com.manhwatracker.app.data.ReaderTap.VERTICAL
     val rtl = mode == com.manhwatracker.app.data.ReaderTap.PAGED_RTL
@@ -1051,8 +1062,34 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
             list == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             list.isEmpty() -> Text("Este capítulo no tiene páginas", modifier = Modifier.statusBarsPadding().padding(16.dp).padding(top = 56.dp))
             paged -> Box(
-                Modifier.fillMaxSize().pointerInput(rtl, index) {
-                    detectTapGestures(onTap = { o ->
+                Modifier.fillMaxSize().pointerInput(Unit) {
+                    // Pellizco con dos dedos; con la página ampliada, un dedo la mueve (y la página no se pasa).
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        val w = size.width.toFloat(); val h = size.height.toFloat()
+                        do {
+                            val ev = awaitPointerEvent(PointerEventPass.Initial)
+                            val pressed = ev.changes.count { it.pressed }
+                            if (pressed >= 2) {
+                                val z = ev.calculateZoom(); val pan = ev.calculatePan(); val c = ev.calculateCentroid(useCurrent = true)
+                                if (z != 1f || pan != Offset.Zero) {
+                                    pz = com.manhwatracker.app.data.PageZoom.pinch(pz, z, c.x, c.y, pan.x, pan.y, w, h)
+                                    ev.changes.forEach { if (it.positionChanged()) it.consume() }
+                                }
+                            } else if (pressed == 1 && pz.zoomed) {
+                                val d = ev.changes.first().positionChange()
+                                if (d != Offset.Zero) {
+                                    pz = com.manhwatracker.app.data.PageZoom.drag(pz, d.x, d.y, w, h)
+                                    ev.changes.forEach { if (it.positionChanged()) it.consume() }
+                                }
+                            }
+                        } while (ev.changes.any { it.pressed })
+                    }
+                }.pointerInput(rtl, index) {
+                    detectTapGestures(onDoubleTap = { o ->
+                        pz = com.manhwatracker.app.data.PageZoom.doubleTap(pz, o.x, o.y, size.width.toFloat(), size.height.toFloat())
+                    }, onTap = { o ->
+                        if (pz.zoomed) { controls = !controls; return@detectTapGestures }
                         when (com.manhwatracker.app.data.ReaderTap.zone(o.x, size.width.toFloat(), rtl)) {
                             com.manhwatracker.app.data.ReaderTap.PREV ->
                                 if (pagerState.currentPage > 0) scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
@@ -1066,8 +1103,9 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
                 }
             ) {
                 androidx.compose.foundation.pager.HorizontalPager(
-                    state = pagerState, reverseLayout = rtl, beyondViewportPageCount = 2,
-                    key = { index.toString() + "-" + it }, modifier = Modifier.fillMaxSize()
+                    state = pagerState, reverseLayout = rtl, beyondViewportPageCount = 2, userScrollEnabled = !pz.zoomed,
+                    key = { index.toString() + "-" + it },
+                    modifier = Modifier.fillMaxSize().pageZoomLayer(pz)
                 ) { p ->
                     if (p < total) PageView(p, list, true) else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { EndCard() }
                 }
@@ -1156,6 +1194,9 @@ class ZoomState {
         if (ns == 1f) offX = 0f
     }
 }
+
+private fun Modifier.pageZoomLayer(t: com.manhwatracker.app.data.PageZoom.T): Modifier =
+    this.graphicsLayer { scaleX = t.s; scaleY = t.s; translationX = t.tx; translationY = t.ty }
 
 private fun Modifier.zoomable(z: ZoomState, list: LazyListState, onTap: () -> Unit = {}): Modifier = this
     .clipToBounds()

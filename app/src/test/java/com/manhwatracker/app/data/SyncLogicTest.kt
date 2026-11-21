@@ -5,12 +5,6 @@ import org.junit.Test
 import java.time.LocalDate
 import com.manhwatracker.app.data.SyncLogic.FileInfo
 class SyncLogicTest {
-    @Test fun isBackup() { assertTrue(SyncLogic.isKomikkuBackup("A.TACHIBK")); assertTrue(SyncLogic.isKomikkuBackup("x.proto.gz")); assertFalse(SyncLogic.isKomikkuBackup("x.json")) }
-    @Test fun newest() {
-        val f = listOf(FileInfo("a.tachibk", 5, 1), FileInfo("b.tachibk", 9, 1), FileInfo("c.json", 99, 1))
-        assertEquals("b.tachibk", SyncLogic.newestKomikku(f)?.name)
-        assertNull(SyncLogic.newestKomikku(emptyList()))
-    }
     @Test fun fingerprintChanges() { assertNotEquals(SyncLogic.fingerprint(FileInfo("a", 1, 2)), SyncLogic.fingerprint(FileInfo("a", 2, 2))) }
     @Test fun autoNames() {
         val n = SyncLogic.autoName(LocalDate.of(2026, 10, 28))

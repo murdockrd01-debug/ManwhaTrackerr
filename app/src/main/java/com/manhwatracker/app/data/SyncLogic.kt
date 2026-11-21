@@ -8,17 +8,6 @@ object SyncLogic {
     /** Lo que sabemos de un archivo de la carpeta. */
     data class FileInfo(val name: String, val lastModified: Long, val size: Long)
 
-    /** Los backups de Komikku/Mihon terminan en .tachibk (los más viejos, en .proto.gz). */
-    fun isKomikkuBackup(name: String): Boolean {
-        val n = name.lowercase()
-        return n.endsWith(".tachibk") || n.endsWith(".proto.gz")
-    }
-
-    /** La copia de Komikku más reciente de la carpeta, o null si no hay ninguna. */
-    fun newestKomikku(files: List<FileInfo>): FileInfo? =
-        files.filter { isKomikkuBackup(it.name) }
-            .maxWithOrNull(compareBy<FileInfo>({ it.lastModified }, { it.name }))
-
     /** Identifica una versión concreta de un archivo, para saber si ya la importamos. */
     fun fingerprint(f: FileInfo): String = "${f.name}|${f.lastModified}|${f.size}"
 

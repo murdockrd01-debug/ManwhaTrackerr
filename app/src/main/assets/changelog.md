@@ -1,3 +1,9 @@
+## 5.22.0
+- Lector por páginas: zoom con dos dedos (hasta 4×), doble toque para ampliar o volver, y con la página ampliada un dedo la mueve sin cambiar de página.
+- Los filtros de cada fuente (géneros, estado, orden…) se recuerdan: al abrir "Filtros" están como los dejaste. "Restablecer" los borra.
+- Las portadas de los manhwas descargados se usan en la biblioteca: cargan al instante y se ven sin internet.
+- Limpieza: se quitó código viejo del lector de archivos y de la sincronización con carpetas.
+
 ## 5.21.0
 - Se quitó todo lo relacionado con abrir o sincronizar con Komikku: el botón de abrir la app lectora, el lector de archivos descargados, la elección de "App para leer" y la importación automática desde una carpeta.
 - Importar copia de otra app: en Más › Copias manuales › "Importar copia de otra app" sirve el archivo .tachibk de Komikku, Mihon y Tachiyomi (comparten formato). Las copias de anime de Aniyomi no tienen mangas y la app lo avisa.
