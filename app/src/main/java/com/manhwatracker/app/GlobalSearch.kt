@@ -73,11 +73,12 @@ internal fun GlobalSearchScreen(query: String, onBack: () -> Unit, onOpen: (Sour
     var finished by remember(query) { mutableStateOf(false) }
 
     LaunchedEffect(query) {
+        val hiddenKeys = com.manhwatracker.app.data.Prefs.hiddenSources(ctx)
         val sources = withContext(Dispatchers.IO) {
             ExtensionHost.installedExtensions(ctx).flatMap { info ->
                 (ExtensionHost.load(ctx, info.packageName) as? ExtensionHost.Result.Ok)?.ext?.sources
                     ?.filterIsInstance<CatalogueSource>()?.map { it as Source to info.packageName } ?: emptyList()
-            }
+            }.filter { (s, pkg) -> com.manhwatracker.app.data.SourceOrder.key(pkg, s.id) !in hiddenKeys }
         }
         total = sources.size
         // De 4 en 4, para no saturar el teléfono ni las páginas; cada fuente tiene 20 segundos.

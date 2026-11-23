@@ -336,7 +336,16 @@ private fun HomeScreen(onSearch: (String) -> Unit, onExit: () -> Unit, onOpen: (
             (row.result as? ExtensionHost.Result.Ok)?.let { ok -> ok.ext.sources.map { Triple(it, row.pkg, ok.ext.versionName) } } ?: emptyList()
         }.sortedBy { it.first.name.lowercase() }
     }
-    val shown = flat
+    var favs by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.favSources(ctx)) }
+    var hidden by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.hiddenSources(ctx)) }
+    var showHidden by remember { mutableStateOf(false) }
+    var sourceMenu by remember { mutableStateOf<String?>(null) }
+    val shown = remember(flat, favs, hidden, showHidden) {
+        com.manhwatracker.app.data.SourceOrder.arrange(
+            flat, { com.manhwatracker.app.data.SourceOrder.key(it.second, it.first.id) }, { it.first.name }, favs, hidden, showHidden
+        )
+    }
+    val hiddenCount = remember(flat, hidden) { flat.count { com.manhwatracker.app.data.SourceOrder.key(it.second, it.first.id) in hidden } }
     val problems = rows.orEmpty().filter { it.result !is ExtensionHost.Result.Ok }
 
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -440,7 +449,7 @@ private fun HomeScreen(onSearch: (String) -> Unit, onExit: () -> Unit, onOpen: (
 
         // ---- Fuentes: una lista corta y buscable
         item(key = "srch") {
-            Text("Fuentes" + if (flat.isNotEmpty()) " (${flat.size})" else "", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+            Text("Fuentes" + if (flat.isNotEmpty()) " (${flat.size - if (showHidden) 0 else hiddenCount})" else "", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
         }
         if (rows == null) item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
         else if (rows!!.isEmpty()) item {
@@ -475,8 +484,10 @@ private fun HomeScreen(onSearch: (String) -> Unit, onExit: () -> Unit, onOpen: (
         }
         items(shown.size, key = { shown[it].second + shown[it].first.id }) { i ->
             val (src, pkg, ver) = shown[i]
+            val sk = com.manhwatracker.app.data.SourceOrder.key(pkg, src.id)
+            val isHidden = sk in hidden
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)).clickable { onOpen(src, pkg) }.padding(horizontal = 14.dp, vertical = 11.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isHidden) 0.25f else 0.5f)).clickable { onOpen(src, pkg) }.padding(start = 14.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -488,8 +499,25 @@ private fun HomeScreen(onSearch: (String) -> Unit, onExit: () -> Unit, onOpen: (
                     Text(src.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(com.manhwatracker.app.data.Sources.langLabel(src.lang.ifBlank { "all" }) + " · v" + ver, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text("›", fontSize = 22.sp, color = MaterialTheme.colorScheme.outline)
+                if (!isHidden) IconButton(onClick = {
+                    favs = com.manhwatracker.app.data.SourceOrder.toggled(favs, sk); com.manhwatracker.app.data.Prefs.setFavSources(ctx, favs)
+                }) { Text(if (sk in favs) "★" else "☆", fontSize = 20.sp, color = if (sk in favs) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline) }
+                Box {
+                    IconButton(onClick = { sourceMenu = sk }) { Text("⋮", fontSize = 20.sp, color = MaterialTheme.colorScheme.outline) }
+                    DropdownMenu(expanded = sourceMenu == sk, onDismissRequest = { sourceMenu = null }) {
+                        DropdownMenuItem(
+                            text = { Text(if (isHidden) "Mostrar esta fuente" else "Ocultar esta fuente") },
+                            onClick = {
+                                sourceMenu = null
+                                hidden = com.manhwatracker.app.data.SourceOrder.toggled(hidden, sk); com.manhwatracker.app.data.Prefs.setHiddenSources(ctx, hidden)
+                            }
+                        )
+                    }
+                }
             }
+        }
+        if (hiddenCount > 0) item(key = "hiddenToggle") {
+            TextButton(onClick = { showHidden = !showHidden }) { Text(if (showHidden) "Esconder las ocultas" else "Mostrar ocultas ($hiddenCount)") }
         }
     }
 

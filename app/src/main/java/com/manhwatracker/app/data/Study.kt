@@ -65,6 +65,12 @@ object Prefs {
         p(c).edit().apply { if (v == null) remove("src_filters_$srcId") else putString("src_filters_$srcId", v) }.apply()
     }
 
+    /** Fuentes favoritas y ocultas (claves "paquete:id", ver SourceOrder). */
+    fun favSources(c: Context): Set<String> = p(c).getStringSet("fav_sources", emptySet())?.toSet() ?: emptySet()
+    fun setFavSources(c: Context, v: Set<String>) { p(c).edit().putStringSet("fav_sources", v).apply() }
+    fun hiddenSources(c: Context): Set<String> = p(c).getStringSet("hidden_sources", emptySet())?.toSet() ?: emptySet()
+    fun setHiddenSources(c: Context, v: Set<String>) { p(c).edit().putStringSet("hidden_sources", v).apply() }
+
     /** Bajar solos los siguientes capítulos mientras lees. */
     fun autoNext(c: Context): Boolean = p(c).getBoolean("auto_next", false)
     fun setAutoNext(c: Context, on: Boolean) { p(c).edit().putBoolean("auto_next", on).apply() }

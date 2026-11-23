@@ -1,3 +1,7 @@
+## 5.24.0
+- Fuentes favoritas: toca la ☆ de una fuente en Leer y sube al principio de la lista.
+- Fuentes ocultas: en el ⋮ de cada fuente puedes ocultarla; deja de salir en la lista y en el buscador general. Abajo aparece "Mostrar ocultas" para volver a verlas.
+
 ## 5.23.0
 - Nuevo ajuste en el ⚙ de Leer: "Bajar solos los siguientes". Si lo activas, al leer un capítulo la app baja los próximos 3 para que sigas leyendo sin internet. Respeta "Bajar solo con Wi-Fi". Viene apagado.
 
