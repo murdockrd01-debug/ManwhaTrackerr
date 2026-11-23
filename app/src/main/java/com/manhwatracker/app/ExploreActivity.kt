@@ -1014,10 +1014,14 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
         }
     }
     val key = src.id.toString() + "|" + manga.url + "|" + chapter.url
+    var autoAdvance by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.autoAdvance(ctx)) }
+    // Listas de páginas de capítulos que se prepararon por adelantado (url del capítulo → páginas).
+    val prefetched = remember { HashMap<String, List<Page>>() }
 
     LaunchedEffect(index) {
         val saved = OfflineStore.pageCount(ctx, key)
         if (saved > 0) { pages = List(saved) { Page(it) }; return@LaunchedEffect }
+        prefetched[chapter.url]?.let { pages = it; return@LaunchedEffect }
         try { pages = withContext(Dispatchers.IO) { src.getPageList(chapter).sortedBy { it.index } } }
         catch (e: CancellationException) { throw e }
         catch (e: Throwable) { failure = e.report() }
@@ -1056,6 +1060,19 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
         }
     }
 
+    // Cerca del final: se prepara el siguiente capítulo (lista de páginas y las primeras imágenes) para que el cambio sea instantáneo.
+    val nearEnd = com.manhwatracker.app.data.ChapterFlow.nearEnd(lastIdx, total)
+    LaunchedEffect(index, nearEnd) {
+        if (!nearEnd || index >= chapters.lastIndex) return@LaunchedEffect
+        val next = chapters[index + 1]
+        val nkey = src.id.toString() + "|" + manga.url + "|" + next.url
+        try {
+            if (OfflineStore.pageCount(ctx, nkey) > 0) return@LaunchedEffect
+            val list = prefetched[next.url] ?: withContext(Dispatchers.IO) { src.getPageList(next).sortedBy { it.index } }.also { prefetched[next.url] = it }
+            for (p in list.take(com.manhwatracker.app.data.ChapterFlow.prefetchCount(list.size))) OnlineStore.pageFile(ctx, src, nkey, p)
+        } catch (e: CancellationException) { throw e } catch (_: Throwable) { /* es solo una ayuda: si falla, se carga al abrirlo */ }
+    }
+
     // Una página (descarga perezosa). [fit] = paginado (la página entera en pantalla); si no, ancho completo (vertical).
     @Composable
     fun PageView(i: Int, list: List<Page>, fit: Boolean) {
@@ -1085,12 +1102,29 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
         }
     }
 
+    // [active] = la tarjeta de fin está realmente a la vista (no solo preparada fuera de pantalla).
     @Composable
-    fun EndCard() {
+    fun EndCard(active: Boolean) {
+        var stay by remember(index) { mutableStateOf(false) }
+        var progress by remember(index) { androidx.compose.runtime.mutableFloatStateOf(0f) }
+        val counting = com.manhwatracker.app.data.ChapterFlow.shouldAutoAdvance(autoAdvance && !stay, active && positioned, index, chapters.lastIndex)
+        // Cuenta atrás corta; si te vas de la tarjeta o tocas "Quedarme", se cancela.
+        LaunchedEffect(counting, index) {
+            progress = 0f
+            if (!counting) return@LaunchedEffect
+            val steps = 25
+            repeat(steps) { delay(com.manhwatracker.app.data.ChapterFlow.ADVANCE_MS / steps); progress = (it + 1f) / steps }
+            index++
+        }
         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Fin de ${chapter.name}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (index < chapters.lastIndex) Button(onClick = { index++ }) { Text("Siguiente capítulo") }
-            else Text("Es el último capítulo disponible", style = MaterialTheme.typography.bodySmall)
+            if (index < chapters.lastIndex) {
+                Button(onClick = { index++ }) { Text("Siguiente capítulo") }
+                if (counting) {
+                    androidx.compose.material3.LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth(0.6f))
+                    TextButton(onClick = { stay = true }) { Text("Quedarme aquí") }
+                }
+            } else Text("Es el último capítulo disponible", style = MaterialTheme.typography.bodySmall)
         }
     }
 
@@ -1158,12 +1192,12 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
                     key = { index.toString() + "-" + it },
                     modifier = Modifier.fillMaxSize().pageZoomLayer(pz)
                 ) { p ->
-                    if (p < total) PageView(p, list, true) else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { EndCard() }
+                    if (p < total) PageView(p, list, true) else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { EndCard(pagerState.currentPage == total && !pagerState.isScrollInProgress) }
                 }
             }
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize().zoomable(zoom, listState) { controls = !controls }) {
                 items(list.size, key = { index.toString() + "-" + it }) { i -> PageView(i, list, false) }
-                item(key = "end") { EndCard() }
+                item(key = "end") { EndCard(listState.layoutInfo.visibleItemsInfo.any { it.key == "end" }) }
             }
         }
 
@@ -1188,6 +1222,10 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
                         ).forEach { (m, label) ->
                             DropdownMenuItem(text = { Text((if (mode == m) "✓ " else "") + label) }, onClick = { menu = false; if (mode != m) setMode(m) })
                         }
+                        DropdownMenuItem(
+                            text = { Text((if (autoAdvance) "✓ " else "") + "Pasar solo al siguiente capítulo") },
+                            onClick = { menu = false; autoAdvance = !autoAdvance; com.manhwatracker.app.data.Prefs.setAutoAdvance(ctx, autoAdvance) }
+                        )
                         DropdownMenuItem(
                             text = { Text("Bajar los próximos 5 capítulos") },
                             onClick = {

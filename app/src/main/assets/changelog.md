@@ -1,3 +1,7 @@
+## 5.27.0
+- Lector: pasa solo al siguiente capítulo. Al llegar al final aparece una barrita de 2,5 segundos y, si no la cancelas con "Quedarme aquí" o saliendo de esa tarjeta, abre el siguiente capítulo. Se puede apagar en el ⋮ del lector ("Pasar solo al siguiente capítulo").
+- Cuando vas por el 60% del capítulo, la app prepara el siguiente (su lista de páginas y las primeras 3 imágenes), para que el cambio sea casi instantáneo.
+
 ## 5.26.0
 - Contador de capítulos sin leer: en la biblioteca, cada manhwa que ya abriste en una fuente muestra "+N" (en la lista, "+N sin leer") cuando la fuente tiene más capítulos que tu avance. Se actualiza al abrir la ficha en la fuente y con la revisión automática de capítulos nuevos. Los terminados no lo muestran.
 - Las categorías ya existían: los estados (Leyendo, Pausado, Terminado, Pendiente) y tus listas propias, con sus filtros arriba en la biblioteca.

@@ -71,6 +71,10 @@ object Prefs {
     fun hiddenSources(c: Context): Set<String> = p(c).getStringSet("hidden_sources", emptySet())?.toSet() ?: emptySet()
     fun setHiddenSources(c: Context, v: Set<String>) { p(c).edit().putStringSet("hidden_sources", v).apply() }
 
+    /** Pasar solo al siguiente capítulo al llegar al final (por defecto sí). */
+    fun autoAdvance(c: Context): Boolean = p(c).getBoolean("auto_advance", true)
+    fun setAutoAdvance(c: Context, on: Boolean) { p(c).edit().putBoolean("auto_advance", on).apply() }
+
     /** Bajar solos los siguientes capítulos mientras lees. */
     fun autoNext(c: Context): Boolean = p(c).getBoolean("auto_next", false)
     fun setAutoNext(c: Context, on: Boolean) { p(c).edit().putBoolean("auto_next", on).apply() }
