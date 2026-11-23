@@ -1,3 +1,6 @@
+## 5.25.0
+- Si una fuente falla al abrir un manhwa o sus capítulos, ahora hay un botón "Buscar en otras fuentes": hace la búsqueda general con ese título y, al abrir el resultado en otra fuente, sigue unido a tu avance.
+
 ## 5.24.0
 - Fuentes favoritas: toca la ☆ de una fuente en Leer y sube al principio de la lista.
 - Fuentes ocultas: en el ⋮ de cada fuente puedes ocultarla; deja de salir en la lista y en el buscador general. Abajo aparece "Mostrar ocultas" para volver a verlas.

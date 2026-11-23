@@ -143,7 +143,7 @@ private sealed class Screen {
     object Home : Screen()
     class Browse(val src: Source, val pkg: String, val initialQuery: String? = null) : Screen() { var autoOpened = false }
     class Detail(val src: Source, val pkg: String, val manga: SManga, val linkTitle: String? = null, var startAfter: Double? = null) : Screen()
-    class Search(val query: String) : Screen()
+    class Search(val query: String, val linkTitle: String? = null) : Screen()
     class Read(val src: Source, val pkg: String, val manga: SManga, val chapters: List<SChapter>, val index: Int, val linkTitle: String? = null, val startPos: Pair<Int, Int>? = null, val genre: String? = null) : Screen()
 }
 
@@ -280,7 +280,7 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
     fun pop() { if (stack.size > 1) stack = stack.dropLast(1) else onExit() }
     BackHandler { pop() }
     when (val s = stack.last()) {
-        is Screen.Search -> GlobalSearchScreen(s.query, onBack = { pop() }, onOpen = { src, pkg, m -> push(Screen.Detail(src, pkg, m)) })
+        is Screen.Search -> GlobalSearchScreen(s.query, onBack = { pop() }, onOpen = { src, pkg, m -> push(Screen.Detail(src, pkg, m, linkTitle = s.linkTitle)) })
         is Screen.Home -> HomeScreen(
             onSearch = { push(Screen.Search(it)) },
             onExit = onExit, onOpen = { src, pkg -> push(Screen.Browse(src, pkg)) },
@@ -290,8 +290,8 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
             onContinue = { resume?.let { (b, d) -> stack = listOfNotNull(Screen.Home, b, d) } }
         )
         is Screen.Browse -> BrowseScreen(s.src, s.initialQuery, s.autoOpened, onAutoOpened = { s.autoOpened = true }, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it, s.initialQuery)) })
-        is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.linkTitle, s.startAfter, onAutoJumped = { s.startAfter = null }, onBack = { pop() }, onRead = { list, i, genre -> push(Screen.Read(s.src, s.pkg, s.manga, list, i, s.linkTitle, genre = genre, startPos = ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
-        is Screen.Read -> OnlineReader(s.src, s.pkg, s.manga, s.chapters, s.index, s.linkTitle, s.startPos, s.genre, onBack = { pop() })
+        is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.linkTitle, s.startAfter, onAutoJumped = { s.startAfter = null }, onBack = { pop() }, onElsewhere = { push(Screen.Search(it, s.linkTitle ?: s.manga.title)) }, onRead = { list, i, genre -> push(Screen.Read(s.src, s.pkg, s.manga, list, i, s.linkTitle, genre = genre, startPos = ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
+        is Screen.Read -> OnlineReader(s.src, s.pkg, s.manga, s.chapters, s.index, s.linkTitle, s.startPos, s.genre, onBack = { pop() }, onElsewhere = { push(Screen.Search(it, s.linkTitle ?: s.manga.title)) })
     }
 }
 
@@ -745,7 +745,7 @@ private fun statusLabel(s: Int) = when (s) {
 }
 
 @Composable
-private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: String?, startAfter: Double?, onAutoJumped: () -> Unit, onBack: () -> Unit, onRead: (List<SChapter>, Int, String?) -> Unit) {
+private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: String?, startAfter: Double?, onAutoJumped: () -> Unit, onBack: () -> Unit, onElsewhere: (String) -> Unit, onRead: (List<SChapter>, Int, String?) -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var detail by remember { mutableStateOf(manga) }
@@ -856,6 +856,7 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
                         OutlinedButton(onClick = { copyText(ctx, f) }) { Text("Copiar diagnóstico") }
                         OutlinedButton(onClick = { reload++ }) { Text("Reintentar") }
                     }
+                    Button(onClick = { onElsewhere(linkTitle ?: manga.title) }, modifier = Modifier.fillMaxWidth()) { Text("🔎 Buscar en otras fuentes") }
                 }
             }
         }
@@ -948,7 +949,7 @@ private fun Context.findActivity(): android.app.Activity? {
 }
 
 @Composable
-private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List<SChapter>, startIndex: Int, linkTitle: String?, startPos: Pair<Int, Int>?, genre: String?, onBack: () -> Unit) {
+private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List<SChapter>, startIndex: Int, linkTitle: String?, startPos: Pair<Int, Int>?, genre: String?, onBack: () -> Unit, onElsewhere: (String) -> Unit) {
     val ctx = LocalContext.current
     val view = androidx.compose.ui.platform.LocalView.current
     val scope = rememberCoroutineScope()
@@ -1106,6 +1107,7 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
                 Text("No se pudieron cargar las páginas", fontWeight = FontWeight.SemiBold)
                 Text(failure!!.lines().first(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 OutlinedButton(onClick = { copyText(ctx, failure!!) }) { Text("Copiar diagnóstico") }
+                Button(onClick = { onElsewhere(linkTitle ?: manga.title) }) { Text("🔎 Buscar en otras fuentes") }
             }
             list == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             list.isEmpty() -> Text("Este capítulo no tiene páginas", modifier = Modifier.statusBarsPadding().padding(16.dp).padding(top = 56.dp))
