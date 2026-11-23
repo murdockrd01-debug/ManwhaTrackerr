@@ -767,6 +767,7 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
             detail = up.manga.also { if (it.title.isBlank()) it.title = manga.title }
             chapters = up.chapters
             withContext(Dispatchers.IO) { OfflineStore.saveManga(ctx, pkg, src.id, detail, up.chapters) }
+            com.manhwatracker.app.ext.UpdateChecker.recordLatest(ctx, linkTitle ?: manga.title, up.chapters.mapNotNull { ChapterPick.number(it.chapter_number, it.name) }.maxOrNull())
         } catch (e: CancellationException) { throw e
         } catch (e: Throwable) {
             // Sin conexión: si ya la abriste antes, se muestra lo guardado (y lo que bajaste se puede leer).

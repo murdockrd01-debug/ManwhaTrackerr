@@ -1,3 +1,7 @@
+## 5.26.0
+- Contador de capítulos sin leer: en la biblioteca, cada manhwa que ya abriste en una fuente muestra "+N" (en la lista, "+N sin leer") cuando la fuente tiene más capítulos que tu avance. Se actualiza al abrir la ficha en la fuente y con la revisión automática de capítulos nuevos. Los terminados no lo muestran.
+- Las categorías ya existían: los estados (Leyendo, Pausado, Terminado, Pendiente) y tus listas propias, con sus filtros arriba en la biblioteca.
+
 ## 5.25.0
 - Si una fuente falla al abrir un manhwa o sus capítulos, ahora hay un botón "Buscar en otras fuentes": hace la búsqueda general con ese título y, al abrir el resultado en otra fuente, sigue unido a tu avance.
 

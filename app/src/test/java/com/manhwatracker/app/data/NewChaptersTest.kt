@@ -17,3 +17,14 @@ class NewChaptersTest {
         assertEquals(0, NewChapters.unread(emptyList(), 0.0))
     }
 }
+
+class NewChaptersUnreadTest {
+    @org.junit.Test fun unreadFromLatest() {
+        org.junit.Assert.assertEquals(0, NewChapters.unreadFromLatest(null, 5.0))
+        org.junit.Assert.assertEquals(0, NewChapters.unreadFromLatest(5.0, 5.0))
+        org.junit.Assert.assertEquals(0, NewChapters.unreadFromLatest(4.0, 5.0))
+        org.junit.Assert.assertEquals(3, NewChapters.unreadFromLatest(8.0, 5.0))
+        org.junit.Assert.assertEquals(1, NewChapters.unreadFromLatest(5.5, 5.0))
+        org.junit.Assert.assertEquals(99, NewChapters.unreadFromLatest(900.0, 5.0))
+    }
+}

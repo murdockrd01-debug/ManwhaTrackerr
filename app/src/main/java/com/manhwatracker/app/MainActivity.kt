@@ -554,6 +554,11 @@ fun ManhwaCard(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(Status.label(m.status), style = MaterialTheme.typography.labelMedium)
+                    val unread = unreadOf(m)
+                    if (unread > 0) {
+                        Spacer(Modifier.width(10.dp))
+                        Text("+$unread " + tr("sin leer"), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
                     if (m.rating > 0) {
                         Spacer(Modifier.width(10.dp))
                         Text(
@@ -624,6 +629,19 @@ fun ManhwaGridCard(
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 )
             }
+            val unread = unreadOf(m)
+            if (unread > 0) {
+                Text(
+                    "+$unread",
+                    color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = 24.dp, top = 4.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.primary)
+                        .padding(horizontal = 7.dp, vertical = 2.dp)
+                )
+            }
             Box(
                 Modifier
                     .align(Alignment.TopStart)
@@ -661,6 +679,13 @@ fun ManhwaGridCard(
 @Composable
 fun shouldBlur(m: Manhwa): Boolean =
     ThemeState.blurAdult && CoverStyle.isAdult(m.genres, ThemeState.adultMarks[m.titleKey], ThemeState.blurEcchi)
+
+/** Capítulos sin leer de un manhwa (según lo último que vio la app en su fuente); 0 si no se sabe. */
+@Composable
+private fun unreadOf(m: Manhwa): Int {
+    val c = LocalContext.current
+    return remember(m.title, m.lastChapter, m.status) { com.manhwatracker.app.ext.UpdateChecker.unreadFor(c, m.title, m.lastChapter, m.status) }
+}
 
 @Composable
 fun Cover(m: Manhwa, onError: () -> Unit, modifier: Modifier) {

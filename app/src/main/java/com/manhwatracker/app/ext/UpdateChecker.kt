@@ -49,6 +49,19 @@ object UpdateChecker {
     }
 
     /** Revisa todo; devuelve cuántos manhwas tienen capítulos nuevos. Con [notify] también avisa con una notificación. */
+    /** Anota el último capítulo que tiene la fuente para el manhwa de tu biblioteca [libTitle] (para el contador de sin leer). */
+    fun recordLatest(ctx: Context, libTitle: String, latest: Double?) {
+        if (latest == null) return
+        prefs(ctx).edit().putString("lat_lib_" + ExploreMemory.norm(libTitle), latest.toString()).apply()
+    }
+
+    /** Capítulos sin leer de un manhwa de la biblioteca; 0 si no se sabe o está terminado. */
+    fun unreadFor(ctx: Context, libTitle: String, readUpTo: Double, status: String): Int {
+        if (status == Status.COMPLETED) return 0
+        val latest = prefs(ctx).getString("lat_lib_" + ExploreMemory.norm(libTitle), null)?.toDoubleOrNull()
+        return NewChapters.unreadFromLatest(latest, readUpTo)
+    }
+
     suspend fun run(ctx: Context, notify: Boolean): Int {
         val sp = prefs(ctx)
         val loaded = HashMap<String, List<Source>?>()
@@ -68,6 +81,7 @@ object UpdateChecker {
             val key = "latest_" + ExploreMemory.norm(manga.title)
             val prev = sp.getString(key, null)?.toDoubleOrNull()
             if (latest != null) sp.edit().putString(key, latest.toString()).apply()
+            recordLatest(ctx, lib.title, latest)
             if (NewChapters.shouldNotify(prev, latest, lib.lastChapter)) {
                 found.add(lib.title to latest!!)
                 sp.edit().putString("fresh_" + ExploreMemory.norm(lib.title), lib.title + SEP + latest).apply()
