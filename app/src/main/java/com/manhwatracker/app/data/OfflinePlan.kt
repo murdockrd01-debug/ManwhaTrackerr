@@ -17,6 +17,13 @@ object OfflinePlan {
         return out
     }
 
+    /** Cuántos capítulos bajar solos mientras lees (0 = apagado). */
+    const val AUTO_NEXT = 3
+
+    /** Los próximos capítulos que faltan por bajar después del [index] que estás leyendo ([count] <= 0: ninguno). */
+    fun autoNext(keys: List<String>, have: Set<String>, index: Int, count: Int): List<Int> =
+        if (count <= 0) emptyList() else pick(keys, have, index + 1, count.coerceAtMost(10))
+
     /** Texto corto del avance de una descarga: "3/12". */
     fun progress(done: Int, total: Int): String = "${done.coerceAtLeast(0)}/${total.coerceAtLeast(0)}"
 

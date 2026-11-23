@@ -496,6 +496,7 @@ private fun HomeScreen(onSearch: (String) -> Unit, onExit: () -> Unit, onOpen: (
     if (showSettings) {
         var updatesOn by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.updatesEnabled(ctx)) }
         var wifiOnly by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.wifiOnly(ctx)) }
+        var autoNext by remember { mutableStateOf(com.manhwatracker.app.data.Prefs.autoNext(ctx)) }
         var checking by remember { mutableStateOf(false) }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showSettings = false },
@@ -529,6 +530,13 @@ private fun HomeScreen(onSearch: (String) -> Unit, onExit: () -> Unit, onOpen: (
                             Text("Las descargas esperan si usas datos móviles.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         androidx.compose.material3.Switch(checked = wifiOnly, onCheckedChange = { wifiOnly = it; com.manhwatracker.app.data.Prefs.setWifiOnly(ctx, it) })
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Bajar solos los siguientes", fontWeight = FontWeight.Medium)
+                            Text("Al leer un capítulo se bajan los próximos 3 para leerlos sin internet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        androidx.compose.material3.Switch(checked = autoNext, onCheckedChange = { autoNext = it; com.manhwatracker.app.data.Prefs.setAutoNext(ctx, it) })
                     }
                 }
             },
@@ -940,6 +948,18 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
     val zoom = remember { ZoomState() }
     var recorded by remember(index) { mutableStateOf(false) }
     fun curIndex() = if (paged) pagerState.currentPage else listState.firstVisibleItemIndex
+
+    // "Bajar solos los siguientes": al empezar a leer un capítulo se piden los próximos 3 (solo si hay internet).
+    LaunchedEffect(index, positioned) {
+        if (!positioned || !com.manhwatracker.app.data.Prefs.autoNext(ctx)) return@LaunchedEffect
+        val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        if (cm.activeNetwork == null) return@LaunchedEffect
+        val have = withContext(Dispatchers.IO) {
+            chapters.filter { OfflineStore.pageCount(ctx, OfflineStore.key(src.id, manga.url, it.url)) > 0 }.map { it.url }.toSet()
+        }
+        val idx = OfflinePlan.autoNext(chapters.map { it.url }, have, index, OfflinePlan.AUTO_NEXT)
+        if (idx.isNotEmpty()) OfflineDownloads.enqueue(ctx, src, pkg, manga, idx.map { chapters[it] })
+    }
 
     // Pantalla encendida mientras lees; al ocultar los controles también se ocultan las barras del sistema.
     DisposableEffect(Unit) { view.keepScreenOn = true; onDispose { view.keepScreenOn = false } }

@@ -35,3 +35,13 @@ class OfflinePlanTest {
         assertEquals("1.5 GB", OfflinePlan.size((1.5 * 1073741824).toLong()))
     }
 }
+
+class OfflinePlanAutoNextTest {
+    private val keys = listOf("a", "b", "c", "d", "e", "f")
+    @org.junit.Test fun nextThreeMissing() {
+        org.junit.Assert.assertEquals(listOf(1, 3, 4), OfflinePlan.autoNext(keys, setOf("c"), 0, 3))
+        org.junit.Assert.assertEquals(listOf(5), OfflinePlan.autoNext(keys, emptySet(), 4, 3))
+        org.junit.Assert.assertTrue(OfflinePlan.autoNext(keys, emptySet(), 5, 3).isEmpty())
+        org.junit.Assert.assertTrue(OfflinePlan.autoNext(keys, emptySet(), 0, 0).isEmpty())
+    }
+}

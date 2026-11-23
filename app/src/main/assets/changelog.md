@@ -1,3 +1,6 @@
+## 5.23.0
+- Nuevo ajuste en el ⚙ de Leer: "Bajar solos los siguientes". Si lo activas, al leer un capítulo la app baja los próximos 3 para que sigas leyendo sin internet. Respeta "Bajar solo con Wi-Fi". Viene apagado.
+
 ## 5.22.0
 - Lector por páginas: zoom con dos dedos (hasta 4×), doble toque para ampliar o volver, y con la página ampliada un dedo la mueve sin cambiar de página.
 - Los filtros de cada fuente (géneros, estado, orden…) se recuerdan: al abrir "Filtros" están como los dejaste. "Restablecer" los borra.

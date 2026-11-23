@@ -65,6 +65,10 @@ object Prefs {
         p(c).edit().apply { if (v == null) remove("src_filters_$srcId") else putString("src_filters_$srcId", v) }.apply()
     }
 
+    /** Bajar solos los siguientes capítulos mientras lees. */
+    fun autoNext(c: Context): Boolean = p(c).getBoolean("auto_next", false)
+    fun setAutoNext(c: Context, on: Boolean) { p(c).edit().putBoolean("auto_next", on).apply() }
+
     // ---- Carátulas
     fun coverSize(c: Context): String = CoverStyle.normalize(p(c).getString("cover_size", null))
     fun setCoverSize(c: Context, v: String) { p(c).edit().putString("cover_size", v).apply() }
