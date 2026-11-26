@@ -262,6 +262,7 @@ object TrData {
         "🔎 Buscar en otras fuentes" to "🔎 Search in other sources",
         "sin leer" to "unread",
         "Pasar solo al siguiente capítulo" to "Go to the next chapter automatically", "Quedarme aquí" to "Stay here",
+        "⌂ Fuentes" to "⌂ Sources", "⌂ Ir a Fuentes" to "⌂ Go to Sources",
         "Importar copia de otra app" to "Import a backup from another app", "Komikku, Mihon, Tachiyomi (.tachibk)" to "Komikku, Mihon, Tachiyomi (.tachibk)",
         "Repositorios y extensiones para leer" to "Repositories and extensions for reading", "Importar copias, AniList, guardar tus datos" to "Import backups, AniList, save your data",
         "Lee desde la app" to "Read inside the app", "En Leer › Fuentes instala las extensiones que quieras, busca en todas a la vez y lee sin salir de la app." to "In Read › Sources install the extensions you want, search all of them at once and read without leaving the app.",

@@ -1,3 +1,7 @@
+## 5.28.0
+- Corregido: al tocar "Leer" en un manhwa que nunca habías leído en una fuente, se abría la última fuente que usaste (la de otro manhwa). Ahora cada manhwa recuerda dónde lo leíste y vuelve directo a esa ficha; si nunca lo vinculaste, se busca en todas tus fuentes para que elijas, y desde ahí queda recordado.
+- Menos pasos para salir: botón "⌂ Fuentes" en la ficha de una fuente y "Ir a Fuentes" en el menú ⋮ del lector. Al volver ya no se pasa por la lista de la fuente.
+
 ## 5.27.0
 - Lector: pasa solo al siguiente capítulo. Al llegar al final aparece una barrita de 2,5 segundos y, si no la cancelas con "Quedarme aquí" o saliendo de esa tarjeta, abre el siguiente capítulo. Se puede apagar en el ⋮ del lector ("Pasar solo al siguiente capítulo").
 - Cuando vas por el 60% del capítulo, la app prepara el siguiente (su lista de páginas y las primeras 3 imágenes), para que el cambio sea casi instantáneo.

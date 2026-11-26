@@ -251,14 +251,18 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
     LaunchedEffect(Unit) {
         // Si vienes de "Continuar leyendo" de un manhwa de tu lista: abre su ficha en la fuente, o lo busca.
         if (!openTitle.isNullOrBlank()) {
+            // Solo se usa la fuente donde ESE manhwa se leyó. Si nunca se vinculó, se busca en todas las fuentes
+            // (antes se abría la última fuente que usaste, que podía ser la de otro manhwa).
             val linked = ExploreMemory.forTitle(ctx, openTitle)
-            val known = linked ?: ExploreMemory.read(ctx)
-            val r = known?.let { withContext(Dispatchers.IO) { ExtensionHost.load(ctx, it.pkg) } }
-            val src = (r as? ExtensionHost.Result.Ok)?.ext?.sources?.firstOrNull { it.id == known?.srcId }
-            if (known != null && src != null) {
-                val browse = Screen.Browse(src, known.pkg, if (linked == null) openTitle else null)
-                stack = if (linked?.manga != null) listOf(Screen.Home, browse, Screen.Detail(src, known.pkg, linked.manga, openTitle, openChapter.takeIf { it >= 0 }))
-                else listOf(Screen.Home, browse)
+            val r = linked?.let { withContext(Dispatchers.IO) { ExtensionHost.load(ctx, it.pkg) } }
+            val src = (r as? ExtensionHost.Result.Ok)?.ext?.sources?.firstOrNull { it.id == linked?.srcId }
+            stack = when (com.manhwatracker.app.data.OpenTarget.decide(linked != null, linked?.manga != null, src != null)) {
+                com.manhwatracker.app.data.OpenTarget.Target.DETAIL ->
+                    listOf(Screen.Home, Screen.Detail(src!!, linked!!.pkg, linked.manga!!, openTitle, openChapter.takeIf { it >= 0 }))
+                com.manhwatracker.app.data.OpenTarget.Target.BROWSE ->
+                    listOf(Screen.Home, Screen.Browse(src!!, linked!!.pkg, openTitle))
+                com.manhwatracker.app.data.OpenTarget.Target.SEARCH ->
+                    listOf(Screen.Home, Screen.Search(openTitle, openTitle))
             }
             return@LaunchedEffect
         }
@@ -278,6 +282,7 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
         stack = stack + s
     }
     fun pop() { if (stack.size > 1) stack = stack.dropLast(1) else onExit() }
+    fun goHome() { stack = listOf(Screen.Home) }
     BackHandler { pop() }
     when (val s = stack.last()) {
         is Screen.Search -> GlobalSearchScreen(s.query, onBack = { pop() }, onOpen = { src, pkg, m -> push(Screen.Detail(src, pkg, m, linkTitle = s.linkTitle)) })
@@ -290,8 +295,8 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
             onContinue = { resume?.let { (b, d) -> stack = listOfNotNull(Screen.Home, b, d) } }
         )
         is Screen.Browse -> BrowseScreen(s.src, s.initialQuery, s.autoOpened, onAutoOpened = { s.autoOpened = true }, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it, s.initialQuery)) })
-        is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.linkTitle, s.startAfter, onAutoJumped = { s.startAfter = null }, onBack = { pop() }, onElsewhere = { push(Screen.Search(it, s.linkTitle ?: s.manga.title)) }, onRead = { list, i, genre -> push(Screen.Read(s.src, s.pkg, s.manga, list, i, s.linkTitle, genre = genre, startPos = ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
-        is Screen.Read -> OnlineReader(s.src, s.pkg, s.manga, s.chapters, s.index, s.linkTitle, s.startPos, s.genre, onBack = { pop() }, onElsewhere = { push(Screen.Search(it, s.linkTitle ?: s.manga.title)) })
+        is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.linkTitle, s.startAfter, onAutoJumped = { s.startAfter = null }, onBack = { pop() }, onHome = { goHome() }, onElsewhere = { push(Screen.Search(it, s.linkTitle ?: s.manga.title)) }, onRead = { list, i, genre -> push(Screen.Read(s.src, s.pkg, s.manga, list, i, s.linkTitle, genre = genre, startPos = ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
+        is Screen.Read -> OnlineReader(s.src, s.pkg, s.manga, s.chapters, s.index, s.linkTitle, s.startPos, s.genre, onBack = { pop() }, onHome = { goHome() }, onElsewhere = { push(Screen.Search(it, s.linkTitle ?: s.manga.title)) })
     }
 }
 
@@ -745,7 +750,7 @@ private fun statusLabel(s: Int) = when (s) {
 }
 
 @Composable
-private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: String?, startAfter: Double?, onAutoJumped: () -> Unit, onBack: () -> Unit, onElsewhere: (String) -> Unit, onRead: (List<SChapter>, Int, String?) -> Unit) {
+private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: String?, startAfter: Double?, onAutoJumped: () -> Unit, onBack: () -> Unit, onHome: () -> Unit, onElsewhere: (String) -> Unit, onRead: (List<SChapter>, Int, String?) -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var detail by remember { mutableStateOf(manga) }
@@ -808,7 +813,8 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver")) }
-                Text(src.name, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(src.name, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                TextButton(onClick = onHome) { Text("⌂ Fuentes") }
             }
         }
         item {
@@ -950,7 +956,7 @@ private fun Context.findActivity(): android.app.Activity? {
 }
 
 @Composable
-private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List<SChapter>, startIndex: Int, linkTitle: String?, startPos: Pair<Int, Int>?, genre: String?, onBack: () -> Unit, onElsewhere: (String) -> Unit) {
+private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List<SChapter>, startIndex: Int, linkTitle: String?, startPos: Pair<Int, Int>?, genre: String?, onBack: () -> Unit, onHome: () -> Unit, onElsewhere: (String) -> Unit) {
     val ctx = LocalContext.current
     val view = androidx.compose.ui.platform.LocalView.current
     val scope = rememberCoroutineScope()
@@ -1222,6 +1228,7 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
                         ).forEach { (m, label) ->
                             DropdownMenuItem(text = { Text((if (mode == m) "✓ " else "") + label) }, onClick = { menu = false; if (mode != m) setMode(m) })
                         }
+                        DropdownMenuItem(text = { Text("⌂ Ir a Fuentes") }, onClick = { menu = false; onHome() })
                         DropdownMenuItem(
                             text = { Text((if (autoAdvance) "✓ " else "") + "Pasar solo al siguiente capítulo") },
                             onClick = { menu = false; autoAdvance = !autoAdvance; com.manhwatracker.app.data.Prefs.setAutoAdvance(ctx, autoAdvance) }
