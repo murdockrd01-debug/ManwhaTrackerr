@@ -1,3 +1,7 @@
+## 5.29.0
+- Casita ⌂ siempre visible: en la barra de arriba del lector (al lado de la flecha), en la ficha de la fuente y en la lista de portadas de cada fuente. Un toque te lleva directo a la lista de Fuentes, sin dar atrás varias veces.
+- La flecha de atrás y el gesto de atrás del teléfono hacen lo mismo: del lector vuelven a la ficha del manhwa.
+
 ## 5.28.0
 - Corregido: al tocar "Leer" en un manhwa que nunca habías leído en una fuente, se abría la última fuente que usaste (la de otro manhwa). Ahora cada manhwa recuerda dónde lo leíste y vuelve directo a esa ficha; si nunca lo vinculaste, se busca en todas tus fuentes para que elijas, y desde ahí queda recordado.
 - Menos pasos para salir: botón "⌂ Fuentes" en la ficha de una fuente y "Ir a Fuentes" en el menú ⋮ del lector. Al volver ya no se pasa por la lista de la fuente.

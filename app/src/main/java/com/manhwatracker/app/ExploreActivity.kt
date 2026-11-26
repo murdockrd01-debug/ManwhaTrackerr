@@ -294,7 +294,7 @@ private fun ExploreRoot(openTitle: String?, openChapter: Double, onExit: () -> U
             continueTitle = resume?.second?.manga?.title,
             onContinue = { resume?.let { (b, d) -> stack = listOfNotNull(Screen.Home, b, d) } }
         )
-        is Screen.Browse -> BrowseScreen(s.src, s.initialQuery, s.autoOpened, onAutoOpened = { s.autoOpened = true }, onBack = { pop() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it, s.initialQuery)) })
+        is Screen.Browse -> BrowseScreen(s.src, s.initialQuery, s.autoOpened, onAutoOpened = { s.autoOpened = true }, onBack = { pop() }, onHome = { goHome() }, onOpen = { push(Screen.Detail(s.src, s.pkg, it, s.initialQuery)) })
         is Screen.Detail -> DetailScreen(s.src, s.pkg, s.manga, s.linkTitle, s.startAfter, onAutoJumped = { s.startAfter = null }, onBack = { pop() }, onHome = { goHome() }, onElsewhere = { push(Screen.Search(it, s.linkTitle ?: s.manga.title)) }, onRead = { list, i, genre -> push(Screen.Read(s.src, s.pkg, s.manga, list, i, s.linkTitle, genre = genre, startPos = ExploreMemory.readPos(ctx, s.linkTitle ?: s.manga.title, list[i].url))) })
         is Screen.Read -> OnlineReader(s.src, s.pkg, s.manga, s.chapters, s.index, s.linkTitle, s.startPos, s.genre, onBack = { pop() }, onHome = { goHome() }, onElsewhere = { push(Screen.Search(it, s.linkTitle ?: s.manga.title)) })
     }
@@ -605,7 +605,7 @@ private fun cover(src: Source, url: String?): ImageRequest {
 }
 
 @Composable
-private fun BrowseScreen(src: Source, initialQuery: String?, alreadyAutoOpened: Boolean, onAutoOpened: () -> Unit, onBack: () -> Unit, onOpen: (SManga) -> Unit) {
+private fun BrowseScreen(src: Source, initialQuery: String?, alreadyAutoOpened: Boolean, onAutoOpened: () -> Unit, onBack: () -> Unit, onHome: () -> Unit, onOpen: (SManga) -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val items = remember { mutableStateListOf<SManga>() }
@@ -699,6 +699,7 @@ private fun BrowseScreen(src: Source, initialQuery: String?, alreadyAutoOpened: 
                 Text(com.manhwatracker.app.data.Sources.langLabel(src.lang.ifBlank { "all" }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (filters?.isNotEmpty() == true) TextButton(onClick = { showFilters = true }) { Text("Filtros") }
+            IconButton(onClick = onHome) { Text("⌂", fontSize = 24.sp, color = MaterialTheme.colorScheme.primary) }
             if (src is eu.kanade.tachiyomi.source.ConfigurableSource) TextButton(onClick = { showSettings = true }) { Text("Ajustes") }
         }
         Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -814,7 +815,7 @@ private fun DetailScreen(src: Source, pkg: String, manga: SManga, linkTitle: Str
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver")) }
                 Text(src.name, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                TextButton(onClick = onHome) { Text("⌂ Fuentes") }
+                IconButton(onClick = onHome) { Text("⌂", fontSize = 24.sp, color = MaterialTheme.colorScheme.primary) }
             }
         }
         item {
@@ -1210,6 +1211,7 @@ private fun OnlineReader(src: Source, pkg: String, manga: SManga, chapters: List
         if (controls) Surface(Modifier.align(Alignment.TopCenter).fillMaxWidth(), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)) {
             Row(Modifier.statusBarsPadding().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver")) }
+                IconButton(onClick = onHome) { Text("⌂", fontSize = 24.sp, color = MaterialTheme.colorScheme.primary) }
                 Column(Modifier.weight(1f)) {
                     Text(manga.title, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(chapter.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
