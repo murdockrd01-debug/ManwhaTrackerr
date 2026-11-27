@@ -289,11 +289,11 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
 
 /** Etiqueta de color con el nivel de utilidad de la palabra. */
 @Composable
-fun TierBadge(tier: Utility.Tier) {
-    if (tier == Utility.Tier.UNKNOWN) return
+fun TierBadge(tier: Utility.Tier, text: String) {
+    if (tier == Utility.Tier.UNKNOWN && !Utility.isPhrase(text)) return
     val color = tierColor(tier)
     Text(
-        tier.label,
+        Utility.label(tier, text),
         style = MaterialTheme.typography.labelSmall,
         color = color,
         fontWeight = FontWeight.SemiBold,
@@ -348,8 +348,8 @@ fun WordCard(
 
             if (expanded) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TierBadge(tier)
-                    Text(tier.hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.weight(1f))
+                    TierBadge(tier, w.text)
+                    Text(Utility.hint(tier, w.text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.weight(1f))
                     TextButton(onClick = { if (!speaker.speak(w.text)) onUnavailable() }) { Text("🔊 Escuchar") }
                 }
 
