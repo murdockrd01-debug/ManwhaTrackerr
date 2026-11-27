@@ -67,6 +67,15 @@ Objetivo del dueño: que el modo estudio sirva para **aprender de verdad**, no p
 
 **Reglas:** no borrar datos de estudio del usuario; cualquier cambio en la base de datos lleva migración de Room; textos nuevos en `TrData.kt`.
 
+## Mejora de frases del modo estudio (en revisión)
+
+- Rama de ChatGPT: `chatgpt/study-phrase-usefulness`; parte del `main` actual de v5.31.0.
+- Objetivo: clasificar frases guardadas por utilidad estimada, en lugar de mostrar únicamente «Frase». Ejemplo visual: «Muy útil · Frase».
+- La estimación se calcula con la frecuencia de sus palabras principales, ignorando palabras gramaticales frecuentes pero conservando partículas de phrasal verbs como `up`. No debe presentarse como frecuencia exacta de la expresión completa.
+- Las frases pendientes también se incluyen en el proceso que completa frecuencias antiguas. La clasificación se muestra tanto en la lista de Estudio como durante el repaso.
+- No se tocaron extensiones, seguridad de extensiones, QuickJS, organización general, pruebas generales, estructuras gramaticales ni impresión/PDF.
+- Pendiente de comprobar: compilación de GitHub Actions y validación funcional en el teléfono.
+
 ## Registro de trabajo
 
 - 2026-11-27 — v5.31.0: pantalla **Estructuras** solo con modo estudio (menú Más): 18 estructuras explicadas, ejercicio de completar, nota propia, marcar entendida, progreso y hoja Imprimir/PDF (estructuras con renglones + palabras con columna de frase propia). Archivos: `StructuresActivity.kt`, `data/Structures.kt`, `data/PrintSheet.kt`, `data/Study.kt` (Prefs `struct_done`, `struct_note_<id>`), `MoreScreen.kt`, `AndroidManifest.xml`, `TrData.kt`, pruebas `StructuresTest`/`PrintSheetTest`. Sin verificar en teléfono: la impresión/PDF (WebView + PrintManager) y el aspecto de la pantalla. Nueva sección "Estudio efectivo" arriba.
