@@ -1,3 +1,7 @@
+## 5.32.0
+- Modo estudio: las frases guardadas ahora también reciben una clasificación de utilidad, por ejemplo **«Muy útil · Frase»** o **«Poco común · Frase»**, y entran en el orden de estudio.
+- La utilidad de una frase se estima a partir de sus palabras principales (incluyendo partículas de phrasal verbs como *up*). Es una orientación, no la frecuencia exacta de la expresión completa.
+
 ## 5.31.0
 - Nuevo en el modo estudio: **Estructuras** (menú Más, solo se ve con el modo estudio activo). 18 estructuras del inglés explicadas en español con ejemplos, un truco para no equivocarte y un mini ejercicio para completar la frase.
 - Puedes marcar cada estructura como "ya la entiendo", ver tu progreso y escribir tu propia nota.
