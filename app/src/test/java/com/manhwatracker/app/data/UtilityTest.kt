@@ -4,7 +4,8 @@ import org.junit.Test
 
 class UtilityTest {
     @Test fun tiers() {
-        assertEquals(Utility.Tier.PHRASE, Utility.tier(50.0, "give up"))
+        assertEquals(Utility.Tier.VERY_USEFUL, Utility.tier(50.0, "give up"))
+        assertEquals("Muy útil · Frase", Utility.label(Utility.tier(50.0, "give up"), "give up"))
         assertEquals(Utility.Tier.UNKNOWN, Utility.tier(-1.0, "hi"))
         assertEquals(Utility.Tier.BASIC, Utility.tier(500.0, "the"))
         assertEquals(Utility.Tier.VERY_USEFUL, Utility.tier(10.0, "x"))
