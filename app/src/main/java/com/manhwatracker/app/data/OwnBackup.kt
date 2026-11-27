@@ -121,10 +121,10 @@ object OwnBackup {
         val root = try {
             JSONObject(bytes.toString(Charsets.UTF_8))
         } catch (e: JSONException) {
-            throw BackupFormatException("Ese archivo no es una copia de Manhwa Tracker")
+            throw BackupFormatException("Ese archivo no es una copia de Lectoon")
         }
         if (root.optString("app") != APP) {
-            throw BackupFormatException("Ese archivo no es una copia de Manhwa Tracker")
+            throw BackupFormatException("Ese archivo no es una copia de Lectoon")
         }
         if (root.optInt("version", 0) !in 1..VERSION) {
             throw BackupFormatException("Esa copia es de una versión más nueva de la app. Actualiza la app e inténtalo otra vez")

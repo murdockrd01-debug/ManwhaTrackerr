@@ -189,7 +189,7 @@ private fun CapturePage() {
                 )
                 Text(
                     "1. Si Android lo pide, entra a la info de la app, toca ⋮ y elige \"Permitir ajustes restringidos\".\n" +
-                        "2. En Accesibilidad, activa \"Manhwa Tracker: capturar texto\".\n" +
+                        "2. En Accesibilidad, activa \"Lectoon: capturar texto\".\n" +
                         "3. Úsala con el botón de accesibilidad, manteniendo las dos teclas de volumen, o con el mosaico \"Guardar texto\" del panel rápido (edítalo para agregarlo).",
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -266,7 +266,7 @@ private fun UpdatesPage() {
         status = when (UpdateCheck.install(ctx, f)) {
             UpdateCheck.InstallResult.STARTED -> null
             UpdateCheck.InstallResult.NEEDS_PERMISSION ->
-                "Permite a Manhwa Tracker instalar apps, vuelve aquí y toca Instalar."
+                "Permite a Lectoon instalar apps, vuelve aquí y toca Instalar."
             UpdateCheck.InstallResult.FAILED -> "No se pudo abrir el instalador."
         }
     }
@@ -354,7 +354,7 @@ private fun HelpPage() {
                     val text = com.manhwatracker.app.data.CrashLog.read(ctx)
                     val send = android.content.Intent(android.content.Intent.ACTION_SEND)
                         .setType("text/plain")
-                        .putExtra(android.content.Intent.EXTRA_SUBJECT, "Manhwa Tracker: registro de errores")
+                        .putExtra(android.content.Intent.EXTRA_SUBJECT, "Lectoon: registro de errores")
                         .putExtra(android.content.Intent.EXTRA_TEXT, text)
                     ctx.startActivity(android.content.Intent.createChooser(send, null))
                 }) { Text("Compartir") }

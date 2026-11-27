@@ -349,7 +349,7 @@ fun WelcomeScreen(onChoose: (study: Boolean) -> Unit) {
             Column {
                 Text("Bienvenido", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    "Manhwa Tracker lleva la cuenta de lo que lees. ¿Cómo quieres usarlo?",
+                    "Lectoon es tu lector de manga y manhwa. ¿Cómo quieres usarlo?",
                     color = Color.White.copy(alpha = 0.9f),
                     style = MaterialTheme.typography.bodyLarge
                 )

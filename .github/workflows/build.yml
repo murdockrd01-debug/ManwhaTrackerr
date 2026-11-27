@@ -75,7 +75,7 @@ jobs:
           # Las notas de la versión salen de app/src/main/assets/changelog.md (el mismo archivo que usa la app).
           awk -v v="$VERSION" '/^## /{p=($2==v); next} p' app/src/main/assets/changelog.md > notes.md
           if [ ! -s notes.md ]; then
-            echo "APK de Manhwa Tracker versión $VERSION. Se instala encima de la anterior." > notes.md
+            echo "APK de Lectoon versión $VERSION. Se instala encima de la anterior." > notes.md
           fi
           if [ "$GITHUB_REF_NAME" != "main" ]; then
             # Rama de prueba: pre-lanzamiento con etiqueta propia. No es "latest", así que no avisa de actualización a nadie.

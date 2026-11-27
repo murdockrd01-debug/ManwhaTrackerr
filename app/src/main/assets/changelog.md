@@ -1,3 +1,6 @@
+## 5.30.0
+- La app ahora se llama Lectoon.
+
 ## 5.29.0
 - Casita ⌂ siempre visible: en la barra de arriba del lector (al lado de la flecha), en la ficha de la fuente y en la lista de portadas de cada fuente. Un toque te lleva directo a la lista de Fuentes, sin dar atrás varias veces.
 - La flecha de atrás y el gesto de atrás del teléfono hacen lo mismo: del lector vuelven a la ficha del manhwa.
