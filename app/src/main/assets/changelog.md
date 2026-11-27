@@ -1,3 +1,8 @@
+## 5.31.0
+- Nuevo en el modo estudio: **Estructuras** (menú Más, solo se ve con el modo estudio activo). 18 estructuras del inglés explicadas en español con ejemplos, un truco para no equivocarte y un mini ejercicio para completar la frase.
+- Puedes marcar cada estructura como "ya la entiendo", ver tu progreso y escribir tu propia nota.
+- Botón Imprimir / PDF: genera una hoja con las estructuras (con renglones para escribir a mano) y tus palabras guardadas (con una columna para tu propia frase), para estudiar con papel y lápiz.
+
 ## 5.30.0
 - La app ahora se llama Lectoon.
 

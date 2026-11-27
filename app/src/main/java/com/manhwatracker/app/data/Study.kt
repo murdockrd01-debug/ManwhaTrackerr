@@ -71,6 +71,14 @@ object Prefs {
     fun hiddenSources(c: Context): Set<String> = p(c).getStringSet("hidden_sources", emptySet())?.toSet() ?: emptySet()
     fun setHiddenSources(c: Context, v: Set<String>) { p(c).edit().putStringSet("hidden_sources", v).apply() }
 
+    /** Estructuras gramaticales: cuáles marcaste como entendidas y tus notas. */
+    fun structDone(c: Context): Set<String> = p(c).getStringSet("struct_done", emptySet())?.toSet() ?: emptySet()
+    fun setStructDone(c: Context, v: Set<String>) { p(c).edit().putStringSet("struct_done", v).apply() }
+    fun structNote(c: Context, id: String): String = p(c).getString("struct_note_$id", "") ?: ""
+    fun setStructNote(c: Context, id: String, v: String) {
+        p(c).edit().apply { if (v.isBlank()) remove("struct_note_$id") else putString("struct_note_$id", v) }.apply()
+    }
+
     /** Pasar solo al siguiente capítulo al llegar al final (por defecto sí). */
     fun autoAdvance(c: Context): Boolean = p(c).getBoolean("auto_advance", true)
     fun setAutoAdvance(c: Context, on: Boolean) { p(c).edit().putBoolean("auto_advance", on).apply() }

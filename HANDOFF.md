@@ -20,9 +20,9 @@ Lugar común donde Claude y ChatGPT dejan por escrito qué se hizo, qué falta y
 - El APK se publica como `ManhwaTracker.apk`: **no cambiar ese nombre**, la actualización dentro de la app lo busca.
 - `applicationId` sigue siendo `com.manhwatracker.app` (el nombre visible es Lectoon): cambiarlo rompería las actualizaciones y los datos.
 
-## Estado actual (v5.30.0, 2026-11-27)
+## Estado actual (v5.31.0, 2026-11-27)
 
-La app compila (GitHub Actions, run de la 5.30.0 en verde). Funciones recientes: buscador general en todas las fuentes, fuentes favoritas/ocultas, lector con zoom, paso automático al siguiente capítulo con precarga, descargas sin internet (incluida la descarga automática de los siguientes), contador de capítulos sin leer, filtros guardados por fuente, importación de copias `.tachibk`, casita ⌂ para volver a Fuentes, repositorio de extensiones de fábrica (keiyoushi).
+La app compila (GitHub Actions, última compilación verificada en GitHub Actions). Funciones recientes: buscador general en todas las fuentes, fuentes favoritas/ocultas, lector con zoom, paso automático al siguiente capítulo con precarga, descargas sin internet (incluida la descarga automática de los siguientes), contador de capítulos sin leer, filtros guardados por fuente, importación de copias `.tachibk`, casita ⌂ para volver a Fuentes, repositorio de extensiones de fábrica (keiyoushi).
 
 **Sin verificar en un teléfono real:** zoom con dos dedos, cuenta atrás del paso automático, servicio de descargas y notificaciones, avisos de capítulos nuevos, carga de extensiones reales (incluido QuickJS y el arreglo de `runBlockingK`), portadas sin internet, contador de sin leer.
 
@@ -41,7 +41,34 @@ La app compila (GitHub Actions, run de la 5.30.0 en verde). Funciones recientes:
 4. Dividir `ExploreActivity.kt` en archivos por pantalla (solo mover código).
 5. Más pruebas donde se pueda y lista corta de comprobaciones para hacer en el teléfono.
 
+## Estudio efectivo (Claude + ChatGPT)
+
+Objetivo del dueño: que el modo estudio sirva para **aprender de verdad**, no para amontonar palabras. Claude y ChatGPT proponen aquí ideas, y quien las haga las anota en el registro.
+
+**Ya existe:** repaso espaciado de palabras (cajas 0–5, `Srs`), práctica de escritura con tolerancia a erratas (`Typing.kt`), palabras guardadas con ejemplo y capítulo, y desde 5.31.0 las **Estructuras** (`StructuresActivity`, `data/Structures.kt`) con ejercicio de completar, notas propias y hoja imprimible (`data/PrintSheet.kt`).
+
+**Principios a seguir:**
+1. Recordar activamente (intentar responder antes de ver la respuesta) enseña más que releer.
+2. Repasar a intervalos crecientes, no todo cada día.
+3. Aprender palabras dentro de frases reales (las del propio manhwa), no sueltas.
+4. Producir: escribir frases propias con lo aprendido.
+5. Pocas cosas cada día, con meta pequeña y progreso visible.
+6. Papel y lápiz como apoyo: hoja imprimible con espacio para escribir.
+
+**Ideas abiertas (sin hacer):**
+- Ejercicio de estructuras con varias frases por estructura y rotación (hoy hay una sola).
+- Repasar una estructura de forma espaciada según se falle o acierte.
+- Mini-lectura: pedir que el usuario complete huecos en frases sacadas de sus palabras guardadas.
+- Meta diaria (p. ej. 5 palabras + 1 estructura) y racha.
+- Fichas imprimibles recortables de palabras difíciles.
+- Revisar el contenido gramatical de `Structures.kt` (redacción, errores, ejemplos más naturales). ChatGPT puede revisarlo y proponer cambios por rama.
+
+**Preguntas para ambos:** ¿qué hace que una palabra "se quede"? ¿cuántas palabras nuevas por día son razonables? ¿cómo medir que el usuario realmente aprende y no solo marca "aprendida"?
+
+**Reglas:** no borrar datos de estudio del usuario; cualquier cambio en la base de datos lleva migración de Room; textos nuevos en `TrData.kt`.
+
 ## Registro de trabajo
 
+- 2026-11-27 — v5.31.0: pantalla **Estructuras** solo con modo estudio (menú Más): 18 estructuras explicadas, ejercicio de completar, nota propia, marcar entendida, progreso y hoja Imprimir/PDF (estructuras con renglones + palabras con columna de frase propia). Archivos: `StructuresActivity.kt`, `data/Structures.kt`, `data/PrintSheet.kt`, `data/Study.kt` (Prefs `struct_done`, `struct_note_<id>`), `MoreScreen.kt`, `AndroidManifest.xml`, `TrData.kt`, pruebas `StructuresTest`/`PrintSheetTest`. Sin verificar en teléfono: la impresión/PDF (WebView + PrintManager) y el aspecto de la pantalla. Nueva sección "Estudio efectivo" arriba.
 - 2026-11-27 — v5.30.0: la app pasa a llamarse **Lectoon** (solo el nombre visible). README reescrito. Se quitaron `CLAUDE.md` y el antiguo `HANDOFF.md` (volvió este archivo, nuevo). Revisión inicial pedida por el dueño: ver arriba. Sin cambios de código en esta entrada.
 - Historial anterior (v5.8.0 a v5.29.0): ver `git log` y `app/src/main/assets/changelog.md`.

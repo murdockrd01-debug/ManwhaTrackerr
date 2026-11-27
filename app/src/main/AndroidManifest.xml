@@ -169,6 +169,12 @@
             android:label="Explorar"
             android:theme="@style/Theme.ManhwaTracker" />
         <activity
+            android:name=".StructuresActivity"
+            android:exported="false"
+            android:label="Estructuras"
+            android:theme="@style/Theme.ManhwaTracker" />
+
+        <activity
             android:name=".SourcesActivity"
             android:exported="false"
             android:label="Fuentes"
