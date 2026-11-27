@@ -221,6 +221,5 @@ fun tierColor(t: Utility.Tier): Color = when (t) {
     Utility.Tier.USEFUL -> Color(0xFF6C8CFF)
     Utility.Tier.UNCOMMON -> Color(0xFFF0A93B)
     Utility.Tier.RARE -> Color(0xFFE5736A)
-    Utility.Tier.PHRASE -> Color(0xFFB9A4FF)
     else -> Color(0xFF9A96B0)
 }
