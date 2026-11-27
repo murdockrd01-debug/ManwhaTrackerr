@@ -13,13 +13,11 @@ object Utility {
         UNCOMMON("Poco común", "Se ve de vez en cuando"),
         BASIC("Básica", "Muy común: probablemente ya la conoces"),
         RARE("Rara o jerga", "Casi no se usa fuera de este contexto"),
-        PHRASE("Frase", "Frase o línea de diálogo"),
         UNKNOWN("Sin datos", "Todavía no se pudo medir")
     }
 
-    /** [freq] < 0 significa que todavía no se consultó. [text] se usa para detectar frases. */
+    /** La frecuencia de una frase es una estimación basada en sus palabras importantes. */
     fun tier(freq: Double, text: String): Tier = when {
-        text.trim().contains(' ') -> Tier.PHRASE
         freq < 0 -> Tier.UNKNOWN
         freq >= 300 -> Tier.BASIC
         freq >= 10 -> Tier.VERY_USEFUL
@@ -28,15 +26,25 @@ object Utility {
         else -> Tier.RARE
     }
 
+    fun isPhrase(text: String): Boolean = text.trim().any { it.isWhitespace() }
+
+    fun label(tier: Tier, text: String): String =
+        if (isPhrase(text)) "${tier.label} · Frase" else tier.label
+
+    fun hint(tier: Tier, text: String): String = when {
+        tier == Tier.UNKNOWN && isPhrase(text) -> "Todavía no se pudo estimar la utilidad de esta frase."
+        isPhrase(text) -> "Utilidad estimada según sus palabras principales; no es la frecuencia exacta de la frase."
+        else -> tier.hint
+    }
+
     /** Orden para estudiar: primero las más útiles. Menor número = antes. */
     fun rank(t: Tier): Int = when (t) {
         Tier.VERY_USEFUL -> 0
         Tier.USEFUL -> 1
         Tier.UNCOMMON -> 2
-        Tier.PHRASE -> 3
-        Tier.BASIC -> 4
-        Tier.RARE -> 5
-        Tier.UNKNOWN -> 6
+        Tier.BASIC -> 3
+        Tier.RARE -> 4
+        Tier.UNKNOWN -> 5
     }
 
     /** Compara dos palabras: mejor tier primero y, dentro del mismo tier, la más frecuente primero. */
