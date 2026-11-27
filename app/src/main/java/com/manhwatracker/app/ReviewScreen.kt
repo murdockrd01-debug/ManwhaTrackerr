@@ -370,7 +370,7 @@ private fun CardShell(w: Word, modifier: Modifier, content: @Composable () -> Un
             ) {
                 Box(Modifier.size(10.dp).clip(CircleShape).background(tierColor(tier)))
                 Spacer(Modifier.width(8.dp))
-                Text(tier.label, color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Text(Utility.label(tier, w.text), color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 if (tag.isNotBlank()) {
                     Text(
                         tag,
