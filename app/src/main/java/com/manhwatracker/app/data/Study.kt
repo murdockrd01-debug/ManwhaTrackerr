@@ -457,7 +457,8 @@ object Dictionary {
         val values = mutableListOf<Double>()
         for (word in important) {
             val value = frequencyOfWord(word) ?: return null
-            if (value > 0.0) values += value
+            if (value <= 0.0) return 0.0
+            values += value
             delay(120)
         }
         if (values.isEmpty()) return 0.0
