@@ -429,12 +429,44 @@ object Dictionary {
     }
 
     /**
-     * Qué tan común es la palabra (veces por millón de palabras), con Datamuse.
-     * Devuelve null si no hubo internet (para reintentar luego) y 0.0 si la palabra no aparece en sus datos.
+     * Frecuencia aproximada en veces por millón, con Datamuse.
+     * Para frases se calcula una estimación geométrica de sus palabras importantes,
+     * ignorando artículos, pronombres y auxiliares. No representa la frecuencia exacta
+     * de la expresión completa. null significa que falló la conexión y se puede reintentar.
      */
-    suspend fun frequency(word: String): Double? {
+    suspend fun frequency(text: String): Double? {
+        val tokens = Regex("[\\p{L}]+").findAll(text.lowercase()).map { it.value }.toList()
+        if (tokens.isEmpty()) return null
+        if (tokens.size == 1) return frequencyOfWord(tokens.first())
+
+        val ignored = setOf(
+            "a", "an", "the", "and", "but", "or", "nor", "for", "so", "yet",
+            "i", "you", "he", "she", "it", "we", "they", "me", "him", "her", "us", "them",
+            "my", "your", "his", "its", "our", "their", "this", "that", "these", "those",
+            "am", "is", "are", "was", "were", "be", "been", "being",
+            "do", "does", "did", "have", "has", "had",
+            "will", "would", "shall", "should", "can", "could", "may", "might", "must",
+            "not", "no", "if", "then", "than", "when", "while", "because", "who", "what",
+            "where", "why", "how", "of", "at", "from", "into", "with", "as"
+        )
+        // Se conservan partículas cortas como "up", "off" y "out": son esenciales
+        // para reconocer expresiones como "come up" o "give up".
+        val important = tokens.filter { it !in ignored }.distinct().take(4)
+        if (important.isEmpty()) return null
+
+        val values = mutableListOf<Double>()
+        for (word in important) {
+            val value = frequencyOfWord(word) ?: return null
+            if (value > 0.0) values += value
+            delay(120)
+        }
+        if (values.isEmpty()) return 0.0
+        return kotlin.math.exp(values.map { kotlin.math.ln(it) }.average())
+    }
+
+    private suspend fun frequencyOfWord(word: String): Double? {
         val w = word.lowercase().trim { !it.isLetter() }
-        if (w.isEmpty() || w.contains(' ')) return null
+        if (w.isEmpty()) return null
         val body = Http.get(
             "https://api.datamuse.com/words?sp=" + URLEncoder.encode(w, "UTF-8") + "&md=f&max=1"
         ) ?: return null
@@ -627,7 +659,7 @@ object WordRepo {
         return translation != null
     }
 
-    /** Mide la frecuencia de las palabras guardadas antes de esta versión (o sin internet en su momento). */
+    /** Mide la utilidad de palabras y frases guardadas antes de esta versión o sin internet. */
     suspend fun fillFrequencies(context: Context) {
         val dao = AppDatabase.get(context).words()
         for (w in dao.needFreq()) {
