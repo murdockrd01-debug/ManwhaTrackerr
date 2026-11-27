@@ -58,8 +58,8 @@ interface WordDao {
     @Query("SELECT * FROM word WHERE lookupDone = 0")
     suspend fun pending(): List<Word>
 
-    /** Palabras sueltas a las que todavía no se les midió la frecuencia. */
-    @Query("SELECT * FROM word WHERE freq < 0 AND instr(text, ' ') = 0")
+    /** Palabras y frases a las que todavía no se les ha estimado la utilidad. */
+    @Query("SELECT * FROM word WHERE freq < 0")
     suspend fun needFreq(): List<Word>
 
     @Query("SELECT * FROM word")
