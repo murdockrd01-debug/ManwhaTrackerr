@@ -31,6 +31,30 @@ object Utility {
     fun label(tier: Tier, text: String): String =
         if (isPhrase(text)) "${tier.label} · Frase" else tier.label
 
+    /** Prioridad de estudio en estrellas: más estrellas = conviene aprenderla antes. */
+    fun stars(t: Tier): String = when (t) {
+        Tier.VERY_USEFUL -> "★★★"
+        Tier.USEFUL -> "★★☆"
+        Tier.UNCOMMON -> "★☆☆"
+        else -> ""
+    }
+
+    /** Consejo corto y claro de qué hacer con la palabra o frase. */
+    fun advice(t: Tier): String = when (t) {
+        Tier.VERY_USEFUL -> "Apréndela primero"
+        Tier.USEFUL -> "Vale la pena aprenderla"
+        Tier.UNCOMMON -> "Aprende con calma"
+        Tier.BASIC -> "Seguro ya la sabes"
+        Tier.RARE -> "Solo si la necesitas para tu manhwa"
+        Tier.UNKNOWN -> "Aún sin medir"
+    }
+
+    /** Línea de resumen visible en la tarjeta: "★★★ Muy útil · Frase — Apréndela primero". */
+    fun summary(t: Tier, text: String): String {
+        val s = stars(t)
+        return (if (s.isEmpty()) "" else "$s ") + label(t, text) + " — " + advice(t)
+    }
+
     fun hint(tier: Tier, text: String): String = when {
         tier == Tier.UNKNOWN && isPhrase(text) -> "Todavía no se pudo estimar la utilidad de esta frase."
         isPhrase(text) -> "Utilidad estimada según sus palabras principales; no es la frecuencia exacta de la frase."

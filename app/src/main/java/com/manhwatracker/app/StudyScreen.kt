@@ -337,6 +337,14 @@ fun WordCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (tier != Utility.Tier.UNKNOWN) {
+                        Text(
+                            Utility.summary(tier, w.text),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = tierColor(tier),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
                 Checkbox(checked = w.learned, onCheckedChange = { onLearned() })
             }

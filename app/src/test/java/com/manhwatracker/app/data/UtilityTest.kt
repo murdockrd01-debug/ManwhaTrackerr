@@ -13,6 +13,12 @@ class UtilityTest {
         assertEquals(Utility.Tier.UNCOMMON, Utility.tier(0.1, "x"))
         assertEquals(Utility.Tier.RARE, Utility.tier(0.01, "x"))
     }
+    @Test fun summaryShowsUsefulness() {
+        val t = Utility.tier(50.0, "give up")
+        assertEquals("★★★ Muy útil · Frase — Apréndela primero", Utility.summary(t, "give up"))
+        assertEquals("Básica — Seguro ya la sabes", Utility.summary(Utility.Tier.BASIC, "the"))
+        assertEquals("★☆☆ Poco común — Aprende con calma", Utility.summary(Utility.Tier.UNCOMMON, "x"))
+    }
     @Test fun order() {
         val l = listOf(Word(text = "rare", freq = 0.01), Word(text = "good", freq = 50.0), Word(text = "none")).sortedWith(Utility.byUsefulness)
         assertEquals(listOf("good", "rare", "none"), l.map { it.text })

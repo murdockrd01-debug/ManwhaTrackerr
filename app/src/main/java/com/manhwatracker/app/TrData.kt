@@ -263,6 +263,8 @@ object TrData {
         "sin leer" to "unread",
         "Pasar solo al siguiente capítulo" to "Go to the next chapter automatically", "Quedarme aquí" to "Stay here",
         "⌂ Fuentes" to "⌂ Sources", "⌂ Ir a Fuentes" to "⌂ Go to Sources",
+        "Apréndela primero" to "Learn it first", "Vale la pena aprenderla" to "Worth learning", "Aprende con calma" to "Learn it at your own pace",
+        "Seguro ya la sabes" to "You probably know it already", "Solo si la necesitas para tu manhwa" to "Only if you need it for your manhwa", "Aún sin medir" to "Not measured yet",
         "Estructuras" to "Structures", "Gramática explicada, con práctica y hoja para imprimir" to "Grammar explained, with practice and a printable sheet",
         "Pruébate" to "Test yourself", "Escribe la respuesta" to "Type the answer", "Comprobar" to "Check", "Ver respuesta" to "Show answer",
         "¡Correcto!" to "Correct!", "Casi. Mira la respuesta." to "Not quite. Check the answer.", "Respuesta: " to "Answer: ",

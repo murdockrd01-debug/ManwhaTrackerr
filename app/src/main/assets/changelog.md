@@ -1,3 +1,6 @@
+## 5.32.1
+- Modo estudio: ahora cada palabra o frase muestra en su tarjeta, sin abrirla, qué tan útil es: estrellas (★★★ = apréndela primero) y un consejo corto, por ejemplo "★★★ Muy útil · Frase — Apréndela primero" o "Básica — Seguro ya la sabes".
+
 ## 5.32.0
 - Modo estudio: las frases guardadas ahora también reciben una clasificación de utilidad, por ejemplo **«Muy útil · Frase»** o **«Poco común · Frase»**, y entran en el orden de estudio.
 - La utilidad de una frase se estima a partir de sus palabras principales (incluyendo partículas de phrasal verbs como *up*). Es una orientación, no la frecuencia exacta de la expresión completa.

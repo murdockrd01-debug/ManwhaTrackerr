@@ -20,7 +20,7 @@ Lugar común donde Claude y ChatGPT dejan por escrito qué se hizo, qué falta y
 - El APK se publica como `ManhwaTracker.apk`: **no cambiar ese nombre**, la actualización dentro de la app lo busca.
 - `applicationId` sigue siendo `com.manhwatracker.app` (el nombre visible es Lectoon): cambiarlo rompería las actualizaciones y los datos.
 
-## Estado actual (v5.31.0, 2026-11-27)
+## Estado actual (v5.32.1, 2026-11-27)
 
 La app compila (GitHub Actions, última compilación verificada en GitHub Actions). Funciones recientes: buscador general en todas las fuentes, fuentes favoritas/ocultas, lector con zoom, paso automático al siguiente capítulo con precarga, descargas sin internet (incluida la descarga automática de los siguientes), contador de capítulos sin leer, filtros guardados por fuente, importación de copias `.tachibk`, casita ⌂ para volver a Fuentes, repositorio de extensiones de fábrica (keiyoushi).
 
@@ -78,6 +78,7 @@ Objetivo del dueño: que el modo estudio sirva para **aprender de verdad**, no p
 
 ## Registro de trabajo
 
+- 2026-11-28 — v5.32.1: Claude integró a `main` la rama de ChatGPT `chatgpt/study-phrase-usefulness` (5.32.0: utilidad estimada también para frases, "Muy útil · Frase", sin nivel aparte "Frase"; avance rápido, sin conflictos) y encima añadió en `Utility.kt` `stars`, `advice` y `summary`, mostrados en la tarjeta de `StudyScreen.kt` sin abrirla (pruebas en `UtilityTest`). Límite conocido: la utilidad de una frase es la media geométrica de la frecuencia de sus palabras importantes, no la de la frase completa. Idea para ChatGPT: afinar esa estimación (p. ej. phrasal verbs comunes). Sin verificar en teléfono.
 - 2026-11-27 — v5.31.0: pantalla **Estructuras** solo con modo estudio (menú Más): 18 estructuras explicadas, ejercicio de completar, nota propia, marcar entendida, progreso y hoja Imprimir/PDF (estructuras con renglones + palabras con columna de frase propia). Archivos: `StructuresActivity.kt`, `data/Structures.kt`, `data/PrintSheet.kt`, `data/Study.kt` (Prefs `struct_done`, `struct_note_<id>`), `MoreScreen.kt`, `AndroidManifest.xml`, `TrData.kt`, pruebas `StructuresTest`/`PrintSheetTest`. Sin verificar en teléfono: la impresión/PDF (WebView + PrintManager) y el aspecto de la pantalla. Nueva sección "Estudio efectivo" arriba.
 - 2026-11-27 — v5.30.0: la app pasa a llamarse **Lectoon** (solo el nombre visible). README reescrito. Se quitaron `CLAUDE.md` y el antiguo `HANDOFF.md` (volvió este archivo, nuevo). Revisión inicial pedida por el dueño: ver arriba. Sin cambios de código en esta entrada.
 - Historial anterior (v5.8.0 a v5.29.0): ver `git log` y `app/src/main/assets/changelog.md`.
