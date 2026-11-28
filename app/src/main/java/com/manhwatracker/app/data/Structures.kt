@@ -143,6 +143,34 @@ object Structures {
             listOf("I enjoy reading manhwa." to "Disfruto leyendo manhwa.", "She decided to leave." to "Decidió irse."),
             "Con stop cambia el sentido: «stop smoking» (dejar de fumar) y «stop to smoke» (parar para fumar).",
             "He wants $BLANK (be) a hunter." to "to be"
+        ),
+        Structure(
+            "past_continuous", "Pasado continuo", "was / were + verbo-ing",
+            "Algo que estaba pasando en un momento del pasado, o una acción larga interrumpida por otra.",
+            listOf("I was reading when the lights went out." to "Estaba leyendo cuando se fue la luz.", "They were fighting all night." to "Estuvieron peleando toda la noche."),
+            "Se usa was con I/he/she/it y were con you/we/they: «I was», no «I were».",
+            "She $BLANK (sleep) when I called." to "was sleeping"
+        ),
+        Structure(
+            "past_perfect", "Pasado perfecto", "had + participio",
+            "Una acción que ya había pasado antes de otro momento del pasado.",
+            listOf("When I arrived, he had already left." to "Cuando llegué, él ya se había ido.", "She had never seen the sea before." to "Nunca había visto el mar antes."),
+            "Es igual para todos los sujetos (had) y el participio no cambia: «he had gone».",
+            "By the time we got there, the movie $BLANK (start)." to "had started"
+        ),
+        Structure(
+            "present_perfect_continuous", "Presente perfecto continuo", "have / has + been + verbo-ing",
+            "Algo que empezó en el pasado y sigue, o acaba de terminar y se nota el resultado. Resalta cuánto tiempo lleva.",
+            listOf("I have been studying for two hours." to "Llevo dos horas estudiando.", "He has been waiting since morning." to "Lleva esperando desde la mañana."),
+            "Se usa for (durante) con una duración y since (desde) con un momento de inicio.",
+            "We $BLANK (wait) for an hour." to "have been waiting"
+        ),
+        Structure(
+            "third_conditional", "Tercer condicional", "If + had + participio, would have + participio",
+            "Para imaginar algo que no ocurrió en el pasado y su resultado. Suele expresar arrepentimiento.",
+            listOf("If I had studied, I would have passed." to "Si hubiera estudiado, habría aprobado.", "She would have won if she had trained harder." to "Habría ganado si hubiera entrenado más."),
+            "Después de if no va would: «If I had known», no «If I would have known».",
+            "If he $BLANK (know), he would have helped." to "had known"
         )
     )
 

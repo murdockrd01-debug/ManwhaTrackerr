@@ -1,3 +1,9 @@
+## 5.33.0
+- Estructuras: nueva pestaña **Mis frases**. Escribe o pega una frase en inglés y la app te dice qué estructura usa (pasado simple, pasado perfecto, condicionales, voz pasiva, phrasal verbs…) y por qué. Funciona sin internet.
+- Puedes guardar tus frases o traer las frases que ya guardaste en Estudio.
+- Hoja Imprimir / PDF: ahora puede incluir tus frases agrupadas por estructura, con espacio para escribir a mano frases nuevas con cada una.
+- 4 estructuras nuevas en la guía: pasado continuo, pasado perfecto, presente perfecto continuo y tercer condicional.
+
 ## 5.32.1
 - Modo estudio: ahora cada palabra o frase muestra en su tarjeta, sin abrirla, qué tan útil es: estrellas (★★★ = apréndela primero) y un consejo corto, por ejemplo "★★★ Muy útil · Frase — Apréndela primero" o "Básica — Seguro ya la sabes".
 

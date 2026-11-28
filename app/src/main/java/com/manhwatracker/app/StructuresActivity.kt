@@ -36,6 +36,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -53,6 +55,7 @@ import com.manhwatracker.app.data.AppDatabase
 import com.manhwatracker.app.data.Prefs
 import com.manhwatracker.app.data.PrintSheet
 import com.manhwatracker.app.data.Structure
+import com.manhwatracker.app.data.StructureDetector
 import com.manhwatracker.app.data.Structures
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -98,6 +101,8 @@ private fun StructuresScreen(onBack: () -> Unit, onPrint: (String) -> Unit) {
     var filter by remember { mutableStateOf(Filter.ALL) }
     var open by remember { mutableStateOf<String?>(null) }
     var showPrint by remember { mutableStateOf(false) }
+    var tab by remember { mutableStateOf(0) }
+    var myPhrases by remember { mutableStateOf(Prefs.structPhrases(ctx)) }
     val shown = remember(done, filter) {
         Structures.all.filter { when (filter) { Filter.ALL -> true; Filter.PENDING -> it.id !in done; Filter.DONE -> it.id in done } }
     }
@@ -112,6 +117,13 @@ private fun StructuresScreen(onBack: () -> Unit, onPrint: (String) -> Unit) {
             TextButton(onClick = { showPrint = true }) { Text("🖨 " + tr("Imprimir / PDF")) }
         }
         LinearProgressIndicator(progress = { Structures.progress(done) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+        TabRow(selectedTabIndex = tab) {
+            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Guía") })
+            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Mis frases") })
+        }
+        if (tab == 1) {
+            PhrasesTab(myPhrases) { myPhrases = it; Prefs.setStructPhrases(ctx, it) }
+        } else {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(selected = filter == Filter.ALL, onClick = { filter = Filter.ALL }, label = { Text("Todas") })
             FilterChip(selected = filter == Filter.PENDING, onClick = { filter = Filter.PENDING }, label = { Text("Pendientes") })
@@ -129,18 +141,21 @@ private fun StructuresScreen(onBack: () -> Unit, onPrint: (String) -> Unit) {
                 )
             }
         }
+        }
     }
 
     if (showPrint) {
         var withStructures by remember { mutableStateOf(true) }
         var withWords by remember { mutableStateOf(true) }
         var onlyPending by remember { mutableStateOf(true) }
+        var withPhrases by remember { mutableStateOf(myPhrases.isNotEmpty()) }
         AlertDialog(
             onDismissRequest = { showPrint = false },
             title = { Text("Qué incluir en la hoja") },
             text = {
                 Column {
                     CheckRow("Estructuras (con espacio para tus notas)", withStructures) { withStructures = it }
+                    if (myPhrases.isNotEmpty()) CheckRow("Mis frases agrupadas por estructura (para practicar a mano)", withPhrases) { withPhrases = it }
                     CheckRow("Mis palabras guardadas (con columna para tu frase)", withWords) { withWords = it }
                     if (withWords) CheckRow("Solo las que aún no aprendí", onlyPending) { onlyPending = it }
                 }
@@ -153,11 +168,12 @@ private fun StructuresScreen(onBack: () -> Unit, onPrint: (String) -> Unit) {
                                 .map { PrintSheet.WordRow(it.text, it.translation, it.example) }
                         } else emptyList()
                         val structs = if (withStructures) Structures.all else emptyList()
-                        if (structs.isEmpty() && words.isEmpty()) {
+                        val groups = if (withPhrases) PrintSheet.group(myPhrases) else emptyList()
+                        if (structs.isEmpty() && words.isEmpty() && groups.isEmpty()) {
                             Toast.makeText(ctx, tr("Nada que imprimir: elige algo"), Toast.LENGTH_SHORT).show()
                         } else {
                             showPrint = false
-                            onPrint(PrintSheet.html(structs, words, DateFormat.getDateInstance().format(Date())))
+                            onPrint(PrintSheet.html(structs, words, DateFormat.getDateInstance().format(Date()), groups))
                         }
                     }
                 }) { Text("Imprimir o guardar PDF") }
@@ -224,6 +240,73 @@ private fun StructureCard(s: Structure, expanded: Boolean, understood: Boolean, 
                     label = { Text("Mi nota") }, minLines = 2
                 )
                 OutlinedButton(onClick = onUnderstood) { Text(if (understood) "Marcar como pendiente" else "Ya la entiendo") }
+            }
+        }
+    }
+}
+
+/** Escribe o pega una frase en inglés y la app dice qué estructuras usa; guarda tus frases para practicar y para imprimir. */
+@Composable
+private fun PhrasesTab(saved: List<String>, onChange: (List<String>) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var input by remember { mutableStateOf("") }
+    var analyzed by remember { mutableStateOf<String?>(null) }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Escribe o pega una frase en inglés y te digo qué estructura usa.", style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(
+                    value = input, onValueChange = { input = it; analyzed = null }, modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Frase en inglés") }, minLines = 2
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(enabled = input.isNotBlank(), onClick = { analyzed = input.trim() }) { Text("Analizar") }
+                    OutlinedButton(enabled = input.isNotBlank(), onClick = {
+                        val one = input.trim().replace(Regex("\\s+"), " ")
+                        if (one !in saved) onChange(saved + one)
+                        analyzed = one
+                    }) { Text("Guardar frase") }
+                }
+                analyzed?.let { MatchList(it) }
+                OutlinedButton(onClick = {
+                    scope.launch {
+                        val fromStudy = withContext(Dispatchers.IO) {
+                            AppDatabase.get(ctx).words().all().map { it.text.trim() }.filter { it.any { c -> c.isWhitespace() } }
+                        }
+                        val add = fromStudy.filter { it !in saved }
+                        if (add.isEmpty()) Toast.makeText(ctx, tr("No hay frases nuevas en Estudio"), Toast.LENGTH_SHORT).show()
+                        else onChange(saved + add)
+                    }
+                }) { Text("Traer mis frases de Estudio") }
+                if (saved.isNotEmpty()) Text("Mis frases guardadas", fontWeight = FontWeight.SemiBold)
+            }
+        }
+        items(saved, key = { it }) { s ->
+            Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(s, fontWeight = FontWeight.Medium)
+                    MatchList(s)
+                    TextButton(onClick = { onChange(saved - s) }) { Text("Quitar") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MatchList(sentence: String) {
+    val matches = remember(sentence) { StructureDetector.detect(sentence) }
+    if (matches.isEmpty()) {
+        Text("No reconocí una estructura clara. Prueba con una frase completa.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        matches.forEach { m ->
+            val st = Structures.byId(m.id) ?: return@forEach
+            Column {
+                Text("📐 " + st.title + " — " + m.why, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
+                Text(st.pattern, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

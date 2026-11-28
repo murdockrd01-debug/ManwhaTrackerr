@@ -79,6 +79,11 @@ object Prefs {
         p(c).edit().apply { if (v.isBlank()) remove("struct_note_$id") else putString("struct_note_$id", v) }.apply()
     }
 
+    /** Frases propias que el usuario quiere analizar y practicar en Estructuras (una por línea). */
+    fun structPhrases(c: Context): List<String> =
+        (p(c).getString("struct_phrases", "") ?: "").split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+    fun setStructPhrases(c: Context, v: List<String>) { p(c).edit().putString("struct_phrases", v.joinToString("\n")).apply() }
+
     /** Pasar solo al siguiente capítulo al llegar al final (por defecto sí). */
     fun autoAdvance(c: Context): Boolean = p(c).getBoolean("auto_advance", true)
     fun setAutoAdvance(c: Context, on: Boolean) { p(c).edit().putBoolean("auto_advance", on).apply() }

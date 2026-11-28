@@ -265,6 +265,11 @@ object TrData {
         "⌂ Fuentes" to "⌂ Sources", "⌂ Ir a Fuentes" to "⌂ Go to Sources",
         "Apréndela primero" to "Learn it first", "Vale la pena aprenderla" to "Worth learning", "Aprende con calma" to "Learn it at your own pace",
         "Seguro ya la sabes" to "You probably know it already", "Solo si la necesitas para tu manhwa" to "Only if you need it for your manhwa", "Aún sin medir" to "Not measured yet",
+        "Guía" to "Guide", "Mis frases" to "My sentences", "Frase en inglés" to "Sentence in English", "Analizar" to "Analyze",
+        "Escribe o pega una frase en inglés y te digo qué estructura usa." to "Type or paste a sentence in English and I'll tell you which structure it uses.",
+        "Traer mis frases de Estudio" to "Bring my phrases from Study", "No hay frases nuevas en Estudio" to "No new phrases in Study", "Mis frases guardadas" to "My saved sentences", "Quitar" to 
+        "No reconocí una estructura clara. Prueba con una frase completa." to "I couldn't recognize a clear structure. Try a full sentence.",
+        "Mis frases agrupadas por estructura (para practicar a mano)" to "My sentences grouped by structure (to practice by hand)",
         "Estructuras" to "Structures", "Gramática explicada, con práctica y hoja para imprimir" to "Grammar explained, with practice and a printable sheet",
         "Pruébate" to "Test yourself", "Escribe la respuesta" to "Type the answer", "Comprobar" to "Check", "Ver respuesta" to "Show answer",
         "¡Correcto!" to "Correct!", "Casi. Mira la respuesta." to "Not quite. Check the answer.", "Respuesta: " to "Answer: ",

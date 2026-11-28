@@ -4,9 +4,19 @@ package com.manhwatracker.app.data
 object PrintSheet {
     class WordRow(val text: String, val translation: String?, val example: String?)
 
+    /** Frases del usuario agrupadas por la estructura que usan. */
+    class PhraseGroup(val structure: Structure, val sentences: List<String>)
+
+    /** Agrupa frases por estructura detectada (una frase puede salir en varios grupos). Orden: el de [Structures.all]. */
+    fun group(sentences: List<String>): List<PhraseGroup> {
+        val map = HashMap<String, MutableList<String>>()
+        for (s in sentences) for (m in StructureDetector.detect(s)) map.getOrPut(m.id) { mutableListOf() }.add(s)
+        return Structures.all.mapNotNull { st -> map[st.id]?.let { PhraseGroup(st, it) } }
+    }
+
     fun esc(s: String): String = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
-    fun html(structures: List<Structure>, words: List<WordRow>, date: String): String {
+    fun html(structures: List<Structure>, words: List<WordRow>, date: String, phrases: List<PhraseGroup> = emptyList()): String {
         val b = StringBuilder()
         b.append("<!doctype html><html><head><meta charset=\"utf-8\"><title>Lectoon - Estudio</title><style>")
         b.append("body{font-family:sans-serif;font-size:12pt;margin:16px;color:#111}h1{font-size:20pt;margin:0}h2{margin-top:22px;border-bottom:2px solid #333}")
@@ -22,6 +32,16 @@ object PrintSheet {
                 b.append("<div>").append(esc(s.explanation)).append("</div>")
                 for ((en, es) in s.examples) b.append("<div class=\"ex\">").append(esc(en)).append(" <span class=\"es\">— ").append(esc(es)).append("</span></div>")
                 b.append("<div class=\"es\">Ojo: ").append(esc(s.tip)).append("</div>")
+                b.append("<div class=\"n\"></div></div>")
+            }
+        }
+        if (phrases.isNotEmpty()) {
+            b.append("<h2>Mis frases por estructura</h2>")
+            for (g in phrases) {
+                b.append("<div class=\"s\"><div><b>").append(esc(g.structure.title)).append("</b></div>")
+                b.append("<div class=\"p\">").append(esc(g.structure.pattern)).append("</div>")
+                for (s in g.sentences) b.append("<div class=\"ex\">• ").append(esc(s)).append("</div>")
+                b.append("<div class=\"es\">Escribe 2 frases tuyas con esta estructura:</div>")
                 b.append("<div class=\"n\"></div></div>")
             }
         }
