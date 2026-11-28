@@ -79,84 +79,39 @@ private const val S_RECENT = "RECENT"
 private const val S_USEFUL = "USEFUL"
 private const val S_AZ = "AZ"
 
+/** Estudio: todo en un solo lugar, con pestañas (repaso, palabras, estructuras y ejercicios). */
 @Composable
 fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
-    val context = LocalContext.current
-    val all by vm.words.collectAsState()
-    val speaker = rememberSpeaker()
-
-    var query by rememberSaveable { mutableStateOf("") }
-    var filter by rememberSaveable { mutableStateOf(F_ALL) }
-    var sort by rememberSaveable { mutableStateOf(S_RECENT) }
-    var searching by rememberSaveable { mutableStateOf(false) }
-    val searchFocus = remember { FocusRequester() }
-    LaunchedEffect(searching) { if (searching) runCatching { searchFocus.requestFocus() } }
-    var quickBar by remember { mutableStateOf(Prefs.quickBar(context)) }
-
+    var tab by rememberSaveable { mutableStateOf(0) }
     // Completa las palabras que se guardaron sin internet.
     LaunchedEffect(Unit) { vm.retryPending() }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            Prefs.setQuickBar(context, true)
-            quickBar = true
-            QuickAdd.show(context)
-        } else {
-            vm.showMessage("Sin permiso de notificaciones no puedo mostrar la barra rápida")
+    Column(Modifier.fillMaxSize()) {
+        androidx.compose.material3.ScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp) {
+            listOf("Repaso", "Palabras", "Estructuras", "Ejercicios").forEachIndexed { i, t ->
+                androidx.compose.material3.Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) })
+            }
+        }
+        Box(Modifier.weight(1f)) {
+            when (tab) {
+                0 -> ReviewPanel(vm, onReview, goTab = { tab = it })
+                1 -> WordsPanel(vm)
+                2 -> StructuresPanel()
+                else -> ExercisesPanel()
+            }
         }
     }
+}
 
-    val q = query.trim()
-    val shown = all.filter { w ->
-        val okFilter = when (filter) {
-            F_REVIEW -> !w.learned
-            F_LEARNED -> w.learned
-            else -> true
-        }
-        val okQuery = q.isEmpty() ||
-            listOfNotNull(w.text, w.translation, w.manhwaTitle).any { it.contains(q, ignoreCase = true) }
-        okFilter && okQuery
-    }.let { list ->
-        when (sort) {
-            S_USEFUL -> list.sortedWith(Utility.byUsefulness)
-            S_AZ -> list.sortedBy { it.text.lowercase() }
-            else -> list
-        }
-    }
-
-    // Las 3 más útiles que todavía no aprendes: buen punto de partida.
+@Composable
+private fun ReviewPanel(vm: MainViewModel, onReview: () -> Unit, goTab: (Int) -> Unit) {
+    val all by vm.words.collectAsState()
     val suggested = all.filter {
         !it.learned && Utility.tier(it.freq, it.text).let { t -> t == Utility.Tier.VERY_USEFUL || t == Utility.Tier.USEFUL }
     }.sortedWith(Utility.byUsefulness).take(3)
-
-    var menuOpen by remember { mutableStateOf(false) }
-
-    fun toggleQuickBar(checked: Boolean) {
-        if (checked) {
-            val needsPermission = Build.VERSION.SDK_INT >= 33 &&
-                ContextCompat.checkSelfPermission(
-                    context, Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            if (needsPermission) {
-                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            } else {
-                Prefs.setQuickBar(context, true)
-                quickBar = true
-                QuickAdd.show(context)
-            }
-        } else {
-            Prefs.setQuickBar(context, false)
-            quickBar = false
-            QuickAdd.hide(context)
-        }
-    }
-
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 88.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 88.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         // Una sola tarjeta de arriba: repaso y, si hay, las palabras que más te conviene aprender.
         item {
@@ -197,6 +152,89 @@ fun StudyScreen(vm: MainViewModel, onReview: () -> Unit) {
             }
         }
 
+        item {
+            Text(
+                "${all.size} " + tr("palabras guardadas") + " · ${all.count { it.learned }} " + tr("aprendidas"),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        item { OutlinedButton(onClick = { goTab(1) }, modifier = Modifier.fillMaxWidth()) { Text("📚 Palabras guardadas") } }
+        item { OutlinedButton(onClick = { goTab(2) }, modifier = Modifier.fillMaxWidth()) { Text("📐 Estructuras y mis frases") } }
+        item { OutlinedButton(onClick = { goTab(3) }, modifier = Modifier.fillMaxWidth()) { Text("✍️ Ejercicios de gramática") } }
+    }
+}
+
+@Composable
+private fun WordsPanel(vm: MainViewModel) {
+    val context = LocalContext.current
+    val all by vm.words.collectAsState()
+    val speaker = rememberSpeaker()
+
+    var query by rememberSaveable { mutableStateOf("") }
+    var filter by rememberSaveable { mutableStateOf(F_ALL) }
+    var sort by rememberSaveable { mutableStateOf(S_RECENT) }
+    var searching by rememberSaveable { mutableStateOf(false) }
+    val searchFocus = remember { FocusRequester() }
+    LaunchedEffect(searching) { if (searching) runCatching { searchFocus.requestFocus() } }
+    var quickBar by remember { mutableStateOf(Prefs.quickBar(context)) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            Prefs.setQuickBar(context, true)
+            quickBar = true
+            QuickAdd.show(context)
+        } else {
+            vm.showMessage("Sin permiso de notificaciones no puedo mostrar la barra rápida")
+        }
+    }
+
+    val q = query.trim()
+    val shown = all.filter { w ->
+        val okFilter = when (filter) {
+            F_REVIEW -> !w.learned
+            F_LEARNED -> w.learned
+            else -> true
+        }
+        val okQuery = q.isEmpty() ||
+            listOfNotNull(w.text, w.translation, w.manhwaTitle).any { it.contains(q, ignoreCase = true) }
+        okFilter && okQuery
+    }.let { list ->
+        when (sort) {
+            S_USEFUL -> list.sortedWith(Utility.byUsefulness)
+            S_AZ -> list.sortedBy { it.text.lowercase() }
+            else -> list
+        }
+    }
+
+    var menuOpen by remember { mutableStateOf(false) }
+
+    fun toggleQuickBar(checked: Boolean) {
+        if (checked) {
+            val needsPermission = Build.VERSION.SDK_INT >= 33 &&
+                ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            if (needsPermission) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                Prefs.setQuickBar(context, true)
+                quickBar = true
+                QuickAdd.show(context)
+            }
+        } else {
+            Prefs.setQuickBar(context, false)
+            quickBar = false
+            QuickAdd.hide(context)
+        }
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 88.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         // Barra compacta: lupa, filtros y menú (orden y barra rápida).
         item {
             if (searching) {

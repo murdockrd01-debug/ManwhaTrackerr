@@ -66,7 +66,6 @@ fun MoreScreen(
     ) {
         MoreGroup(null) {
             if (Features.study) MoreRow("💡", "Descubrir", "Recomendaciones y tendencias", onDiscover)
-            if (Features.study) MoreRow("📐", "Estructuras", "Gramática explicada, con práctica y hoja para imprimir") { StructuresActivity.open(moreCtx) }
             MoreRow("🧩", "Fuentes", "Repositorios y extensiones para leer") { SourcesActivity.open(moreCtx) }
             MoreRow("⭐", "Calificaciones", "Tu ranking, favoritos y promedio", onRatings)
         }

@@ -1,3 +1,9 @@
+## 5.34.0
+- **Estudio ahora lo reúne todo**: arriba hay pestañas — Repaso, Palabras, Estructuras y Ejercicios. Ya no hay que buscar cosas en el menú Más.
+- Repaso: tarjeta con las palabras por repasar y atajos a lo demás.
+- Estructuras y Mis frases: ahora dentro de Estudio (se quitó la entrada del menú Más).
+- **Ejercicios de gramática** (nuevo): rondas de 10 preguntas. Completas frases escribiendo la respuesta o adivinas qué estructura usa una frase, y al final ves cuáles repasar. Hay más de 60 ejercicios.
+
 ## 5.33.0
 - Estructuras: nueva pestaña **Mis frases**. Escribe o pega una frase en inglés y la app te dice qué estructura usa (pasado simple, pasado perfecto, condicionales, voz pasiva, phrasal verbs…) y por qué. Funciona sin internet.
 - Puedes guardar tus frases o traer las frases que ya guardaste en Estudio.

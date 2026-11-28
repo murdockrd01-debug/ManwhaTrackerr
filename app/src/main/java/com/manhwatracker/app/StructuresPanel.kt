@@ -1,15 +1,7 @@
 package com.manhwatracker.app
 
 import android.content.Context
-import android.content.Intent
-import android.os.Bundle
-import android.print.PrintAttributes
-import android.print.PrintManager
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,24 +10,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.TextButton
@@ -63,38 +49,11 @@ import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.util.Date
 
-/** Estructuras gramaticales del inglés: explicación, práctica rápida, tus notas y hoja para imprimir. Solo con el modo estudio. */
-class StructuresActivity : ComponentActivity() {
-    // Se guarda para que el WebView no se libere antes de terminar de preparar la impresión.
-    private var printView: WebView? = null
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        ThemeState.load(this)
-        setContent { ManhwaTheme { Surface(Modifier.fillMaxSize()) { StructuresScreen(onBack = { finish() }, onPrint = { printHtml(it) }) } } }
-    }
-
-    private fun printHtml(html: String) {
-        val wv = WebView(this)
-        printView = wv
-        wv.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView, url: String?) {
-                val pm = getSystemService(Context.PRINT_SERVICE) as PrintManager
-                pm.print("Lectoon - Estudio", view.createPrintDocumentAdapter("Lectoon-estudio"), PrintAttributes.Builder().build())
-            }
-        }
-        wv.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
-    }
-
-    companion object {
-        fun open(ctx: Context) = ctx.startActivity(Intent(ctx, StructuresActivity::class.java))
-    }
-}
-
 private enum class Filter { ALL, PENDING, DONE }
 
+/** Guía de estructuras del inglés (y tus frases). Vive dentro de la pestaña Estudio. */
 @Composable
-private fun StructuresScreen(onBack: () -> Unit, onPrint: (String) -> Unit) {
+fun StructuresPanel() {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var done by remember { mutableStateOf(Prefs.structDone(ctx)) }
@@ -107,13 +66,9 @@ private fun StructuresScreen(onBack: () -> Unit, onPrint: (String) -> Unit) {
         Structures.all.filter { when (filter) { Filter.ALL -> true; Filter.PENDING -> it.id !in done; Filter.DONE -> it.id in done } }
     }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Row(Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Volver")) }
-            Column(Modifier.weight(1f)) {
-                Text("Estructuras", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text("${Structures.all.count { it.id in done }} / ${Structures.all.size} " + tr("Entendidas").lowercase(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("${Structures.all.count { it.id in done }} / ${Structures.all.size} " + tr("Entendidas").lowercase(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
             TextButton(onClick = { showPrint = true }) { Text("🖨 " + tr("Imprimir / PDF")) }
         }
         LinearProgressIndicator(progress = { Structures.progress(done) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
@@ -124,23 +79,23 @@ private fun StructuresScreen(onBack: () -> Unit, onPrint: (String) -> Unit) {
         if (tab == 1) {
             PhrasesTab(myPhrases) { myPhrases = it; Prefs.setStructPhrases(ctx, it) }
         } else {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = filter == Filter.ALL, onClick = { filter = Filter.ALL }, label = { Text("Todas") })
-            FilterChip(selected = filter == Filter.PENDING, onClick = { filter = Filter.PENDING }, label = { Text("Pendientes") })
-            FilterChip(selected = filter == Filter.DONE, onClick = { filter = Filter.DONE }, label = { Text("Entendidas") })
-        }
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(shown, key = { it.id }) { s ->
-                StructureCard(
-                    s, expanded = open == s.id, understood = s.id in done,
-                    onToggle = { open = if (open == s.id) null else s.id },
-                    onUnderstood = {
-                        done = if (s.id in done) done - s.id else done + s.id
-                        Prefs.setStructDone(ctx, done)
-                    }
-                )
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = filter == Filter.ALL, onClick = { filter = Filter.ALL }, label = { Text("Todas") })
+                FilterChip(selected = filter == Filter.PENDING, onClick = { filter = Filter.PENDING }, label = { Text("Pendientes") })
+                FilterChip(selected = filter == Filter.DONE, onClick = { filter = Filter.DONE }, label = { Text("Entendidas") })
             }
-        }
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(shown, key = { it.id }) { s ->
+                    StructureCard(
+                        s, expanded = open == s.id, understood = s.id in done,
+                        onToggle = { open = if (open == s.id) null else s.id },
+                        onUnderstood = {
+                            done = if (s.id in done) done - s.id else done + s.id
+                            Prefs.setStructDone(ctx, done)
+                        }
+                    )
+                }
+            }
         }
     }
 
@@ -173,7 +128,7 @@ private fun StructuresScreen(onBack: () -> Unit, onPrint: (String) -> Unit) {
                             Toast.makeText(ctx, tr("Nada que imprimir: elige algo"), Toast.LENGTH_SHORT).show()
                         } else {
                             showPrint = false
-                            onPrint(PrintSheet.html(structs, words, DateFormat.getDateInstance().format(Date()), groups))
+                            StudyPrint.print(ctx, PrintSheet.html(structs, words, DateFormat.getDateInstance().format(Date()), groups))
                         }
                     }
                 }) { Text("Imprimir o guardar PDF") }
